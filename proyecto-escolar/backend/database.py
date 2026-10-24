@@ -1,6 +1,6 @@
 import sqlite3
 
-# Conectar a la base de datos
+# Conectar a la base de datos (se creará o actualizará el archivo)
 conexion = sqlite3.connect("sistema_escolar.db")
 cursor = conexion.cursor()
 
@@ -15,25 +15,9 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS Usuario (
     apellidos TEXT NOT NULL,
     correoInstitucional TEXT UNIQUE NOT NULL,
     contrasena TEXT NOT NULL,
+    rol TEXT NOT NULL,
     estado TEXT NOT NULL,
     fechaRegistro TEXT NOT NULL
-)''')
-
-
-# Tabla Rol
-cursor.execute('''CREATE TABLE IF NOT EXISTS Rol (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre TEXT UNIQUE NOT NULL
-)''')
-
-
-# Tabla UsuarioRol
-cursor.execute('''CREATE TABLE IF NOT EXISTS UsuarioRol (
-    usuario_id INTEGER,
-    rol_id INTEGER,
-    PRIMARY KEY (usuario_id, rol_id),
-    FOREIGN KEY (usuario_id) REFERENCES Usuario(id),
-    FOREIGN KEY (rol_id) REFERENCES Rol(id)
 )''')
 
 
@@ -54,24 +38,14 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS Docente (
 )''')
 
 
-# Tabla MallaCurricular
-cursor.execute('''CREATE TABLE IF NOT EXISTS MallaCurricular (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    carrera TEXT NOT NULL,
-    generacion TEXT NOT NULL,
-    nombrePlan TEXT NOT NULL
-)''')
-
-
 # Tabla Estudiante
 cursor.execute('''CREATE TABLE IF NOT EXISTS Estudiante (
     id INTEGER PRIMARY KEY,
     codigoEstudiante TEXT UNIQUE NOT NULL,
     carrera TEXT,
     ciclo TEXT,
-    mallaCurricular_id INTEGER,
-    FOREIGN KEY (id) REFERENCES Usuario(id),
-    FOREIGN KEY (mallaCurricular_id) REFERENCES MallaCurricular(id)
+    esAsesor INTEGER NOT NULL,
+    FOREIGN KEY (id) REFERENCES Usuario(id)
 )''')
 
 
@@ -91,13 +65,13 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS Curso (
     nombreMateria TEXT NOT NULL,
     seccion TEXT NOT NULL,
     descripcion TEXT,
-    codigoCurso TEXT UNIQUE NOT NULL,
+    codigoUnico TEXT UNIQUE NOT NULL,
     estado TEXT NOT NULL,
     tipoEvaluacion TEXT NOT NULL,
     umbralNumerico REAL NOT NULL,
     diasSemana TEXT NOT NULL,
-    horaInicio TEXT NOT NULL,
-    horaFin TEXT NOT NULL,
+    horarioInicio TEXT NOT NULL,
+    horarioFin TEXT NOT NULL,
     cicloEscolar_id INTEGER,
     docente_id INTEGER,
     FOREIGN KEY (cicloEscolar_id) REFERENCES CicloEscolar(id),
@@ -109,7 +83,7 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS Curso (
 cursor.execute('''CREATE TABLE IF NOT EXISTS Matricula (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fechaInscripcion TEXT NOT NULL,
-    estado TEXT NOT NULL,
+    estatus TEXT NOT NULL,
     calificacionAcumuladaActual REAL,
     curso_id INTEGER,
     estudiante_id INTEGER,
@@ -118,48 +92,12 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS Matricula (
 )''')
 
 
-# Tabla HistoriaAcademica
-cursor.execute('''CREATE TABLE IF NOT EXISTS HistoriaAcademica (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    periodo TEXT NOT NULL,
-    materia TEXT NOT NULL,
-    calificacion REAL NOT NULL,
-    resultado TEXT NOT NULL,
-    estudiante_id INTEGER,
-    FOREIGN KEY (estudiante_id) REFERENCES Estudiante(id)
-)''')
-
-
-# Tabla PublicacionAsesoria
-cursor.execute('''CREATE TABLE IF NOT EXISTS PublicacionAsesoria (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    materia TEXT NOT NULL,
-    horario TEXT NOT NULL,
-    modalidad TEXT NOT NULL,
-    lugarOMedio TEXT NOT NULL,
-    topico TEXT,
-    estado TEXT NOT NULL,
-    estudiante_id INTEGER,
-    FOREIGN KEY (estudiante_id) REFERENCES Estudiante(id)
-)''')
-
-
-# Tabla BibliotecaNormatividad
-cursor.execute('''CREATE TABLE IF NOT EXISTS BibliotecaNormatividad (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    extractosReglamento TEXT,
-    guiaSIATCE TEXT,
-    directorioCoordinacion TEXT,
-    checklistSupervivencia TEXT
-)''')
-
-
 # Tabla SesionClase
 cursor.execute('''CREATE TABLE IF NOT EXISTS SesionClase (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fecha TEXT NOT NULL,
-    horaInicio TEXT NOT NULL,
-    horaFin TEXT NOT NULL,
+    horarioInicio TEXT NOT NULL,
+    horarioFin TEXT NOT NULL,
     tema TEXT,
     listaGuardada INTEGER NOT NULL,
     curso_id INTEGER,
@@ -183,9 +121,9 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS Asistencia (
 cursor.execute('''CREATE TABLE IF NOT EXISTS RegistroRiesgo (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     semaforo TEXT NOT NULL,
-    estadoInformativo TEXT NOT NULL,
+    estatusNormativo TEXT NOT NULL,
     riesgoPorHistorial INTEGER NOT NULL,
-    riesgoCritico INTEGER NOT NULL,
+    rezagoCritico INTEGER NOT NULL,
     detalleCausaRezago TEXT,
     matricula_id INTEGER,
     FOREIGN KEY (matricula_id) REFERENCES Matricula(id)
@@ -237,10 +175,31 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS Calificacion (
     FOREIGN KEY (entrega_id) REFERENCES Entrega(id)
 )''')
 
+
+# Tabla PublicacionAsesoria
+cursor.execute('''CREATE TABLE IF NOT EXISTS PublicacionAsesoria (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    materia TEXT NOT NULL,
+    horario TEXT NOT NULL,
+    modalidad TEXT NOT NULL,
+    lugarOMedio TEXT NOT NULL,
+    topico TEXT,
+    estado TEXT NOT NULL,
+    estudiante_id INTEGER,
+    FOREIGN KEY (estudiante_id) REFERENCES Estudiante(id)
+)''')
+
+
+# Tabla BibliotecaNormatividad
+cursor.execute('''CREATE TABLE IF NOT EXISTS BibliotecaNormatividad (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    extractosReglamento TEXT,
+    guiaSIATCE TEXT,
+    directorioCoordinacion TEXT,
+    checklistSupervivencia TEXT
+)''')
+
 conexion.commit()
 conexion.close()
 
-print("Base de datos completa completada")
-
-
-
+print("¡Estructura de la base de datos actualizada exitosamente!")
