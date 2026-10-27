@@ -1,0 +1,113 @@
+{
+  "ICOM": {
+    "generacion": "2021-B",
+    "nombrePlan": "Malla Curricular ICOM 2021",
+    "materias": [
+      {"clave": "I5288", "nombre": "Fundamentos de la Programación", "semestre": 1},
+      {"clave": "I5247", "nombre": "Lógica Matemática", "semestre": 1},
+      {"clave": "IG738", "nombre": "Precálculo", "semestre": 1},
+      {"clave": "IL340", "nombre": "Fundamentos de Física", "semestre": 1},
+      {"clave": "IL342", "nombre": "Introducción a la Ingeniería", "semestre": 1},
+      {"clave": "IL341", "nombre": "Ética y Legislación", "semestre": 1},
+
+      {"clave": "IL352", "nombre": "Programación Estructurada", "semestre": 2},
+      {"clave": "IL345", "nombre": "Matemáticas Discretas", "semestre": 2},
+      {"clave": "IL344", "nombre": "Cálculo Diferencial e Integral", "semestre": 2},
+      {"clave": "IL343", "nombre": "Mecánica", "semestre": 2},
+      {"clave": "IL353", "nombre": "Administración de Proyectos Tecnológicos", "semestre": 2},
+      {"clave": "LT251", "nombre": "Expresión Oral y Escrita", "semestre": 2},
+
+      {"clave": "I5289", "nombre": "Programación Orientada a Objetos", "semestre": 3},
+      {"clave": "IB056", "nombre": "Álgebra Lineal", "semestre": 3},
+      {"clave": "IL347", "nombre": "Ecuaciones Diferenciales", "semestre": 3},
+      {"clave": "IL346", "nombre": "Circuitos Electrónicos y Electromagnetismo", "semestre": 3},
+      {"clave": "IL363", "nombre": "Sistemas Digitales", "semestre": 3},
+      {"clave": "IL349", "nombre": "Administración", "semestre": 3},
+
+      {"clave": "IL354", "nombre": "Estructura de Datos", "semestre": 4},
+      {"clave": "IB067", "nombre": "Probabilidad y Estadística", "semestre": 4},
+      {"clave": "IL348", "nombre": "Métodos Numéricos", "semestre": 4},
+      {"clave": "IL365", "nombre": "Arquitectura de Computadoras", "semestre": 4},
+      {"clave": "IL362", "nombre": "Programación para Internet", "semestre": 4},
+      {"clave": "IL350", "nombre": "Liderazgo y Emprendimiento", "semestre": 4},
+
+      {"clave": "IL355", "nombre": "Análisis de Algoritmos", "semestre": 5},
+      {"clave": "IL356", "nombre": "Bases de Datos", "semestre": 5},
+      {"clave": "IL366", "nombre": "Sistemas Operativos", "semestre": 5},
+      {"clave": "IL361", "nombre": "Fundamentos de Inteligencia Artificial", "semestre": 5},
+      {"clave": "IL364", "nombre": "Redes de Computadoras", "semestre": 5},
+      {"clave": "IL369", "nombre": "Seminario de Integración: Protocolo", "semestre": 5},
+
+      {"clave": "IL351", "nombre": "Innovación Tecnológica", "semestre": 6},
+      {"clave": "IL367", "nombre": "Interacción Humano Computadora", "semestre": 6},
+      {"clave": "CB224", "nombre": "Ingeniería de Software", "semestre": 6},
+      {"clave": "IL358", "nombre": "Programación de Bajo Nivel", "semestre": 6},
+
+      {"clave": "IL357", "nombre": "Teoría de la Computación", "semestre": 7},
+      {"clave": "IL370", "nombre": "Seminario de Integración: Desarrollo", "semestre": 7},
+      {"clave": "IL372", "nombre": "Laboratorio Abierto: Diseño", "semestre": 7},
+
+      {"clave": "IL359", "nombre": "Compiladores", "semestre": 8},
+      {"clave": "IL368", "nombre": "Seguridad en la Información", "semestre": 8},
+      {"clave": "IL373", "nombre": "Laboratorio Abierto: Construcción", "semestre": 8},
+
+      {"clave": "IL360", "nombre": "Programación Paralela y Concurrente", "semestre": 9},
+      {"clave": "IL371", "nombre": "Seminario de Integración: Comunicación", "semestre": 9},
+      {"clave": "IL374", "nombre": "Laboratorio Abierto: Prueba", "semestre": 9}
+    ]
+  },
+  "INFO": {
+    "generacion": "2023",
+    "nombrePlan": "Mapa Curricular INFO (rev. enero 2023)",
+    "materias": [
+      {"clave": "I5288", "nombre": "Fundamentos de la Programación", "semestre": 1},
+      {"clave": "I5247", "nombre": "Lógica Matemática", "semestre": 1},
+      {"clave": "IG738", "nombre": "Precálculo", "semestre": 1},
+      {"clave": "IL340", "nombre": "Fundamentos de Física", "semestre": 1},
+      {"clave": "V0709", "nombre": "Inducción a la Ingeniería", "semestre": 1},
+      {"clave": "V0714", "nombre": "Historia de la Tecnología, el Arte y la Sociedad", "semestre": 1},
+
+      {"clave": "V0716", "nombre": "Programación Estructurada (INFO)", "semestre": 2},
+      {"clave": "V0711", "nombre": "Matemáticas Discretas (INFO)", "semestre": 2},
+      {"clave": "V0710", "nombre": "Cálculo Diferencial e Integral (INFO)", "semestre": 2},
+      {"clave": "PROV-01", "nombre": "Mecánica (INFO)", "semestre": 2},
+      {"clave": "V0715", "nombre": "Tecnología y Retos de la Sociedad", "semestre": 2},
+
+      {"clave": "PROV-02", "nombre": "Programación Orientada a Objetos (INFO)", "semestre": 3},
+      {"clave": "PROV-03", "nombre": "Álgebra Lineal (INFO)", "semestre": 3},
+      {"clave": "V0712", "nombre": "Ecuaciones Diferenciales (INFO)", "semestre": 3},
+      {"clave": "IC591", "nombre": "Electromagnetismo", "semestre": 3},
+      {"clave": "V0717", "nombre": "Ingeniería y Sustentabilidad", "semestre": 3},
+
+      {"clave": "V0731", "nombre": "Estructura de Datos (INFO)", "semestre": 4},
+      {"clave": "PROV-04", "nombre": "Probabilidad y Estadística (INFO)", "semestre": 4},
+      {"clave": "V0713", "nombre": "Métodos Numéricos (INFO)", "semestre": 4},
+      {"clave": "V0730", "nombre": "Informática Administrativa", "semestre": 4},
+      {"clave": "I5629", "nombre": "Arquitectura de Computadoras (INFO)", "semestre": 4},
+
+      {"clave": "PROV-05", "nombre": "Ingeniería de Software (INFO)", "semestre": 5},
+      {"clave": "CU206", "nombre": "Minería de Datos", "semestre": 5},
+      {"clave": "PROV-06", "nombre": "Fundamentos de Inteligencia Artificial (INFO)", "semestre": 5},
+      {"clave": "V0719", "nombre": "Innovación Tecnológica y Emprendimiento", "semestre": 5},
+      {"clave": "PROV-07", "nombre": "Redes de Computadoras (INFO)", "semestre": 5},
+      {"clave": "V0733", "nombre": "Seminario de Integración: Protocolo (INFO)", "semestre": 5},
+
+      {"clave": "V0732", "nombre": "Calidad de Software", "semestre": 6},
+      {"clave": "V0718", "nombre": "Base de Datos (INFO)", "semestre": 6},
+      {"clave": "V0723", "nombre": "Algoritmos Metaheurísticos", "semestre": 6},
+
+      {"clave": "V0724", "nombre": "Administración de Base de Datos", "semestre": 7},
+      {"clave": "V0734", "nombre": "Seminario de Integración: Desarrollo (INFO)", "semestre": 7},
+      {"clave": "V0720", "nombre": "Laboratorio Abierto: Diseño (INFO)", "semestre": 7},
+
+      {"clave": "V0725", "nombre": "Análisis y Visualización de la Información", "semestre": 8},
+      {"clave": "PROV-08", "nombre": "Sistemas Inteligentes", "semestre": 8},
+      {"clave": "V0721", "nombre": "Laboratorio Abierto: Construcción (INFO)", "semestre": 8},
+
+      {"clave": "V0727", "nombre": "Control de Proyectos", "semestre": 9},
+      {"clave": "V0735", "nombre": "Seminario de Integración: Comunicación (INFO)", "semestre": 9},
+      {"clave": "V0722", "nombre": "Laboratorio Abierto: Pruebas (INFO)", "semestre": 9},
+      {"clave": "V0728", "nombre": "Tecnologías de Inteligencia Artificial", "semestre": 9}
+    ]
+  }
+}
