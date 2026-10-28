@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel · SEPA CUCEI</title>
+  <!-- Fuentes e íconos de Google -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <!-- Tailwind (estilos del diseño) y su configuración de colores -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link href="css/style.css" rel="stylesheet" />
+</head>
+<body class="bg-surface font-body-md text-on-surface antialiased" data-pagina="panel">
+
+<!-- Encabezado con el usuario y el botón de salir -->
+<header class="fixed top-0 w-full z-40 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+  <div class="h-16 max-w-7xl mx-auto px-gutter flex items-center justify-between gap-space-md">
+    <div class="flex items-center gap-space-md">
+      <span class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center">
+        <span class="material-symbols-outlined text-on-primary text-[20px]">school</span>
+      </span>
+      <span class="flex flex-col">
+        <span class="font-label-lg text-label-lg text-primary leading-tight">SEPA CUCEI</span>
+        <span class="font-caption text-caption text-on-surface-variant leading-none">Universidad de Guadalajara · CUCEI</span>
+      </span>
+    </div>
+    <div class="flex items-center gap-space-sm">
+      <span class="hidden sm:inline font-label-lg text-label-lg text-on-surface" id="header-nombre"></span>
+      <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+        <span class="material-symbols-outlined text-on-primary text-[18px]">person</span>
+      </div>
+      <button id="btn-logout" type="button"
+        class="inline-flex items-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg text-secondary bg-surface-container-low hover:bg-surface-container transition-colors disabled:opacity-60">
+        <span class="material-symbols-outlined text-[18px]">logout</span>
+        <span>Cerrar sesión</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="w-full pt-24 pb-space-2xl min-h-[calc(100vh-6rem)]">
+  <div class="w-full px-gutter">
+    <div class="max-w-3xl mx-auto">
+
+      <!-- Aviso general (errores del backend) -->
+      <div id="aviso" class="hidden">
+        <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+        <p class="font-body-md text-body-md" data-aviso-texto></p>
+      </div>
+
+      <!-- Mientras llega la respuesta de GET /usuarios/yo -->
+      <p id="panel-cargando" class="text-center font-body-md text-body-md text-on-surface-variant py-space-2xl">Cargando tu perfil...</p>
+
+      <div id="panel-contenido" class="hidden space-y-space-lg">
+        <div>
+          <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold" id="panel-titulo"></span>
+          <h1 class="font-headline-lg text-headline-lg text-primary tracking-tight mt-1" id="panel-saludo"></h1>
+        </div>
+
+        <!-- Datos del perfil -->
+        <div class="bg-surface-container-lowest rounded-xl shadow-md p-space-lg md:p-space-xl">
+          <div class="flex items-center gap-space-xs pb-space-md">
+            <span class="material-symbols-outlined text-primary text-[20px]">badge</span>
+            <h2 class="font-title-lg text-title-lg text-primary">Mi perfil</h2>
+          </div>
+          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-space-md font-body-md text-body-md">
+            <div>
+              <dt class="font-label-md text-label-md text-on-surface-variant">Nombre</dt>
+              <dd class="text-on-surface font-semibold mt-0.5" id="perfil-nombre"></dd>
+            </div>
+            <div>
+              <dt class="font-label-md text-label-md text-on-surface-variant">Correo institucional</dt>
+              <dd class="text-on-surface font-semibold mt-0.5 break-all" id="perfil-correo"></dd>
+            </div>
+            <div>
+              <dt class="font-label-md text-label-md text-on-surface-variant" id="perfil-codigo-etiqueta">Código</dt>
+              <dd class="text-on-surface font-semibold mt-0.5" id="perfil-codigo"></dd>
+            </div>
+            <div>
+              <dt class="font-label-md text-label-md text-on-surface-variant">Roles</dt>
+              <dd class="flex flex-wrap gap-1 mt-1" id="perfil-roles"></dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="p-space-md rounded-xl bg-surface-container-low flex items-start gap-space-sm">
+          <span class="material-symbols-outlined text-secondary text-[22px]">construction</span>
+          <p class="font-body-md text-body-md text-on-surface-variant">
+            Las demás secciones del panel (cursos, inscripciones, administración) todavía no tienen diseño.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="w-full bg-surface-container-lowest py-space-xl shadow-[0_-1px_8px_rgba(0,0,0,0.03)]">
+  <div class="max-w-7xl mx-auto px-gutter flex flex-col items-center md:items-start">
+    <p class="font-label-md text-label-md text-on-surface font-semibold">SEPA · Sistema de Evaluación de Progresión Académica</p>
+    <p class="font-caption text-caption text-on-surface-variant">Centro Universitario de Ciencias Exactas e Ingenierías, Universidad de Guadalajara.</p>
+  </div>
+</footer>
+
+<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>
