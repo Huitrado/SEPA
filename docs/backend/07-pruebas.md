@@ -57,6 +57,8 @@ flowchart TD
     T2 --> H
     T3["test_asistencia.py<br/>RF-19 a RF-28, RF-49<br/>+ fixture curso"] --> C
     T3 --> H
+    T4["test_categorias.py<br/>RF-31, RF-32<br/>+ fixture curso"] --> C
+    T4 --> H
 ```
 
 ### `conftest.py`: la fixture `client`
@@ -185,6 +187,16 @@ Docstring: *"Módulo de control de asistencia (RF-19 a RF-28, RF-49)"*. La fixtu
 | RF-20 / RF-23 | Guardar lista con observaciones; faltan alumnos, alumno ajeno, repetido o estado inválido → 422; un alumno de baja no aparece ni se acepta; un alumno inscrito después no es obligatorio |
 | RF-25 | Editar la lista de una sesión pasada |
 | RF-24 / RF-26 / RF-49 | Cuadrícula ordenada por fecha, estados por sesión, porcentaje, estatus normativo y semáforo; bordes de 85, 80 y 65 % |
+| RF-95 | Otro docente, el admin y un alumno reciben 403 |
+
+### `test_categorias.py`
+
+Docstring: *"Módulo de categorías de evaluación (RF-31, RF-32)"*. La fixture `curso` crea un curso del docente `t1` y guarda la URL de sus categorías.
+
+| RF | Qué comprueban |
+|----|----------------|
+| RF-31 | Crear, listar, editar y eliminar; peso 0, negativo o mayor que 100, nombre vacío o faltante → 422; nombre repetido → 409; no se elimina una categoría con actividades |
+| RF-32 | Sin categorías o con suma distinta de 100 se guarda con advertencia; decimales que suman 100; superar 100 al crear o editar → 409 |
 | RF-95 | Otro docente, el admin y un alumno reciben 403 |
 
 ---

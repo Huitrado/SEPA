@@ -52,3 +52,24 @@ def guardar_lista(curso_id: int, sesion_id: int, datos: schemas.ListaAsistencia,
 def cuadricula_asistencia(curso_id: int, db: Session = Depends(get_db),
                           docente: models.Usuario = Depends(requiere_docente)):
     return services.cuadricula_asistencia(db, docente, curso_id)
+
+# ------------------------------------------------------------------ categorías de evaluación
+@router.get("/cursos/{curso_id}/categorias", response_model=schemas.CategoriasCurso)
+def listar_categorias(curso_id: int, db: Session = Depends(get_db),
+                      docente: models.Usuario = Depends(requiere_docente)):
+    return services.listar_categorias(db, docente, curso_id)
+
+@router.post("/cursos/{curso_id}/categorias", response_model=schemas.CategoriaGuardada, status_code=201)
+def crear_categoria(curso_id: int, datos: schemas.CategoriaCrear, db: Session = Depends(get_db),
+                    docente: models.Usuario = Depends(requiere_docente)):
+    return services.crearCategoria(db, docente, curso_id, datos)
+
+@router.patch("/cursos/{curso_id}/categorias/{categoria_id}", response_model=schemas.CategoriaGuardada)
+def editar_categoria(curso_id: int, categoria_id: int, datos: schemas.CategoriaActualizar,
+                     db: Session = Depends(get_db), docente: models.Usuario = Depends(requiere_docente)):
+    return services.actualizar_categoria(db, docente, curso_id, categoria_id, datos)
+
+@router.delete("/cursos/{curso_id}/categorias/{categoria_id}", response_model=schemas.CategoriasCurso)
+def eliminar_categoria(curso_id: int, categoria_id: int, db: Session = Depends(get_db),
+                       docente: models.Usuario = Depends(requiere_docente)):
+    return services.eliminar_categoria(db, docente, curso_id, categoria_id)

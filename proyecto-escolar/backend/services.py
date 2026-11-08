@@ -595,3 +595,74 @@ def cuadricula_asistencia(db: Session, docente: models.Usuario, curso_id: int) -
                         "semaforo": semaforo_asistencia(porcentaje)})
     return {"curso_id": curso.id, "alumnos": alumnos,
             "sesiones": [schemas.SesionClaseSalida.model_validate(s).model_dump() for s in sesiones]}
+
+# ======================================================================
+# Categorías de evaluación (RF-31, RF-32)
+# ======================================================================
+def _pct(valor: float) -> str:
+    return f"{round(valor, 2):g}"
+
+def _resumen_pesos(db: Session, curso_id: int) -> dict:
+    """RF-32: la suma debe ser exactamente 100; si no, se guarda igual pero se advierte."""
+    suma = round(sum(c.porcentajePeso for c in
+                     db.query(models.CategoriaEvaluacion).filter_by(curso_id=curso_id).all()), 2)
+    completos = suma == 100
+    return {"sumaPesos": suma, "pesosCompletos": completos,
+            "advertencia": None if completos else
+            f"Los pesos de las categorías suman {_pct(suma)} %; deben sumar exactamente 100 %"}
+
+def _validar_categoria(db: Session, curso_id: int, nombre: str, peso: float,
+                       categoria_id: int | None = None) -> None:
+    otras = (db.query(models.CategoriaEvaluacion).filter_by(curso_id=curso_id)
+             .filter(models.CategoriaEvaluacion.id != categoria_id).all())
+    if any(c.nombre.lower() == nombre.lower() for c in otras):
+        raise HTTPException(409, "Ya existe una categoría con ese nombre en este curso")
+    suma_otras = sum(c.porcentajePeso for c in otras)
+    if round(suma_otras + peso, 2) > 100:
+        raise HTTPException(409, "La suma de los pesos no puede superar 100 % "
+                                 f"(las demás categorías suman {_pct(suma_otras)} %)")
+
+def _categoria_del_curso(db: Session, docente: models.Usuario, curso_id: int,
+                         categoria_id: int) -> models.CategoriaEvaluacion:
+    curso = _curso_del_docente(db, docente, curso_id)
+    categoria = db.get(models.CategoriaEvaluacion, categoria_id)
+    if not categoria or categoria.curso_id != curso.id:
+        raise HTTPException(404, "Categoría no encontrada")
+    return categoria
+
+def listar_categorias(db: Session, docente: models.Usuario, curso_id: int) -> dict:
+    curso = _curso_del_docente(db, docente, curso_id)
+    categorias = (db.query(models.CategoriaEvaluacion).filter_by(curso_id=curso.id)
+                  .order_by(models.CategoriaEvaluacion.id).all())
+    return {"categorias": categorias, **_resumen_pesos(db, curso.id)}
+
+def crearCategoria(db: Session, docente: models.Usuario, curso_id: int,
+                   datos: schemas.CategoriaCrear) -> dict:
+    curso = _curso_del_docente(db, docente, curso_id)
+    _validar_categoria(db, curso.id, datos.nombre, datos.porcentajePeso)
+    categoria = models.CategoriaEvaluacion(curso_id=curso.id, nombre=datos.nombre,
+                                           porcentajePeso=datos.porcentajePeso)
+    db.add(categoria)
+    db.commit()
+    db.refresh(categoria)
+    return {"categoria": categoria, **_resumen_pesos(db, curso.id)}
+
+def actualizar_categoria(db: Session, docente: models.Usuario, curso_id: int, categoria_id: int,
+                         datos: schemas.CategoriaActualizar) -> dict:
+    categoria = _categoria_del_curso(db, docente, curso_id, categoria_id)
+    cambios = {k: v for k, v in datos.model_dump(exclude_unset=True).items() if v is not None}
+    _validar_categoria(db, categoria.curso_id, cambios.get("nombre", categoria.nombre),
+                       cambios.get("porcentajePeso", categoria.porcentajePeso), categoria.id)
+    for campo, valor in cambios.items():
+        setattr(categoria, campo, valor)
+    db.commit()
+    db.refresh(categoria)
+    return {"categoria": categoria, **_resumen_pesos(db, categoria.curso_id)}
+
+def eliminar_categoria(db: Session, docente: models.Usuario, curso_id: int, categoria_id: int) -> dict:
+    categoria = _categoria_del_curso(db, docente, curso_id, categoria_id)
+    if db.query(models.Actividad).filter_by(categoriaEvaluacion_id=categoria.id).first():
+        raise HTTPException(409, "No se puede eliminar una categoría que ya tiene actividades")
+    db.delete(categoria)
+    db.commit()
+    return listar_categorias(db, docente, curso_id)

@@ -319,3 +319,32 @@ class CuadriculaAsistencia(BaseModel):
     curso_id: int
     sesiones: list[SesionClaseSalida]  # ordenadas por fecha
     alumnos: list[FilaAsistencia]
+
+# ------------------------------------------------------------------ módulo: categorías de evaluación
+PesoCategoria = Annotated[float, Field(gt=0, le=100)]  # RF-31: porcentaje del total del curso
+
+class CategoriaCrear(BaseModel):  # RF-31
+    nombre: Texto
+    porcentajePeso: PesoCategoria
+
+class CategoriaActualizar(BaseModel):  # solo se cambia lo que se envía
+    nombre: Texto | None = None
+    porcentajePeso: PesoCategoria | None = None
+
+class CategoriaSalida(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    curso_id: int
+    nombre: str
+    porcentajePeso: float
+
+class ResumenPesos(BaseModel):  # RF-32
+    sumaPesos: float
+    pesosCompletos: bool       # True solo si la suma es exactamente 100
+    advertencia: str | None    # en español cuando la suma no es 100
+
+class CategoriasCurso(ResumenPesos):
+    categorias: list[CategoriaSalida]
+
+class CategoriaGuardada(ResumenPesos):
+    categoria: CategoriaSalida

@@ -2,7 +2,7 @@
 
 [← Volver al índice](README.md)
 
-Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **31 endpoints** en 5 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
+Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **35 endpoints** en 5 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
 
 ## Cómo leer estas tablas
 
@@ -14,6 +14,7 @@ Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sa
 | `POST` | Crear algo o ejecutar una acción (login, logout, inscribirse) |
 | `PATCH` | Modificar **parte** de algo que ya existe |
 | `PUT` | Reemplazar algo completo (por ejemplo, la lista de asistencia de una sesión) |
+| `DELETE` | Eliminar algo |
 
 **Quién puede usarlo:**
 
@@ -361,6 +362,10 @@ Archivo: `routers/docentes.py` · Prefijo: `/docente` (en singular) · RF-95: so
 | GET | `/docente/cursos/{curso_id}/sesiones/{sesion_id}` | Docente dueño | Nada | **200**, 403, 404 | RF-20, RF-25 |
 | PUT | `/docente/cursos/{curso_id}/sesiones/{sesion_id}/lista` | Docente dueño | JSON `ListaAsistencia` | **200**, 403, 404, 422 | RF-20, RF-23, RF-25 |
 | GET | `/docente/cursos/{curso_id}/asistencia` | Docente dueño | Nada | **200**, 403, 404 | RF-24, RF-26, RF-28, RF-49 |
+| GET | `/docente/cursos/{curso_id}/categorias` | Docente dueño | Nada | **200**, 403, 404 | RF-31, RF-32 |
+| POST | `/docente/cursos/{curso_id}/categorias` | Docente dueño | JSON `{nombre, porcentajePeso}` | **201**, 403, 404, 409, 422 | RF-31, RF-32 |
+| PATCH | `/docente/cursos/{curso_id}/categorias/{categoria_id}` | Docente dueño | JSON `{nombre?, porcentajePeso?}` | **200**, 403, 404, 409, 422 | RF-31, RF-32 |
+| DELETE | `/docente/cursos/{curso_id}/categorias/{categoria_id}` | Docente dueño | Nada | **200**, 403, 404, 409 | RF-31 |
 
 Errores de dueño (`services.py → _curso_del_docente`): **404** `Curso no encontrado`, **403** `Este curso no te pertenece`.
 
@@ -510,6 +515,74 @@ Hay que incluir a **todos los alumnos que estaban en la lista** al generar la se
 }
 ```
 `estado` es `null` si el alumno se inscribió después de esa sesión y no se le registró; esa sesión no cuenta en su porcentaje. `porcentajeAsistencia` se redondea a 2 decimales.
+
+
+### Categorías de evaluación (RF-31, RF-32)
+
+El docente divide la calificación del curso en categorías (por ejemplo, Exámenes 60 % y Tareas 40 %). Reglas:
+
+- `nombre`: 1–100 caracteres; no se puede repetir en el mismo curso (sin distinguir mayúsculas).
+- `porcentajePeso`: número mayor que 0 y hasta 100; admite decimales.
+- **La suma no puede superar 100** al crear ni al editar (409).
+- **RF-32:** si la suma no es exactamente 100, la categoría **se guarda igual** y la respuesta trae una `advertencia`. Todas las respuestas incluyen el resumen de pesos:
+
+| Campo | Qué es |
+|-------|--------|
+| `sumaPesos` | Suma de los pesos del curso, redondeada a 2 decimales |
+| `pesosCompletos` | `true` solo si la suma es exactamente 100 |
+| `advertencia` | `null` si la suma es 100; si no, p. ej. `Los pesos de las categorías suman 60 %; deben sumar exactamente 100 %` |
+
+Errores de categoría (`services.py → _categoria_del_curso`): **404** `Categoría no encontrada` (no existe o es de otro curso).
+
+#### `GET /docente/cursos/{curso_id}/categorias`
+
+`services.py → listar_categorias`. Por orden de creación. **200** (`CategoriasCurso`):
+```json
+{
+  "categorias": [
+    { "id": 1, "curso_id": 1, "nombre": "Exámenes", "porcentajePeso": 60.0 }
+  ],
+  "sumaPesos": 60.0, "pesosCompletos": false,
+  "advertencia": "Los pesos de las categorías suman 60 %; deben sumar exactamente 100 %"
+}
+```
+Sin categorías: `categorias: []`, `sumaPesos: 0` y la advertencia.
+
+#### `POST /docente/cursos/{curso_id}/categorias`
+
+`services.py → crearCategoria`.
+
+```json
+{ "nombre": "Tareas", "porcentajePeso": 40 }
+```
+
+**201** (`CategoriaGuardada`):
+```json
+{
+  "categoria": { "id": 2, "curso_id": 1, "nombre": "Tareas", "porcentajePeso": 40.0 },
+  "sumaPesos": 100.0, "pesosCompletos": true, "advertencia": null
+}
+```
+
+| Código | `detail` |
+|--------|----------|
+| 409 | `Ya existe una categoría con ese nombre en este curso` |
+| 409 | `La suma de los pesos no puede superar 100 % (las demás categorías suman 70 %)` |
+
+#### `PATCH /docente/cursos/{curso_id}/categorias/{categoria_id}`
+
+`services.py → actualizar_categoria`. Solo se cambian los campos que envíes; un campo en `null` se ignora. Mismas reglas y errores que al crear.
+
+```json
+{ "porcentajePeso": 45.5 }
+```
+**200**: `CategoriaGuardada`, igual que al crear.
+
+#### `DELETE /docente/cursos/{curso_id}/categorias/{categoria_id}`
+
+`services.py → eliminar_categoria`. **200**: el listado actualizado (`CategoriasCurso`), igual que `GET .../categorias`.
+
+**409**: `No se puede eliminar una categoría que ya tiene actividades`.
 
 ---
 
