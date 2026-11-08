@@ -64,3 +64,16 @@ def fechas_ciclo(nombre: str) -> tuple[date, date] | None:
     anio, letra = int(m[1]), m[2]
     (mi, di), (mt, dt) = CALENDARIO_CICLOS[letra]
     return date(anio, mi, di), date(anio, mt, dt)
+
+# RF-20 a RF-28: control de asistencia
+ESTADOS_ASISTENCIA = ("asistencia", "falta", "retardo")  # "pendiente" solo mientras la lista no se guarda
+ESTADOS_QUE_CUENTAN = ("asistencia", "retardo")            # un retardo cuenta como asistencia
+
+# RF-49: estatus normativo según el porcentaje de asistencia
+ASISTENCIA_ORDINARIO = 80.0       # >= 80 %: Ordinario
+ASISTENCIA_EXTRAORDINARIO = 65.0  # >= 65 % y < 80 %: Extraordinario; < 65 %: Sin Derecho
+
+# Semáforo por asistencia (decisión del equipo entre RF-49 y RF-51):
+# verde > 85 %, amarillo de 80 % a 85 % (80 exacto es amarillo), rojo < 80 %
+SEMAFORO_VERDE = 85.0
+SEMAFORO_AMARILLO = 80.0

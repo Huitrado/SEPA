@@ -30,8 +30,8 @@ Todo se define en **`models.py`**. Cada clase que hereda de `Base` es una **tabl
 
 | Estado | Tablas |
 |--------|--------|
-| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `MallaCurricular`, `Materia`, `MallaMateria` (las 3 últimas solo al sembrar) |
-| **Sin uso todavía** | `HistorialAcademico`, `PublicacionAsesoria`, `BibliotecaNormatividad`, `SesionClase`, `Asistencia`, `RegistroRiesgo`, `CategoriaEvaluacion`, `Actividad`, `Entrega`, `Calificacion` |
+| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionClase` y `Asistencia` (control de asistencia), `MallaCurricular`, `Materia`, `MallaMateria` |
+| **Sin uso todavía** | `HistorialAcademico`, `PublicacionAsesoria`, `BibliotecaNormatividad`, `RegistroRiesgo`, `CategoriaEvaluacion`, `Actividad`, `Entrega`, `Calificacion` |
 
 ---
 
@@ -164,7 +164,7 @@ erDiagram
 
     SesionClase {
         int id PK
-        string fecha
+        string fecha "la de hoy al generarla"
         string horaInicio
         string horaFin
         string tema
@@ -173,7 +173,7 @@ erDiagram
     }
     Asistencia {
         int id PK
-        string estado
+        string estado "pendiente | asistencia | falta | retardo"
         string observaciones
         int sesionClase_id FK
         int matricula_id FK

@@ -255,3 +255,67 @@ class AlumnoCurso(BaseModel):  # RF-16
     estado: str
     fechaInscripcion: str
     calificacionAcumuladaActual: float | None
+
+# ------------------------------------------------------------------ módulo: control de asistencia
+EstadoAsistencia = Literal["asistencia", "falta", "retardo"]
+
+class SesionClaseCrear(BaseModel):  # RF-19: fecha y horario los pone el servidor
+    tema: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)] | None = None
+
+class AsistenciaAlumno(BaseModel):  # RF-20, RF-23
+    matricula_id: int
+    estado: EstadoAsistencia
+    observaciones: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+
+class ListaAsistencia(BaseModel):
+    asistencias: list[AsistenciaAlumno]
+
+    @field_validator("asistencias")
+    @classmethod
+    def sin_alumnos_repetidos(cls, v):
+        if len({a.matricula_id for a in v}) != len(v):
+            raise ValueError("Un alumno aparece más de una vez en la lista")
+        return v
+
+class SesionClaseSalida(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    curso_id: int
+    fecha: str
+    horaInicio: str
+    horaFin: str
+    tema: str | None
+    listaGuardada: bool  # False = pendiente: no cuenta en el porcentaje (RF-22)
+
+class AsistenciaEnLista(BaseModel):
+    matricula_id: int
+    estudiante_id: int
+    codigoEstudiante: str
+    nombre: str
+    apellidos: str
+    estado: str  # asistencia | falta | retardo | pendiente
+    observaciones: str | None
+
+class SesionClaseDetalle(SesionClaseSalida):  # una sesión con la lista de sus alumnos
+    alumnos: list[AsistenciaEnLista]
+
+class EstadoEnSesion(BaseModel):
+    sesion_id: int
+    estado: str | None  # None: el alumno aún no estaba inscrito cuando se generó la sesión
+    observaciones: str | None
+
+class FilaAsistencia(BaseModel):  # RF-24, RF-26: un alumno en la cuadrícula
+    matricula_id: int
+    estudiante_id: int
+    codigoEstudiante: str
+    nombre: str
+    apellidos: str
+    estados: list[EstadoEnSesion]  # en el mismo orden que CuadriculaAsistencia.sesiones
+    porcentajeAsistencia: float
+    estatusNormativo: Literal["Ordinario", "Extraordinario", "Sin Derecho"]  # RF-49
+    semaforo: Literal["verde", "amarillo", "rojo"]
+
+class CuadriculaAsistencia(BaseModel):
+    curso_id: int
+    sesiones: list[SesionClaseSalida]  # ordenadas por fecha
+    alumnos: list[FilaAsistencia]

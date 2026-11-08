@@ -9,8 +9,10 @@ from sqlalchemy.orm import Session
 
 import models
 import schemas
-from config import (CARRERAS_INICIALES, DIAS_SEMANA, DOCENTE_REQUIERE_APROBACION,
-                    PRIORIDAD_PANEL, UMBRAL_APROBATORIO, rol_por_correo)
+from config import (ASISTENCIA_EXTRAORDINARIO, ASISTENCIA_ORDINARIO, CARRERAS_INICIALES,
+                    DIAS_SEMANA, DOCENTE_REQUIERE_APROBACION, ESTADOS_ASISTENCIA,
+                    ESTADOS_QUE_CUENTAN, PRIORIDAD_PANEL, SEMAFORO_AMARILLO, SEMAFORO_VERDE,
+                    UMBRAL_APROBATORIO, rol_por_correo)
 from security import crear_token, hashear, verificar
 
 import json
@@ -440,3 +442,156 @@ def inscribirseCurso(db: Session, usuario: models.Usuario, codigo_curso: str) ->
         db.rollback()
         raise HTTPException(409, "Ya estás inscrito en este curso")
     return curso
+
+# ======================================================================
+# Control de asistencia (RF-19 a RF-28, RF-49)
+# ======================================================================
+_DIAS_CON_DOMINGO = (*DIAS_SEMANA, "domingo")  # date.weekday(): 0 = lunes ... 6 = domingo
+
+def calcular_porcentaje_asistencia(estados: list[str]) -> float:
+    """(asistencias + retardos) / sesiones guardadas × 100. `estados` son los de las sesiones
+    con listaGuardada; sin sesiones guardadas el alumno va al 100 %."""
+    contadas = [e for e in estados if e in ESTADOS_ASISTENCIA]
+    if not contadas:
+        return 100.0
+    return sum(e in ESTADOS_QUE_CUENTAN for e in contadas) * 100 / len(contadas)
+
+def estatus_normativo(porcentaje: float) -> str:
+    """RF-49: Ordinario >= 80 %, Extraordinario >= 65 % y < 80 %, Sin Derecho < 65 %."""
+    if porcentaje >= ASISTENCIA_ORDINARIO:
+        return "Ordinario"
+    if porcentaje >= ASISTENCIA_EXTRAORDINARIO:
+        return "Extraordinario"
+    return "Sin Derecho"
+
+def semaforo_asistencia(porcentaje: float) -> str:
+    """Verde > 85 %, amarillo de 80 % a 85 %, rojo < 80 %."""
+    if porcentaje > SEMAFORO_VERDE:
+        return "verde"
+    if porcentaje >= SEMAFORO_AMARILLO:
+        return "amarillo"
+    return "rojo"
+
+def porcentaje_asistencia(db: Session, matricula_id: int) -> float:
+    """Porcentaje de un alumno en su curso, contando solo las listas guardadas."""
+    estados = (db.query(models.Asistencia.estado)
+               .join(models.SesionClase, models.SesionClase.id == models.Asistencia.sesionClase_id)
+               .filter(models.Asistencia.matricula_id == matricula_id,
+                       models.SesionClase.listaGuardada == 1).all())
+    return calcular_porcentaje_asistencia([e for (e,) in estados])
+
+def _alumnos_activos(db: Session, curso_id: int) -> list[tuple]:
+    """(Matricula, Estudiante, Usuario) de las matrículas activas, por apellidos y nombre."""
+    return (db.query(models.Matricula, models.Estudiante, models.Usuario)
+            .select_from(models.Matricula)
+            .join(models.Estudiante, models.Estudiante.id == models.Matricula.estudiante_id)
+            .join(models.Usuario, models.Usuario.id == models.Estudiante.id)
+            .filter(models.Matricula.curso_id == curso_id, models.Matricula.estado == "activo")
+            .order_by(models.Usuario.apellidos, models.Usuario.nombre).all())
+
+def _datos_alumno(m: models.Matricula, e: models.Estudiante, u: models.Usuario) -> dict:
+    return {"matricula_id": m.id, "estudiante_id": e.id, "codigoEstudiante": e.codigoEstudiante,
+            "nombre": u.nombre, "apellidos": u.apellidos}
+
+def _sesion_del_curso(db: Session, docente: models.Usuario, curso_id: int,
+                      sesion_id: int) -> models.SesionClase:
+    curso = _curso_del_docente(db, docente, curso_id)
+    sesion = db.get(models.SesionClase, sesion_id)
+    if not sesion or sesion.curso_id != curso.id:
+        raise HTTPException(404, "Sesión no encontrada")
+    return sesion
+
+def _detalle_sesion(db: Session, sesion: models.SesionClase) -> dict:
+    registros = {a.matricula_id: a for a in
+                 db.query(models.Asistencia).filter_by(sesionClase_id=sesion.id).all()}
+    alumnos = []
+    for m, e, u in _alumnos_activos(db, sesion.curso_id):
+        a = registros.get(m.id)
+        alumnos.append({**_datos_alumno(m, e, u), "estado": a.estado if a else "pendiente",
+                        "observaciones": a.observaciones if a else None})
+    return {**schemas.SesionClaseSalida.model_validate(sesion).model_dump(), "alumnos": alumnos}
+
+def generarSesionClase(db: Session, docente: models.Usuario, curso_id: int,
+                       datos: schemas.SesionClaseCrear | None) -> dict:
+    """RF-19, RF-27: solo la sesión de hoy, en un día de clase del curso y sin duplicados."""
+    curso = _curso_del_docente(db, docente, curso_id)
+    if curso.estado != "activo":
+        raise HTTPException(409, "El curso está archivado")
+    ciclo = db.get(models.CicloEscolar, curso.cicloEscolar_id)
+    if not ciclo or estado_ciclo(ciclo) != "activo":
+        raise HTTPException(409, "El ciclo escolar del curso no está en curso")
+    fecha = hoy()
+    if _DIAS_CON_DOMINGO[fecha.weekday()] not in curso.diasSemana.split(","):
+        raise HTTPException(409, "Hoy no es día de clase de este curso")
+    if db.query(models.SesionClase).filter_by(curso_id=curso.id, fecha=fecha.isoformat()).first():
+        raise HTTPException(409, "Ya existe una sesión de este curso para hoy")
+
+    sesion = models.SesionClase(curso_id=curso.id, fecha=fecha.isoformat(), horaInicio=curso.horaInicio,
+                                horaFin=curso.horaFin, tema=datos.tema if datos else None,
+                                listaGuardada=0)
+    db.add(sesion)
+    db.flush()
+    # RF-22: cada alumno activo arranca en "pendiente" hasta que se guarde la lista
+    db.add_all(models.Asistencia(sesionClase_id=sesion.id, matricula_id=m.id, estado="pendiente")
+               for m, _, _ in _alumnos_activos(db, curso.id))
+    db.commit()
+    db.refresh(sesion)
+    return _detalle_sesion(db, sesion)
+
+def ver_sesion(db: Session, docente: models.Usuario, curso_id: int, sesion_id: int) -> dict:
+    return _detalle_sesion(db, _sesion_del_curso(db, docente, curso_id, sesion_id))
+
+def guardarListaAsistencia(db: Session, docente: models.Usuario, curso_id: int, sesion_id: int,
+                           datos: schemas.ListaAsistencia) -> dict:
+    """RF-20, RF-23 y RF-25 (también sirve para corregir la lista de una sesión pasada)."""
+    sesion = _sesion_del_curso(db, docente, curso_id, sesion_id)
+    activas = {m.id for m, _, _ in _alumnos_activos(db, sesion.curso_id)}
+    registros = {a.matricula_id: a for a in
+                 db.query(models.Asistencia).filter_by(sesionClase_id=sesion.id).all()}
+    enviadas = {a.matricula_id for a in datos.asistencias}
+
+    ajenas = enviadas - activas
+    if ajenas:
+        raise HTTPException(422, "Hay alumnos que no pertenecen a este curso o no están activos "
+                                 f"(matrícula {', '.join(map(str, sorted(ajenas)))})")
+    faltantes = (activas & registros.keys()) - enviadas
+    if faltantes:
+        raise HTTPException(422, "Falta el estado de algunos alumnos de la lista "
+                                 f"(matrícula {', '.join(map(str, sorted(faltantes)))})")
+
+    for a in datos.asistencias:
+        registro = registros.get(a.matricula_id)
+        if not registro:  # se inscribió después de generar la sesión
+            registro = models.Asistencia(sesionClase_id=sesion.id, matricula_id=a.matricula_id)
+            db.add(registro)
+        registro.estado = a.estado
+        registro.observaciones = a.observaciones
+    sesion.listaGuardada = 1
+    db.commit()
+    db.refresh(sesion)
+    return _detalle_sesion(db, sesion)
+
+def cuadricula_asistencia(db: Session, docente: models.Usuario, curso_id: int) -> dict:
+    """RF-24, RF-26: columnas = sesiones por fecha; filas = alumnos activos con su porcentaje."""
+    curso = _curso_del_docente(db, docente, curso_id)
+    sesiones = (db.query(models.SesionClase).filter_by(curso_id=curso.id)
+                .order_by(models.SesionClase.fecha, models.SesionClase.id).all())
+    registros = {(a.matricula_id, a.sesionClase_id): a for a in
+                 db.query(models.Asistencia)
+                 .filter(models.Asistencia.sesionClase_id.in_([s.id for s in sesiones])).all()}
+    alumnos = []
+    for m, e, u in _alumnos_activos(db, curso.id):
+        estados, guardados = [], []
+        for s in sesiones:
+            a = registros.get((m.id, s.id))
+            estados.append({"sesion_id": s.id, "estado": a.estado if a else None,
+                            "observaciones": a.observaciones if a else None})
+            if a and s.listaGuardada:
+                guardados.append(a.estado)
+        porcentaje = calcular_porcentaje_asistencia(guardados)
+        alumnos.append({**_datos_alumno(m, e, u), "estados": estados,
+                        "porcentajeAsistencia": round(porcentaje, 2),
+                        "estatusNormativo": estatus_normativo(porcentaje),
+                        "semaforo": semaforo_asistencia(porcentaje)})
+    return {"curso_id": curso.id, "alumnos": alumnos,
+            "sesiones": [schemas.SesionClaseSalida.model_validate(s).model_dump() for s in sesiones]}

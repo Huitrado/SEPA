@@ -2,7 +2,7 @@
 
 [← Volver al índice](README.md)
 
-Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **26 endpoints** en 5 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
+Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **31 endpoints** en 5 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
 
 ## Cómo leer estas tablas
 
@@ -13,6 +13,7 @@ Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sa
 | `GET` | Consultar; no cambia nada |
 | `POST` | Crear algo o ejecutar una acción (login, logout, inscribirse) |
 | `PATCH` | Modificar **parte** de algo que ya existe |
+| `PUT` | Reemplazar algo completo (por ejemplo, la lista de asistencia de una sesión) |
 
 **Quién puede usarlo:**
 
@@ -191,6 +192,7 @@ Archivo: `routers/catalogos.py` · Prefijo: `/catalogos` · **Todos son público
 | Método | Ruta | Quién | Recibe | Respuestas | RF |
 |--------|------|-------|--------|------------|----|
 | GET | `/catalogos/carreras` | Público | Nada | **200** | RF-02 |
+| GET | `/catalogos/materias` | Público | Nada | **200** | RF-12 |
 | GET | `/catalogos/ciclos` | Público | Query opcional `estado` = `activo`, `proximo` o `cerrado` | **200**, 422 | RF-02, RF-08 |
 | GET | `/catalogos/ciclo-actual` | Público | Nada | **200**, 404 | RF-02 |
 | GET | `/catalogos/tipos-evaluacion` | Público | Nada | **200** | RF-17 |
@@ -203,6 +205,15 @@ Ordenadas por nombre. **200**:
 [
   { "id": 1, "clave": "ICOM", "nombre": "Ingeniería en Computación" },
   { "id": 2, "clave": "INFO", "nombre": "Ingeniería Informática" }
+]
+```
+
+### `GET /catalogos/materias`
+
+`routers/catalogos.py → materias`. Materias del plan de estudios (se cargan de `planes.json`), ordenadas por nombre, para elegir al crear un curso. **200**:
+```json
+[
+  { "id": 12, "clave": "I5288", "nombre": "Bases de Datos" }
 ]
 ```
 
@@ -346,6 +357,10 @@ Archivo: `routers/docentes.py` · Prefijo: `/docente` (en singular) · RF-95: so
 | GET | `/docente/cursos/{curso_id}/alumnos` | Docente dueño | Nada | **200**, 403, 404 | RF-16, RF-95 |
 | PATCH | `/docente/cursos/{curso_id}` | Docente dueño | JSON `CursoActualizar` (todo opcional) | **200**, 403, 404, 422 | RF-13, RF-17, RF-18, RF-95 |
 | PATCH | `/docente/cursos/{curso_id}/estado` | Docente dueño | JSON `{estado}` = `activo` o `archivado` | **200**, 403, 404, 422 | RF-10, RF-95 |
+| POST | `/docente/cursos/{curso_id}/sesiones` | Docente dueño | JSON opcional `{tema}` | **201**, 403, 404, 409, 422 | RF-19, RF-22, RF-27 |
+| GET | `/docente/cursos/{curso_id}/sesiones/{sesion_id}` | Docente dueño | Nada | **200**, 403, 404 | RF-20, RF-25 |
+| PUT | `/docente/cursos/{curso_id}/sesiones/{sesion_id}/lista` | Docente dueño | JSON `ListaAsistencia` | **200**, 403, 404, 422 | RF-20, RF-23, RF-25 |
+| GET | `/docente/cursos/{curso_id}/asistencia` | Docente dueño | Nada | **200**, 403, 404 | RF-24, RF-26, RF-28, RF-49 |
 
 Errores de dueño (`services.py → _curso_del_docente`): **404** `Curso no encontrado`, **403** `Este curso no te pertenece`.
 
@@ -395,6 +410,106 @@ Petición:
 { "estado": "archivado" }
 ```
 **200**: el `CursoSalida` con `"estado": "archivado"`. Un curso archivado ya no aparece en `GET /cursos` ni acepta inscripciones.
+
+
+### Control de asistencia (RF-19 a RF-28)
+
+Reglas comunes:
+
+- **Solo alumnos activos.** Las matrículas con otro estado (por ejemplo `baja`) no aparecen en las listas ni en la cuadrícula, y no se aceptan al guardar.
+- **Estados de un alumno en una sesión:** `pendiente` (la lista aún no se guarda), `asistencia`, `falta` o `retardo`.
+- **Porcentaje** (`services.py → calcular_porcentaje_asistencia`): (asistencias + retardos) / sesiones con lista guardada × 100. Un retardo cuenta como asistencia, las sesiones pendientes no cuentan y, sin sesiones guardadas, el porcentaje es **100**.
+- **Estatus normativo** (RF-49, `services.py → estatus_normativo`): `Ordinario` ≥ 80 %, `Extraordinario` ≥ 65 % y < 80 %, `Sin Derecho` < 65 %.
+- **Semáforo por asistencia** (`services.py → semaforo_asistencia`): `verde` > 85 %, `amarillo` de 80 % a 85 % (80 % exacto es amarillo), `rojo` < 80 %.
+- Los umbrales están en `config.py` (`ASISTENCIA_ORDINARIO`, `ASISTENCIA_EXTRAORDINARIO`, `SEMAFORO_VERDE`, `SEMAFORO_AMARILLO`). `services.py → porcentaje_asistencia(db, matricula_id)` da el porcentaje de un alumno para otros módulos.
+
+#### `POST /docente/cursos/{curso_id}/sesiones`
+
+`routers/docentes.py → generar_sesion` → `services.py → generarSesionClase`. Genera la sesión **de hoy** (RF-19, RF-27). La fecha la pone el servidor y el horario se copia del curso. El cuerpo es opcional:
+
+```json
+{ "tema": "Normalización" }
+```
+
+Cada alumno activo queda en `pendiente` y la lista con `listaGuardada: false` (RF-22). **201** (`SesionClaseDetalle`):
+```json
+{
+  "id": 1, "curso_id": 1, "fecha": "2026-10-26", "horaInicio": "08:00", "horaFin": "10:00",
+  "tema": "Normalización", "listaGuardada": false,
+  "alumnos": [
+    { "matricula_id": 1, "estudiante_id": 3, "codigoEstudiante": "123456789",
+      "nombre": "Ana", "apellidos": "López", "estado": "pendiente", "observaciones": null }
+  ]
+}
+```
+
+| Código | `detail` |
+|--------|----------|
+| 409 | `Hoy no es día de clase de este curso` (hoy no está en `diasSemana`) |
+| 409 | `Ya existe una sesión de este curso para hoy` |
+| 409 | `El curso está archivado` |
+| 409 | `El ciclo escolar del curso no está en curso` (ciclo próximo o cerrado) |
+
+#### `GET /docente/cursos/{curso_id}/sesiones/{sesion_id}`
+
+`services.py → ver_sesion`. La sesión con la lista de alumnos activos y su estado, para pasar lista o corregirla. **200**: igual que la respuesta de `POST .../sesiones`. Un alumno que se inscribió después de generar la sesión aparece como `pendiente`.
+
+**404**: `Sesión no encontrada` (no existe o es de otro curso).
+
+#### `PUT /docente/cursos/{curso_id}/sesiones/{sesion_id}/lista`
+
+`services.py → guardarListaAsistencia`. Guarda la lista y pone `listaGuardada: true` (RF-20, RF-23). Sirve también para **editar** la lista de una sesión pasada (RF-25): se envía la lista completa otra vez.
+
+```json
+{
+  "asistencias": [
+    { "matricula_id": 1, "estado": "retardo", "observaciones": "Llegó 08:20" },
+    { "matricula_id": 2, "estado": "falta" }
+  ]
+}
+```
+
+| Campo | Reglas |
+|-------|--------|
+| `matricula_id` | Matrícula **activa** de este curso; sin repetir |
+| `estado` | `asistencia`, `falta` o `retardo` |
+| `observaciones` | Opcional; hasta 500 caracteres |
+
+Hay que incluir a **todos los alumnos que estaban en la lista** al generar la sesión. Un alumno inscrito después se puede incluir, pero no es obligatorio.
+
+**200**: el `SesionClaseDetalle` con los estados guardados.
+
+| Código | `detail` |
+|--------|----------|
+| 404 | `Sesión no encontrada` |
+| 422 | `Hay alumnos que no pertenecen a este curso o no están activos (matrícula 7)` |
+| 422 | `Falta el estado de algunos alumnos de la lista (matrícula 2)` |
+| 422 | `Hay datos inválidos en la solicitud` + `errores[]` (estado inválido o alumno repetido: `Un alumno aparece más de una vez en la lista`) |
+
+#### `GET /docente/cursos/{curso_id}/asistencia`
+
+`services.py → cuadricula_asistencia`. La cuadrícula del curso (RF-24, RF-26): `sesiones` son las columnas, ordenadas por fecha, con `listaGuardada` para marcar las pendientes. `alumnos` son las filas, con un estado por sesión **en el mismo orden** que `sesiones`. **200** (`CuadriculaAsistencia`):
+```json
+{
+  "curso_id": 1,
+  "sesiones": [
+    { "id": 1, "curso_id": 1, "fecha": "2026-10-26", "horaInicio": "08:00", "horaFin": "10:00", "tema": null, "listaGuardada": true },
+    { "id": 2, "curso_id": 1, "fecha": "2026-10-28", "horaInicio": "08:00", "horaFin": "10:00", "tema": null, "listaGuardada": false }
+  ],
+  "alumnos": [
+    {
+      "matricula_id": 1, "estudiante_id": 3, "codigoEstudiante": "123456789",
+      "nombre": "Ana", "apellidos": "López",
+      "estados": [
+        { "sesion_id": 1, "estado": "retardo", "observaciones": "Llegó 08:20" },
+        { "sesion_id": 2, "estado": "pendiente", "observaciones": null }
+      ],
+      "porcentajeAsistencia": 100.0, "estatusNormativo": "Ordinario", "semaforo": "verde"
+    }
+  ]
+}
+```
+`estado` es `null` si el alumno se inscribió después de esa sesión y no se le registró; esa sesión no cuenta en su porcentaje. `porcentajeAsistencia` se redondea a 2 decimales.
 
 ---
 

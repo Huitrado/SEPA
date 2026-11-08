@@ -4,3 +4,5 @@ sqlalchemy
 email-validator
 bcrypt
 PyJWT
+pytest
+httpx

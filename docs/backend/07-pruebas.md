@@ -55,6 +55,8 @@ flowchart TD
     T1 --> H
     T2["test_gestion_academica.py<br/>RF-08 a RF-18, RF-95, RF-96<br/>+ fixture escenario"] --> C
     T2 --> H
+    T3["test_asistencia.py<br/>RF-19 a RF-28, RF-49<br/>+ fixture curso"] --> C
+    T3 --> H
 ```
 
 ### `conftest.py`: la fixture `client`
@@ -169,6 +171,21 @@ Una fixture puede **depender de otra**: `escenario` pide `client`. Las pruebas q
 | Otros | `test_el_administrador_puede_reasignar_un_curso`, `test_ciclo_para_fecha` (6), `test_sembrar_crea_ciclo_en_curso` | Reasignar docente; cálculo del ciclo por fecha (incluidos los bordes 15/16 de julio y 16/17 de diciembre); el sembrado no duplica datos |
 
 > `test_ciclo_para_fecha` y `test_sembrar_crea_ciclo_en_curso` **no usan `client`**: prueban funciones de `services.py` directamente, sin HTTP. Es posible gracias a la separación en capas.
+
+---
+
+### `test_asistencia.py`
+
+Docstring: *"Módulo de control de asistencia (RF-19 a RF-28, RF-49)"*. La fixture `curso` crea un curso de lunes y miércoles con Ana y Beto inscritos y fija la fecha en el **lunes 26 de octubre de 2026** (la fecha de `conftest.py` es domingo). `_clase(...)` genera y guarda la lista de una sesión en la fecha que se le indique.
+
+| RF | Qué comprueban |
+|----|----------------|
+| RF-19 / RF-27 | Sesión de hoy con el horario del curso; tema opcional; solo en días de clase; sin duplicados; no en cursos archivados ni en ciclos que no han empezado |
+| RF-22 | Los alumnos arrancan en `pendiente` y una lista sin guardar no cuenta |
+| RF-20 / RF-23 | Guardar lista con observaciones; faltan alumnos, alumno ajeno, repetido o estado inválido → 422; un alumno de baja no aparece ni se acepta; un alumno inscrito después no es obligatorio |
+| RF-25 | Editar la lista de una sesión pasada |
+| RF-24 / RF-26 / RF-49 | Cuadrícula ordenada por fecha, estados por sesión, porcentaje, estatus normativo y semáforo; bordes de 85, 80 y 65 % |
+| RF-95 | Otro docente, el admin y un alumno reciben 403 |
 
 ---
 

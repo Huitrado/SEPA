@@ -31,3 +31,24 @@ def editar_curso(curso_id: int, datos: schemas.CursoActualizar, db: Session = De
 def cambiar_estado(curso_id: int, datos: schemas.EstadoCurso, db: Session = Depends(get_db),
                    docente: models.Usuario = Depends(requiere_docente)):
     return services.cambiar_estado_curso(db, docente, curso_id, datos.estado)
+
+# ------------------------------------------------------------------ control de asistencia
+@router.post("/cursos/{curso_id}/sesiones", response_model=schemas.SesionClaseDetalle, status_code=201)
+def generar_sesion(curso_id: int, datos: schemas.SesionClaseCrear | None = None,
+                   db: Session = Depends(get_db), docente: models.Usuario = Depends(requiere_docente)):
+    return services.generarSesionClase(db, docente, curso_id, datos)
+
+@router.get("/cursos/{curso_id}/sesiones/{sesion_id}", response_model=schemas.SesionClaseDetalle)
+def ver_sesion(curso_id: int, sesion_id: int, db: Session = Depends(get_db),
+               docente: models.Usuario = Depends(requiere_docente)):
+    return services.ver_sesion(db, docente, curso_id, sesion_id)
+
+@router.put("/cursos/{curso_id}/sesiones/{sesion_id}/lista", response_model=schemas.SesionClaseDetalle)
+def guardar_lista(curso_id: int, sesion_id: int, datos: schemas.ListaAsistencia,
+                  db: Session = Depends(get_db), docente: models.Usuario = Depends(requiere_docente)):
+    return services.guardarListaAsistencia(db, docente, curso_id, sesion_id, datos)
+
+@router.get("/cursos/{curso_id}/asistencia", response_model=schemas.CuadriculaAsistencia)
+def cuadricula_asistencia(curso_id: int, db: Session = Depends(get_db),
+                          docente: models.Usuario = Depends(requiere_docente)):
+    return services.cuadricula_asistencia(db, docente, curso_id)
