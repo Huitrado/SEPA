@@ -2,7 +2,7 @@
 // auth.js: lógica de las tres pantallas.
 //   - registro.html  -> POST /usuarios/registro (+ catálogos de carreras y ciclo)
 //   - login.html     -> POST /usuarios/login
-//   - dashboard.html -> GET /usuarios/yo y POST /usuarios/logout
+//   - dashboard.html -> perfil (la sesión la valida protegerPagina() de app.js)
 // Usa las herramientas de app.js (pedir, mostrarAviso, marcarCampo...).
 // Cada página indica quién es con <body data-pagina="...">.
 // ============================================================
@@ -285,19 +285,9 @@ const NOMBRE_PANEL = {
 };
 
 async function iniciarPanel() {
-  if (!leerSesion()) {
-    irALogin("Inicia sesión para continuar.");
-    return;
-  }
-  document.getElementById("btn-logout").addEventListener("click", cerrarSesion);
-
-  try {
-    // Si el token ya no sirve, pedir() responde 401 y manda al login.
-    const perfil = await pedir("/usuarios/yo", { conToken: true });
-    mostrarPerfil(perfil);
-  } catch (error) {
-    if (error.status !== 401) mostrarErrorApi(error);
-  }
+  // Este panel genérico es para estudiante y administrador; el docente tiene docente.html.
+  const perfil = await protegerPagina(["estudiante", "administrador"]);
+  if (perfil) mostrarPerfil(perfil);
 }
 
 function mostrarPerfil(perfil) {
@@ -324,18 +314,4 @@ function mostrarPerfil(perfil) {
   document.getElementById("panel-cargando").classList.add("hidden");
   document.getElementById("panel-contenido").classList.remove("hidden");
 }
-
-async function cerrarSesion() {
-  const boton = document.getElementById("btn-logout");
-  boton.disabled = true;
-  try {
-    await pedir("/usuarios/logout", { metodo: "POST", conToken: true });
-    irALogin("Sesión cerrada correctamente.");
-  } catch (error) {
-    // 401 = el token ya no era válido; pedir() ya mandó al login.
-    if (error.status !== 401) {
-      mostrarErrorApi(error);
-      boton.disabled = false;
-    }
-  }
-}
+// cerrarSesion() ahora vive en app.js para que la usen todas las páginas.

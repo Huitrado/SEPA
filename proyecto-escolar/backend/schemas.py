@@ -150,6 +150,12 @@ class CarreraSalida(BaseModel):
     clave: str
     nombre: str
 
+class MateriaSalida(BaseModel):  # RF-12: catálogo de materias (de planes.json)
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    clave: str
+    nombre: str
+
 class CicloCrear(BaseModel):  # RF-08: el nombre es AAAA-A o AAAA-B y las fechas salen del calendario oficial
     nombreOficial: str
     fechaInicio: date | None = None    # opcional: si se omite, se usa la fecha oficial

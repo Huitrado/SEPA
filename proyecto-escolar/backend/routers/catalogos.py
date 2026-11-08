@@ -16,6 +16,11 @@ router = APIRouter(prefix="/catalogos", tags=["Catálogos"])
 def carreras(db: Session = Depends(get_db)):
     return db.query(models.Carrera).order_by(models.Carrera.nombre).all()
 
+@router.get("/materias", response_model=list[schemas.MateriaSalida])
+def materias(db: Session = Depends(get_db)):
+    """RF-12: materias del plan de estudios (se cargan de planes.json) para elegir al crear un curso."""
+    return db.query(models.Materia).order_by(models.Materia.nombre).all()
+
 @router.get("/ciclos", response_model=list[schemas.CicloSalida])
 def ciclos(estado: Literal["activo", "proximo", "cerrado"] | None = None, db: Session = Depends(get_db)):
     return services.listar_ciclos(db, estado)

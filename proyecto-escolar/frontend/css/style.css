@@ -37,3 +37,8 @@ select:focus {
 .animate-aparecer {
   animation: aparecer 0.2s ease-out;
 }
+
+/* Página protegida: oculta hasta que GET /usuarios/yo confirma la sesión (RF-05, RF-06) */
+.validando-sesion body {
+  visibility: hidden;
+}

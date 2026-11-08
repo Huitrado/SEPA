@@ -11,11 +11,11 @@
 const API_URL = "http://127.0.0.1:8000";
 
 // Página a la que se manda a cada usuario según el "panel" que devuelve el login.
-// Por ahora los tres usan dashboard.html; si después hay una página por rol,
-// solo se cambia aquí.
+// El docente ya tiene su propia pantalla; estudiante y administrador siguen en
+// dashboard.html hasta que tengan la suya (solo se cambia aquí).
 const PAGINA_POR_PANEL = {
   estudiante: "dashboard.html",
-  docente: "dashboard.html",
+  docente: "docente.html",
   administrador: "dashboard.html"
 };
 
@@ -118,8 +118,9 @@ async function pedir(ruta, { metodo = "GET", datos, conToken = false } = {}) {
 // ---------------- Mostrar errores en pantalla ----------------
 
 // Aviso general arriba del formulario. tipo: "error" (rojo) o "info" (azul).
-function mostrarAviso(texto, tipo = "error") {
-  const aviso = document.getElementById("aviso");
+// idAviso permite usar otro recuadro (por ejemplo, uno dentro de una ventana).
+function mostrarAviso(texto, tipo = "error", idAviso = "aviso") {
+  const aviso = document.getElementById(idAviso);
   if (!aviso) return alert(texto);
   aviso.className = tipo === "error"
     ? "mb-space-lg p-space-md rounded-xl bg-error-container text-on-error-container flex items-start gap-space-sm animate-aparecer"
@@ -128,8 +129,8 @@ function mostrarAviso(texto, tipo = "error") {
   aviso.querySelector("[data-aviso-texto]").textContent = texto;
 }
 
-function ocultarAviso() {
-  document.getElementById("aviso")?.classList.add("hidden");
+function ocultarAviso(idAviso = "aviso") {
+  document.getElementById(idAviso)?.classList.add("hidden");
 }
 
 // Marca un campo en rojo con su mensaje. "campo" es el mismo nombre que usa
@@ -146,8 +147,8 @@ function marcarCampo(campo, mensaje) {
   return Boolean(entrada || textoError);
 }
 
-function limpiarErrores() {
-  ocultarAviso();
+function limpiarErrores(idAviso = "aviso") {
+  ocultarAviso(idAviso);
   document.querySelectorAll(".campo-invalido").forEach(el => el.classList.remove("campo-invalido"));
   document.querySelectorAll('[id^="err-"]').forEach(el => el.classList.add("hidden"));
 }
@@ -158,10 +159,10 @@ function limpiarErrores() {
 //   403 -> sin permiso, o cuenta pendiente/desactivada
 //   422 -> campos en rojo (si viene la lista "errores") + aviso general
 //   otros (404, 409, 500) -> aviso general con "detail"
-function mostrarErrorApi(error) {
+function mostrarErrorApi(error, idAviso = "aviso") {
   if (!(error instanceof ErrorApi)) {
     console.error(error);
-    mostrarAviso("Ocurrió un error inesperado. Intenta de nuevo.");
+    mostrarAviso("Ocurrió un error inesperado. Intenta de nuevo.", "error", idAviso);
     return;
   }
   if (error.status === 422 && error.errores.length) {
@@ -169,10 +170,10 @@ function mostrarErrorApi(error) {
     for (const e of error.errores) {
       if (!marcarCampo(e.campo, e.mensaje)) sinCampo.push(e.mensaje);
     }
-    mostrarAviso(sinCampo.length ? sinCampo.join(" · ") : "Revisa los campos marcados en rojo.");
+    mostrarAviso(sinCampo.length ? sinCampo.join(" · ") : "Revisa los campos marcados en rojo.", "error", idAviso);
     return;
   }
-  mostrarAviso(error.detail);
+  mostrarAviso(error.detail, "error", idAviso);
 }
 
 // Botón de "ojo" para ver u ocultar una contraseña.
@@ -196,4 +197,70 @@ function botonCargando(boton, cargando) {
   boton.classList.toggle("cursor-wait", cargando);
   boton.querySelector("[data-texto-boton]").classList.toggle("hidden", cargando);
   boton.querySelector("[data-spinner]").classList.toggle("hidden", !cargando);
+}
+
+// ---------------- Páginas protegidas (base común) ----------------
+// Toda página que requiere sesión llama a protegerPagina() al cargar:
+//   RF-05: valida el token con GET /usuarios/yo; si falla, manda al login.
+//   RF-06: si el navegador muestra la página desde su caché con "atrás"
+//          (pageshow con event.persisted), la vuelve a validar.
+//   RF-90: si el rol del usuario no corresponde a la página, lo manda a la suya.
+//   RF-91: llena el nombre del encabezado y activa "Cerrar sesión".
+// La página empieza oculta (<html class="validando-sesion">) y solo se muestra
+// cuando la sesión es válida, para que no "parpadee" el contenido.
+//
+// panelesPermitidos: lista de paneles que pueden ver la página, p. ej. ["docente"].
+// Devuelve el perfil (o null si se redirigió a otra página).
+async function protegerPagina(panelesPermitidos) {
+  document.getElementById("btn-logout")?.addEventListener("click", cerrarSesion);
+  window.addEventListener("pageshow", evento => {
+    if (evento.persisted) validarSesionDePagina(panelesPermitidos);
+  });
+  return validarSesionDePagina(panelesPermitidos);
+}
+
+async function validarSesionDePagina(panelesPermitidos) {
+  const raiz = document.documentElement;
+  raiz.classList.add("validando-sesion");
+
+  if (!leerSesion()) {
+    irALogin("Inicia sesión para continuar.");
+    return null;
+  }
+  try {
+    // Si el token ya no sirve, pedir() responde 401 y manda al login.
+    const perfil = await pedir("/usuarios/yo", { conToken: true });
+    if (panelesPermitidos && !panelesPermitidos.includes(perfil.panel)) {
+      const destino = PAGINA_POR_PANEL[perfil.panel];
+      if (destino) window.location.replace(destino);
+      else irALogin("Tu cuenta no tiene un rol asignado. Contacta a un administrador.");
+      return null;
+    }
+    const nombre = document.getElementById("header-nombre");
+    if (nombre) nombre.textContent = `${perfil.nombre} ${perfil.apellidos}`;
+    raiz.classList.remove("validando-sesion");
+    return perfil;
+  } catch (error) {
+    if (error.status !== 401) {
+      // Sin conexión u otro error: se muestra la página con el aviso.
+      raiz.classList.remove("validando-sesion");
+      mostrarErrorApi(error);
+    }
+    return null;
+  }
+}
+
+async function cerrarSesion() {
+  const boton = document.getElementById("btn-logout");
+  if (boton) boton.disabled = true;
+  try {
+    await pedir("/usuarios/logout", { metodo: "POST", conToken: true });
+    irALogin("Sesión cerrada correctamente.");
+  } catch (error) {
+    // 401 = el token ya no era válido; pedir() ya mandó al login.
+    if (error.status !== 401) {
+      mostrarErrorApi(error);
+      if (boton) boton.disabled = false;
+    }
+  }
 }

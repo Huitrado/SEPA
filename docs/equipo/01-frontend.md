@@ -31,20 +31,35 @@ Por eso **sin internet las páginas se ven sin diseño** (funcionan, pero feas).
 frontend/
 ├── registro.html        Pantalla "Crear cuenta"
 ├── login.html           Pantalla "Iniciar sesión"
-├── dashboard.html       Panel después de entrar
+├── dashboard.html       Panel de estudiante y administrador (por ahora, solo el perfil)
+├── docente.html         Dashboard del docente: sus cursos y "Crear curso"
 ├── css/
 │   └── style.css        Estilos que Tailwind no trae (campo en rojo, animación)
 └── js/
     ├── tailwind-config.js  Colores y tipografía del diseño (para Tailwind)
-    ├── app.js              Herramientas comunes: URL del backend, sesión, pedir(), errores
-    └── auth.js             La lógica de las tres pantallas
+    ├── app.js              Herramientas comunes: URL del backend, sesión, pedir(), errores,
+    │                       protegerPagina() y cerrarSesion()
+    ├── auth.js             Registro, login y dashboard.html
+    └── docente.js          Dashboard del docente
 ```
 
 | Pantalla | Qué hace | Lógica en |
 |----------|----------|-----------|
 | `registro.html` | Formulario con dos pestañas: **Soy estudiante** (código de 9 dígitos, carrera, ciclo) y **Soy docente** (número de empleado, departamento opcional). | `auth.js → iniciarRegistro`, `enviarRegistro` |
 | `login.html` | Pide **código** (de estudiante o número de empleado) y **contraseña**. No se entra con el correo. | `auth.js → iniciarLogin`, `enviarLogin` |
-| `dashboard.html` | Muestra tu perfil: nombre, correo, código y roles. Tiene el botón **Cerrar sesión**. | `auth.js → iniciarPanel`, `mostrarPerfil`, `cerrarSesion` |
+| `dashboard.html` | Muestra tu perfil (estudiante y administrador). Tiene el botón **Cerrar sesión**. | `auth.js → iniciarPanel`, `mostrarPerfil` |
+| `docente.html` | Cursos activos y archivados del docente, código de cada curso con botón de copiar, y ventana **Crear curso**. | `docente.js` |
+
+### Páginas protegidas: `protegerPagina()`
+
+Toda página que requiere sesión empieza con `<html class="validando-sesion">` (se ve en blanco) y al cargar llama a `protegerPagina(["docente"])` de `app.js`, que:
+
+1. Valida el token con `GET /usuarios/yo`; si no sirve, manda al login (RF-05).
+2. Si el rol no corresponde a la página, manda al usuario a la suya (RF-90).
+3. Llena `#header-nombre` y activa `#btn-logout` (RF-91).
+4. Al volver con el botón "atrás" desde la caché del navegador, valida otra vez (RF-06).
+
+Solo cuando todo está bien quita `validando-sesion` y la página se muestra.
 
 ¿Cómo sabe `auth.js` en qué pantalla está? Cada página lo dice en su etiqueta `<body>`:
 
@@ -66,7 +81,7 @@ flowchart LR
     L -- "Ya había sesión abierta" --> D
 ```
 
-- Después del login, el backend responde con un campo `panel` (`estudiante`, `docente` o `administrador`). La tabla `PAGINA_POR_PANEL` en `js/app.js` dice a qué página mandar a cada uno. **Hoy los tres van a `dashboard.html`.**
+- Después del login, el backend responde con un campo `panel` (`estudiante`, `docente` o `administrador`). La tabla `PAGINA_POR_PANEL` en `js/app.js` dice a qué página mandar a cada uno. **Hoy el docente va a `docente.html`; estudiante y administrador, a `dashboard.html`.**
 - Si abres `dashboard.html` sin haber iniciado sesión, te regresa al login.
 
 ---

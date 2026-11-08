@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es" class="validando-sesion">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mis cursos · SEPA CUCEI</title>
+  <!-- Fuentes e íconos de Google -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <!-- Tailwind (estilos del diseño) y su configuración de colores -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link href="css/style.css" rel="stylesheet" />
+</head>
+<body class="bg-surface font-body-md text-on-surface antialiased" data-pagina="docente">
+
+<!-- Encabezado con el usuario y el botón de salir (RF-91) -->
+<header class="fixed top-0 w-full z-40 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+  <div class="h-16 max-w-7xl mx-auto px-gutter flex items-center justify-between gap-space-md">
+    <div class="flex items-center gap-space-md">
+      <span class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center">
+        <span class="material-symbols-outlined text-on-primary text-[20px]">school</span>
+      </span>
+      <span class="flex flex-col">
+        <span class="font-label-lg text-label-lg text-primary leading-tight">SEPA CUCEI</span>
+        <span class="font-caption text-caption text-on-surface-variant leading-none">Universidad de Guadalajara · CUCEI</span>
+      </span>
+    </div>
+    <div class="flex items-center gap-space-sm">
+      <span class="hidden sm:inline font-label-lg text-label-lg text-on-surface" id="header-nombre"></span>
+      <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+        <span class="material-symbols-outlined text-on-primary text-[18px]">person</span>
+      </div>
+      <button id="btn-logout" type="button"
+        class="inline-flex items-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg text-secondary bg-surface-container-low hover:bg-surface-container transition-colors disabled:opacity-60">
+        <span class="material-symbols-outlined text-[18px]">logout</span>
+        <span class="hidden sm:inline">Cerrar sesión</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="w-full pt-24 pb-space-2xl min-h-[calc(100vh-6rem)]">
+  <div class="w-full px-gutter">
+    <div class="max-w-6xl mx-auto">
+
+      <!-- Aviso general (errores del backend) -->
+      <div id="aviso" class="hidden">
+        <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+        <p class="font-body-md text-body-md" data-aviso-texto></p>
+      </div>
+
+      <!-- Título y botón de crear -->
+      <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-space-md mb-space-lg">
+        <div>
+          <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold">Panel del docente</span>
+          <h1 class="font-headline-lg text-headline-lg text-primary tracking-tight mt-1">Mis cursos</h1>
+        </div>
+        <button id="btn-crear-curso" type="button"
+          class="inline-flex items-center justify-center gap-space-xs py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary shadow-sm transition-colors">
+          <span class="material-symbols-outlined text-[20px]">add</span>
+          <span>Crear curso</span>
+        </button>
+      </div>
+
+      <!-- RF-11: activos por defecto y pestaña de archivados -->
+      <div class="inline-flex p-1 rounded-xl bg-surface-container-low mb-space-lg" role="tablist">
+        <button id="tab-activo" type="button" role="tab" data-estado="activo"></button>
+        <button id="tab-archivado" type="button" role="tab" data-estado="archivado"></button>
+      </div>
+
+      <p id="cursos-cargando" class="text-center font-body-md text-body-md text-on-surface-variant py-space-2xl">Cargando tus cursos...</p>
+
+      <!-- Sin cursos -->
+      <div id="cursos-vacio" class="hidden bg-surface-container-lowest rounded-xl shadow-md p-space-xl flex flex-col items-center text-center">
+        <div class="w-14 h-14 rounded-full bg-surface-container-low flex items-center justify-center mb-space-md text-secondary">
+          <span class="material-symbols-outlined text-[30px]" id="vacio-icono">menu_book</span>
+        </div>
+        <h2 class="font-title-lg text-title-lg text-primary" id="vacio-titulo"></h2>
+        <p class="font-body-md text-body-md text-on-surface-variant mt-space-xs max-w-md" id="vacio-texto"></p>
+      </div>
+
+      <!-- Tarjetas de cursos (las arma docente.js) -->
+      <div id="cursos-lista" class="hidden grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-lg"></div>
+    </div>
+  </div>
+</main>
+
+<footer class="w-full bg-surface-container-lowest py-space-xl shadow-[0_-1px_8px_rgba(0,0,0,0.03)]">
+  <div class="max-w-7xl mx-auto px-gutter flex flex-col items-center md:items-start">
+    <p class="font-label-md text-label-md text-on-surface font-semibold">SEPA · Sistema de Evaluación de Progresión Académica</p>
+    <p class="font-caption text-caption text-on-surface-variant">Centro Universitario de Ciencias Exactas e Ingenierías, Universidad de Guadalajara.</p>
+  </div>
+</footer>
+
+<!-- Ventana: crear curso (RF-09, RF-12, RF-13, RF-17, RF-18) -->
+<div id="modal-crear-curso" class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-space-md sm:p-gutter bg-primary/40 backdrop-blur-sm overflow-y-auto">
+  <form id="form-curso" novalidate
+    class="bg-surface-container-lowest w-full max-w-2xl rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer my-auto">
+    <div class="flex items-start justify-between gap-space-md mb-space-lg">
+      <div>
+        <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold">Nuevo curso</span>
+        <h2 class="font-title-lg text-title-lg text-primary mt-1">Crear curso</h2>
+      </div>
+      <button type="button" data-cerrar-modal="modal-crear-curso" aria-label="Cerrar"
+        class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div id="aviso-curso" class="hidden">
+      <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+      <p class="font-body-md text-body-md" data-aviso-texto></p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-space-md">
+      <!-- RF-12: materia del catálogo -->
+      <div class="sm:col-span-2 flex flex-col space-y-space-xs">
+        <label for="input-materia" class="font-label-lg text-label-lg text-on-surface">Materia</label>
+        <input id="input-materia" name="nombreMateria" type="text" list="lista-materias" autocomplete="off"
+          placeholder="Escribe para buscar en el plan de estudios"
+          class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline shadow-sm focus:outline-none" />
+        <datalist id="lista-materias"></datalist>
+        <span id="err-nombreMateria" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+        </span>
+      </div>
+
+      <div class="flex flex-col space-y-space-xs">
+        <label for="input-seccion" class="font-label-lg text-label-lg text-on-surface">Sección</label>
+        <input id="input-seccion" name="seccion" type="text" maxlength="10" placeholder="D01"
+          class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline shadow-sm uppercase focus:outline-none" />
+        <span id="err-seccion" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+        </span>
+      </div>
+
+      <div class="sm:col-span-3 flex flex-col space-y-space-xs">
+        <label for="input-descripcion" class="font-label-lg text-label-lg text-on-surface">Descripción</label>
+        <textarea id="input-descripcion" name="descripcion" rows="3" maxlength="500"
+          placeholder="Objetivo del curso, forma de trabajo, reglas generales..."
+          class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline shadow-sm resize-y focus:outline-none"></textarea>
+        <div class="flex justify-between gap-space-sm">
+          <span id="err-descripcion" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+            <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+          </span>
+          <span class="ml-auto font-helper-sm text-helper-sm text-on-surface-variant" id="contador-descripcion">0 / 500</span>
+        </div>
+      </div>
+
+      <!-- RF-09: ciclo obligatorio -->
+      <div class="sm:col-span-3 flex flex-col space-y-space-xs">
+        <label for="select-ciclo" class="font-label-lg text-label-lg text-on-surface">Ciclo escolar</label>
+        <select id="select-ciclo" name="cicloEscolar_id"
+          class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md shadow-sm focus:outline-none">
+          <option value="">Cargando ciclos...</option>
+        </select>
+        <span id="err-cicloEscolar_id" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+        </span>
+      </div>
+
+      <!-- RF-13: días y horario -->
+      <fieldset class="sm:col-span-3 flex flex-col space-y-space-xs">
+        <legend class="font-label-lg text-label-lg text-on-surface mb-space-xs">Días de clase</legend>
+        <div id="dias-semana" class="flex flex-wrap gap-space-sm" data-campo="diasSemana"></div>
+        <span id="err-diasSemana" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+        </span>
+      </fieldset>
+
+      <div class="flex flex-col space-y-space-xs">
+        <label for="input-hora-inicio" class="font-label-lg text-label-lg text-on-surface">Hora de inicio</label>
+        <input id="input-hora-inicio" name="horaInicio" type="time" step="300"
+          class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md shadow-sm focus:outline-none" />
+        <span id="err-horaInicio" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+        </span>
+      </div>
+      <div class="flex flex-col space-y-space-xs">
+        <label for="input-hora-fin" class="font-label-lg text-label-lg text-on-surface">Hora de fin</label>
+        <input id="input-hora-fin" name="horaFin" type="time" step="300"
+          class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md shadow-sm focus:outline-none" />
+        <span id="err-horaFin" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+        </span>
+      </div>
+      <div class="hidden sm:block"></div>
+
+      <!-- RF-17: solo dos tipos de evaluación · RF-18: mínimo fijo -->
+      <fieldset class="sm:col-span-3 flex flex-col space-y-space-xs">
+        <legend class="font-label-lg text-label-lg text-on-surface mb-space-xs">Tipo de evaluación</legend>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-space-sm" data-campo="tipoEvaluacion">
+          <label class="flex items-start gap-space-sm p-space-md rounded-lg bg-surface-container-low cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-secondary">
+            <input type="radio" name="tipoEvaluacion" value="numerica" class="mt-0.5 accent-[#305ea1]" checked />
+            <span>
+              <span class="block font-label-lg text-label-lg text-on-surface">Calificación numérica</span>
+              <span class="block font-helper-sm text-helper-sm text-on-surface-variant">Escala de 0 a 100</span>
+            </span>
+          </label>
+          <label class="flex items-start gap-space-sm p-space-md rounded-lg bg-surface-container-low cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-secondary">
+            <input type="radio" name="tipoEvaluacion" value="aprobado_no_aprobado" class="mt-0.5 accent-[#305ea1]" />
+            <span>
+              <span class="block font-label-lg text-label-lg text-on-surface">Aprobado / No aprobado</span>
+              <span class="block font-helper-sm text-helper-sm text-on-surface-variant">Sin calificación numérica</span>
+            </span>
+          </label>
+        </div>
+        <p id="texto-minimo" class="flex items-center gap-1.5 font-helper-sm text-helper-sm text-on-secondary-container">
+          <span class="material-symbols-outlined text-[16px]">lock</span>
+          Mínimo aprobatorio: <strong>60</strong> (fijo por reglamento)
+        </p>
+        <span id="err-tipoEvaluacion" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+        </span>
+      </fieldset>
+    </div>
+
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm mt-space-xl">
+      <button type="button" data-cerrar-modal="modal-crear-curso"
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button id="btn-guardar-curso" type="submit"
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
+        <span data-texto-boton>Crear curso</span>
+        <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- Ventana: curso creado, con su código (RF-14) -->
+<div id="modal-curso-creado" class="hidden fixed inset-0 z-50 flex items-center justify-center p-gutter bg-primary/40 backdrop-blur-sm">
+  <div class="bg-surface-container-lowest max-w-md w-full rounded-xl shadow-xl p-space-xl flex flex-col items-center text-center animate-aparecer">
+    <div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center mb-space-md text-secondary">
+      <span class="material-symbols-outlined icono-relleno text-[36px]">check_circle</span>
+    </div>
+    <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold">Curso creado</span>
+    <h3 class="font-title-lg text-title-lg text-primary mt-1" id="creado-titulo"></h3>
+    <p class="font-body-md text-body-md text-on-surface-variant mt-space-sm">Comparte este código con tus alumnos para que se inscriban.</p>
+    <div class="w-full mt-space-md p-space-md rounded-xl bg-surface-container-low flex items-center justify-between gap-space-sm">
+      <span class="font-mono text-[24px] font-semibold tracking-[0.2em] text-primary" id="creado-codigo"></span>
+      <button type="button" id="btn-copiar-creado" data-copiar=""
+        class="inline-flex items-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg text-secondary bg-surface-container-lowest hover:bg-surface-container transition-colors">
+        <span class="material-symbols-outlined text-[18px]">content_copy</span><span data-etiqueta>Copiar</span>
+      </button>
+    </div>
+    <button type="button" data-cerrar-modal="modal-curso-creado"
+      class="w-full mt-space-lg py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors">Listo</button>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/docente.js"></script>
+</body>
+</html>
