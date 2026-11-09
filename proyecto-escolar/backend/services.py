@@ -3,7 +3,7 @@ import uuid
 from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -656,6 +656,7 @@ def actualizar_categoria(db: Session, docente: models.Usuario, curso_id: int, ca
                        cambios.get("porcentajePeso", categoria.porcentajePeso), categoria.id)
     for campo, valor in cambios.items():
         setattr(categoria, campo, valor)
+    recalcular_acumuladas(db, categoria.curso_id)  # cambia lo que vale cada actividad
     db.commit()
     db.refresh(categoria)
     return {"categoria": categoria, **_resumen_pesos(db, categoria.curso_id)}
@@ -744,6 +745,7 @@ def crearActividad(db: Session, docente: models.Usuario, curso_id: int,
                                  fechaHoraLimite=_fecha_limite(datos.fechaHoraLimite),
                                  puntuacionMaxima=datos.puntuacionMaxima)
     db.add(actividad)
+    recalcular_acumuladas(db, curso.id)  # RF-34: las demás de la categoría pasan a valer menos
     db.commit()
     db.refresh(actividad)
     return _actividad_dict(db, actividad)
@@ -756,8 +758,16 @@ def actualizar_actividad(db: Session, docente: models.Usuario, curso_id: int, ac
         _categoria_de(db, curso_id, cambios["categoriaEvaluacion_id"])
     if "fechaHoraLimite" in cambios:
         cambios["fechaHoraLimite"] = _fecha_limite(cambios["fechaHoraLimite"])
+    if "puntuacionMaxima" in cambios:
+        mayor = (db.query(func.max(models.Calificacion.calificacionObtenida))
+                 .join(models.Entrega, models.Entrega.id == models.Calificacion.entrega_id)
+                 .filter(models.Entrega.actividad_id == actividad.id).scalar())
+        if mayor is not None and cambios["puntuacionMaxima"] < mayor:
+            raise HTTPException(409, "La puntuación máxima no puede ser menor que una calificación "
+                                     f"ya asignada ({mayor:g})")
     for campo, valor in cambios.items():
         setattr(actividad, campo, valor)
+    recalcular_acumuladas(db, curso_id)
     db.commit()
     db.refresh(actividad)
     return _actividad_dict(db, actividad)
@@ -768,6 +778,7 @@ def eliminar_actividad(db: Session, docente: models.Usuario, curso_id: int, acti
         raise HTTPException(409, "No se puede eliminar una actividad que ya tiene entregas")
     archivo = actividad.archivoAdjunto
     db.delete(actividad)
+    recalcular_acumuladas(db, curso_id)
     db.commit()
     _borrar_archivo(archivo)
     return listar_actividades(db, docente, curso_id)
@@ -934,3 +945,104 @@ def archivo_de_entrega(db: Session, usuario: models.Usuario, entrega_id: int) ->
     codigo = db.get(models.Estudiante, matricula.estudiante_id).codigoEstudiante
     extension = Path(entrega.archivoDigital).suffix
     return CARPETA_ARCHIVOS / entrega.archivoDigital, f"{codigo}_{actividad.titulo}{extension}"
+
+# ======================================================================
+# Calificaciones (RF-43, RF-46, RF-47, RF-67)
+# ======================================================================
+def calcular_calificacion(items: list[tuple[float, float, float | None, bool]]) -> dict:
+    """Cada item es (valorEnCurso, puntuacionMaxima, calificacionObtenida o None, vencida sin entrega).
+    - RF-46: la acumulada son los puntos ganados sobre 100 según los pesos.
+    - RF-47: vencida sin entrega cuenta como 0, pero sí suma a los puntos posibles.
+    - Lo pendiente (aún no vence, o entregado sin calificar) no cuenta en ninguno de los dos.
+    El desempeño proporcional (acumulada / posibles) es el que usará la alerta de RF-48."""
+    ganados = posibles = 0.0
+    for valor, maximo, obtenida, cero in items:
+        if obtenida is not None:
+            ganados += valor * obtenida / maximo
+            posibles += valor
+        elif cero:
+            posibles += valor
+    return {"calificacionAcumulada": round(ganados, 2), "puntosPosibles": round(posibles, 2),
+            "desempenoProporcional": round(ganados * 100 / posibles, 2) if posibles else None}
+
+def _actividades_de_curso(db: Session, curso_id: int) -> list[models.Actividad]:
+    return (db.query(models.Actividad)
+            .join(models.CategoriaEvaluacion,
+                  models.CategoriaEvaluacion.id == models.Actividad.categoriaEvaluacion_id)
+            .filter(models.CategoriaEvaluacion.curso_id == curso_id)
+            .order_by(models.Actividad.fechaHoraLimite, models.Actividad.id).all())
+
+def _datos_calificaciones(db: Session, curso_id: int) -> tuple[list, dict, dict, dict]:
+    """Actividades, valores, entregas {(matricula, actividad): Entrega} y calificaciones {entrega: Calificacion}."""
+    actividades = _actividades_de_curso(db, curso_id)
+    entregas = {(e.matricula_id, e.actividad_id): e for e in db.query(models.Entrega)
+                .filter(models.Entrega.actividad_id.in_([a.id for a in actividades])).all()}
+    calificaciones = {c.entrega_id: c for c in db.query(models.Calificacion)
+                      .filter(models.Calificacion.entrega_id.in_([e.id for e in entregas.values()])).all()}
+    return actividades, valores_actividades(db, curso_id), entregas, calificaciones
+
+def _fila_calificaciones(matricula_id: int, actividades, valores, entregas, calificaciones) -> dict:
+    celdas, items = [], []
+    for a in actividades:
+        entrega = entregas.get((matricula_id, a.id))
+        calif = calificaciones.get(entrega.id) if entrega else None
+        cero = entrega is None and _vencida(a)
+        celdas.append({"actividad_id": a.id, "estadoEntrega": _estado_entrega(a, entrega),
+                       "entrega_id": entrega.id if entrega else None, "calificacion": calif,
+                       "cuentaComoCero": cero})
+        items.append((valores[a.id], a.puntuacionMaxima, calif.calificacionObtenida if calif else None, cero))
+    return {"celdas": celdas, **calcular_calificacion(items)}
+
+def _columnas(db: Session, actividades, valores) -> list[dict]:
+    return [{"id": a.id, "titulo": a.titulo, "fechaHoraLimite": a.fechaHoraLimite,
+             "categoria": db.get(models.CategoriaEvaluacion, a.categoriaEvaluacion_id).nombre,
+             "puntuacionMaxima": a.puntuacionMaxima, "valorEnCurso": round(valores[a.id], 2)}
+            for a in actividades]
+
+def recalcular_acumuladas(db: Session, curso_id: int) -> None:
+    """RF-67: guarda en Matricula.calificacionAcumuladaActual la acumulada de cada alumno activo.
+    Se llama al calificar y cuando cambian pesos o actividades. No hace commit."""
+    db.flush()
+    datos = _datos_calificaciones(db, curso_id)
+    for m in db.query(models.Matricula).filter_by(curso_id=curso_id, estado="activo").all():
+        m.calificacionAcumuladaActual = _fila_calificaciones(m.id, *datos)["calificacionAcumulada"]
+
+def calificarEntrega(db: Session, docente: models.Usuario, curso_id: int, entrega_id: int,
+                     datos: schemas.CalificacionCrear) -> dict:
+    """RF-43: de 0 a la puntuación máxima. Si ya estaba calificada, se corrige."""
+    curso = _curso_del_docente(db, docente, curso_id)
+    entrega = db.get(models.Entrega, entrega_id)
+    matricula = db.get(models.Matricula, entrega.matricula_id) if entrega else None
+    if not matricula or matricula.curso_id != curso.id:
+        raise HTTPException(404, "Entrega no encontrada")
+    if matricula.estado != "activo":
+        raise HTTPException(409, "El alumno ya no está activo en el curso")
+    actividad = db.get(models.Actividad, entrega.actividad_id)
+    if datos.calificacionObtenida > actividad.puntuacionMaxima:
+        raise HTTPException(422, f"La calificación debe estar entre 0 y {actividad.puntuacionMaxima:g}")
+
+    calificacion = db.query(models.Calificacion).filter_by(entrega_id=entrega.id).first()
+    if not calificacion:
+        calificacion = models.Calificacion(entrega_id=entrega.id)
+        db.add(calificacion)
+    calificacion.calificacionObtenida = datos.calificacionObtenida
+    calificacion.retroalimentacion = datos.retroalimentacion
+    calificacion.fecha = ahora().isoformat(timespec="seconds")
+    recalcular_acumuladas(db, curso.id)
+    db.commit()
+    return {"entrega_id": entrega.id, "matricula_id": matricula.id, "calificacion": calificacion,
+            "calificacionAcumuladaActual": matricula.calificacionAcumuladaActual}
+
+def cuadricula_calificaciones(db: Session, docente: models.Usuario, curso_id: int) -> dict:
+    """Columnas = actividades por fecha límite; filas = alumnos activos con su acumulada."""
+    curso = _curso_del_docente(db, docente, curso_id)
+    datos = _datos_calificaciones(db, curso.id)
+    return {"curso_id": curso.id, "actividades": _columnas(db, datos[0], datos[1]),
+            "alumnos": [{**_datos_alumno(m, e, u), **_fila_calificaciones(m.id, *datos)}
+                        for m, e, u in _alumnos_activos(db, curso.id)]}
+
+def calificaciones_del_alumno(db: Session, usuario: models.Usuario, curso_id: int) -> dict:
+    matricula = _matricula_activa(db, usuario, curso_id)
+    datos = _datos_calificaciones(db, matricula.curso_id)
+    return {"curso_id": matricula.curso_id, "actividades": _columnas(db, datos[0], datos[1]),
+            **_fila_calificaciones(matricula.id, *datos)}

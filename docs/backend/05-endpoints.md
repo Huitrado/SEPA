@@ -2,7 +2,7 @@
 
 [← Volver al índice](README.md)
 
-Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **49 endpoints** en 6 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
+Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **52 endpoints** en 6 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
 
 ## Cómo leer estas tablas
 
@@ -401,6 +401,8 @@ Archivo: `routers/docentes.py` · Prefijo: `/docente` (en singular) · RF-95: so
 | PUT | `/docente/cursos/{curso_id}/actividades/{actividad_id}/archivo` | Docente dueño | `multipart/form-data` con el campo `archivo` | **200**, 403, 404, 413, 415, 422 | RF-36, RNF-8 |
 | DELETE | `/docente/cursos/{curso_id}/actividades/{actividad_id}/archivo` | Docente dueño | Nada | **200**, 403, 404 | RF-36 |
 | GET | `/docente/cursos/{curso_id}/actividades/{actividad_id}/entregas` | Docente dueño | Nada | **200**, 403, 404 | RF-37 a RF-39 |
+| PUT | `/docente/cursos/{curso_id}/entregas/{entrega_id}/calificacion` | Docente dueño | JSON `{calificacionObtenida, retroalimentacion?}` | **200**, 403, 404, 409, 422 | RF-43, RF-46, RF-67 |
+| GET | `/docente/cursos/{curso_id}/calificaciones` | Docente dueño | Nada | **200**, 403, 404 | RF-46, RF-47 |
 
 Errores de dueño (`services.py → _curso_del_docente`): **404** `Curso no encontrado`, **403** `Este curso no te pertenece`.
 
@@ -734,6 +736,79 @@ No pongas `Content-Type` a mano: el navegador lo arma con el separador correcto.
 ```
 El archivo de cada entrega se baja con `GET /entregas/{entrega.id}/archivo`.
 
+### Calificaciones (RF-43, RF-46, RF-47, RF-67)
+
+Cómo se calcula (`services.py → calcular_calificacion`), para cada alumno y cada actividad del curso:
+
+| Situación de la actividad | Puntos ganados | ¿Suma a `puntosPosibles`? |
+|---------------------------|----------------|---------------------------|
+| Calificada | `valorEnCurso × calificacionObtenida / puntuacionMaxima` | Sí |
+| Vencida sin entrega (RF-47) | 0 (`cuentaComoCero: true`) | Sí |
+| Entregada pero sin calificar | 0 | No, aún no se sabe |
+| Aún no vence y sin entrega | 0 | No |
+
+- **`calificacionAcumulada`** (RF-46): suma de los puntos ganados, **sobre 100**. Es la que se guarda en `Matricula.calificacionAcumuladaActual` (RF-67).
+- **`puntosPosibles`**: cuánto se ha podido ganar hasta hoy.
+- **`desempenoProporcional`**: `calificacionAcumulada / puntosPosibles × 100`, o `null` si aún no hay nada evaluado. Es el valor que usará la alerta de RF-48 contra el 60 %.
+- La acumulada guardada se **recalcula sola** al calificar, al editar el peso de una categoría y al crear, editar o eliminar actividades (`services.py → recalcular_acumuladas`).
+- Los cursos `aprobado_no_aprobado` se califican igual que los numéricos.
+- Una actividad sin entrega no se puede calificar: si vence, cuenta 0.
+
+#### `PUT /docente/cursos/{curso_id}/entregas/{entrega_id}/calificacion`
+
+`services.py → calificarEntrega`. Califica la entrega o **corrige** la calificación si ya tenía una. El `entrega_id` sale de `GET .../actividades/{actividad_id}/entregas` o de la cuadrícula.
+
+```json
+{ "calificacionObtenida": 8, "retroalimentacion": "Falta el ejercicio 3" }
+```
+
+| Campo | Reglas |
+|-------|--------|
+| `calificacionObtenida` | De 0 a la `puntuacionMaxima` de la actividad (RF-43); admite decimales |
+| `retroalimentacion` | Opcional; hasta 2000 caracteres |
+
+**200** (`CalificacionGuardada`):
+```json
+{
+  "entrega_id": 1, "matricula_id": 1,
+  "calificacion": { "calificacionObtenida": 8.0, "retroalimentacion": "Falta el ejercicio 3", "fecha": "2026-10-26T09:30:00" },
+  "calificacionAcumuladaActual": 16.0
+}
+```
+
+| Código | `detail` |
+|--------|----------|
+| 404 | `Entrega no encontrada` (no existe o es de otro curso) |
+| 409 | `El alumno ya no está activo en el curso` |
+| 422 | `La calificación debe estar entre 0 y 10` (formato simple) o, si es negativa, `Hay datos inválidos en la solicitud` + `errores[]` |
+
+Una vez calificada, el alumno ya no puede cancelar su entrega. Tampoco se puede bajar la `puntuacionMaxima` de la actividad por debajo de una calificación ya puesta: **409** `La puntuación máxima no puede ser menor que una calificación ya asignada (8)`.
+
+#### `GET /docente/cursos/{curso_id}/calificaciones`
+
+`services.py → cuadricula_calificaciones`. Cuadrícula del curso: `actividades` son las columnas, por fecha límite; `alumnos` son las filas (solo activos), con una celda por actividad **en el mismo orden**. **200** (`CuadriculaCalificaciones`):
+```json
+{
+  "curso_id": 1,
+  "actividades": [
+    { "id": 1, "titulo": "T1", "categoria": "Tareas", "fechaHoraLimite": "2026-11-01T23:59:00",
+      "puntuacionMaxima": 10.0, "valorEnCurso": 20.0 }
+  ],
+  "alumnos": [
+    {
+      "matricula_id": 1, "estudiante_id": 3, "codigoEstudiante": "123456789",
+      "nombre": "Ana", "apellidos": "López",
+      "celdas": [
+        { "actividad_id": 1, "estadoEntrega": "entregada", "entrega_id": 1,
+          "calificacion": { "calificacionObtenida": 8.0, "retroalimentacion": null, "fecha": "2026-10-26T09:30:00" },
+          "cuentaComoCero": false }
+      ],
+      "calificacionAcumulada": 16.0, "puntosPosibles": 20.0, "desempenoProporcional": 80.0
+    }
+  ]
+}
+```
+
 ---
 
 ## Router `alumnos`: lo que hace el alumno en sus cursos
@@ -746,6 +821,7 @@ Archivo: `routers/alumnos.py` · Prefijo: `/alumno` (en singular) · **Todos exi
 | GET | `/alumno/cursos/{curso_id}/actividades` | Alumno inscrito | Nada | **200**, 403, 404 | RF-29 a RF-36 |
 | POST | `/alumno/actividades/{actividad_id}/entrega` | Alumno inscrito | `multipart/form-data` con el campo `archivo` | **201**, 403, 404, 409, 413, 415, 422 | RF-37, RF-39, RNF-8 |
 | DELETE | `/alumno/actividades/{actividad_id}/entrega` | Alumno inscrito | Nada | **200**, 403, 404, 409 | RF-38 |
+| GET | `/alumno/cursos/{curso_id}/calificaciones` | Alumno inscrito | Nada | **200**, 403, 404 | RF-46, RF-47 |
 
 Errores de inscripción (`services.py → _matricula_activa`): **404** `Curso no encontrado` · **404** `Actividad no encontrada` · **403** `No estás inscrito en este curso` (tampoco si su matrícula está dada de baja).
 
@@ -812,6 +888,20 @@ Entregar **justo** en la fecha y hora límite cuenta como a tiempo.
 | 404 | `No has entregado esta actividad` |
 | 409 | `Ya pasó la fecha límite; no puedes cancelar tu entrega` |
 | 409 | `Tu entrega ya fue calificada; no puedes cancelarla` |
+
+### `GET /alumno/cursos/{curso_id}/calificaciones`
+
+`services.py → calificaciones_del_alumno`. Las calificaciones del propio alumno en el curso, con la retroalimentación del docente. Es la fila del alumno en la cuadrícula del docente. **200** (`CalificacionesAlumno`):
+```json
+{
+  "curso_id": 1,
+  "actividades": [ { "id": 1, "titulo": "T1", "categoria": "Tareas", "fechaHoraLimite": "2026-11-01T23:59:00", "puntuacionMaxima": 10.0, "valorEnCurso": 20.0 } ],
+  "celdas": [ { "actividad_id": 1, "estadoEntrega": "entregada", "entrega_id": 1,
+                "calificacion": { "calificacionObtenida": 9.0, "retroalimentacion": "Bien", "fecha": "2026-10-26T09:30:00" },
+                "cuentaComoCero": false } ],
+  "calificacionAcumulada": 18.0, "puntosPosibles": 20.0, "desempenoProporcional": 90.0
+}
+```
 
 ---
 

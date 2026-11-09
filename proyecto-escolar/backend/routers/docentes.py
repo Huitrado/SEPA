@@ -116,3 +116,14 @@ def quitar_archivo(curso_id: int, actividad_id: int, db: Session = Depends(get_d
 def entregas_de_actividad(curso_id: int, actividad_id: int, db: Session = Depends(get_db),
                           docente: models.Usuario = Depends(requiere_docente)):
     return services.entregas_de_actividad(db, docente, curso_id, actividad_id)
+
+# ------------------------------------------------------------------ calificaciones
+@router.put("/cursos/{curso_id}/entregas/{entrega_id}/calificacion", response_model=schemas.CalificacionGuardada)
+def calificar_entrega(curso_id: int, entrega_id: int, datos: schemas.CalificacionCrear,
+                      db: Session = Depends(get_db), docente: models.Usuario = Depends(requiere_docente)):
+    return services.calificarEntrega(db, docente, curso_id, entrega_id, datos)
+
+@router.get("/cursos/{curso_id}/calificaciones", response_model=schemas.CuadriculaCalificaciones)
+def cuadricula_calificaciones(curso_id: int, db: Session = Depends(get_db),
+                              docente: models.Usuario = Depends(requiere_docente)):
+    return services.cuadricula_calificaciones(db, docente, curso_id)

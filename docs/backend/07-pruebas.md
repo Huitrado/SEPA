@@ -63,6 +63,8 @@ flowchart TD
     T5 --> H
     T6["test_entregas.py<br/>RF-37 a RF-39<br/>+ fixtures reloj y curso"] --> C
     T6 --> H
+    T7["test_calificaciones.py<br/>RF-43, RF-46, RF-47, RF-67<br/>+ fixtures reloj y curso"] --> C
+    T7 --> H
 ```
 
 ### `conftest.py`: la fixture `client`
@@ -226,6 +228,18 @@ Docstring: *"Módulo de entregas del alumno (RF-37 a RF-39)"*. La fixture `reloj
 | RF-38 | Cancelar (borra el archivo) y volver a subir antes de la fecha; no se cancela después ni si ya está calificada |
 | RF-39 | Después de la fecha se acepta con `entregadoConRetraso` |
 | Acceso | Solo alumnos inscritos y activos; curso archivado → 409; el docente ve las entregas de todos; solo el alumno y su docente descargan la entrega |
+
+### `test_calificaciones.py`
+
+Docstring: *"Módulo de calificaciones (RF-43, RF-46, RF-47, RF-67)"*. `_preparar` crea un curso con Tareas 40 % (T1 y T2, de 10 puntos, que valen 20 cada una) y Exámenes 60 % (Parcial, de 100), y a Ana y Beto inscritos. Usa la misma fixture `reloj` que las entregas.
+
+| RF | Qué comprueban |
+|----|----------------|
+| RF-43 | Calificar con retroalimentación; 0 y el máximo son válidos; fuera de rango → 422; corregir no duplica; entrega de otro curso → 404; alumno dado de baja → 409 |
+| RF-46 / RF-47 | Acumulada con todas las actividades; vencida sin entrega cuenta 0 y suma a los puntos posibles; entregado sin calificar no cuenta todavía; cálculo puro con `calcular_calificacion` |
+| RF-67 | La acumulada guardada se recalcula al agregar o eliminar actividades y al cambiar el peso de una categoría; la puntuación máxima no baja de una calificación ya puesta |
+| Vistas | Cuadrícula del docente por fecha límite; el alumno ve solo lo suyo; los cursos aprobado/no aprobado se califican igual |
+| RF-95 | Otro docente, el admin y un alumno reciben 403 |
 
 ---
 

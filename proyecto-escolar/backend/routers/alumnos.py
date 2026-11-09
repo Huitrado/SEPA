@@ -30,3 +30,8 @@ def entregar(actividad_id: int, archivo: UploadFile = File(...), db: Session = D
 def cancelar_entrega(actividad_id: int, db: Session = Depends(get_db),
                      alumno: models.Usuario = Depends(requiere_estudiante)):
     return services.cancelarEntrega(db, alumno, actividad_id)
+
+@router.get("/cursos/{curso_id}/calificaciones", response_model=schemas.CalificacionesAlumno)
+def mis_calificaciones(curso_id: int, db: Session = Depends(get_db),
+                       alumno: models.Usuario = Depends(requiere_estudiante)):
+    return services.calificaciones_del_alumno(db, alumno, curso_id)

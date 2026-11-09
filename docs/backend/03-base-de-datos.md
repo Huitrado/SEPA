@@ -30,8 +30,8 @@ Todo se define en **`models.py`**. Cada clase que hereda de `Base` es una **tabl
 
 | Estado | Tablas |
 |--------|--------|
-| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `Entrega`, `MallaCurricular`, `Materia`, `MallaMateria` |
-| **Sin uso todavía** | `HistorialAcademico`, `PublicacionAsesoria`, `BibliotecaNormatividad`, `RegistroRiesgo`, `Calificacion` |
+| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `Entrega`, `Calificacion`, `MallaCurricular`, `Materia`, `MallaMateria` |
+| **Sin uso todavía** | `HistorialAcademico`, `PublicacionAsesoria`, `BibliotecaNormatividad`, `RegistroRiesgo` |
 
 ---
 
@@ -212,9 +212,9 @@ erDiagram
     }
     Calificacion {
         int id PK
-        float calificacionObtenida
+        float calificacionObtenida "0 a puntuacionMaxima (RF-43)"
         string retroalimentacion
-        string fecha
+        string fecha "fecha y hora en que se calificó"
         int entrega_id FK
     }
     HistorialAcademico {
@@ -352,8 +352,8 @@ El ciclo **vigente** (`services.py → ciclo_vigente`) es el que está `activo`.
 |-------|------|-------------|-------|
 | `id` | Integer | PK | |
 | `fechaInscripcion` | String | Sí | Fecha y hora local |
-| `estado` | String | Sí | Hoy siempre `activo` |
-| `calificacionAcumuladaActual` | Float | No | Hoy siempre vacía |
+| `estado` | String | Sí | `activo`. Con cualquier otro valor (por ejemplo `baja`) el alumno no aparece en asistencia ni calificaciones y no puede entregar |
+| `calificacionAcumuladaActual` | Float | No | Puntos ganados sobre 100 (RF-46, RF-67). Vacía hasta que se califica algo o cambian los pesos o actividades del curso; se recalcula sola (`services.py → recalcular_acumuladas`) |
 | `curso_id` | Integer | FK → Curso | |
 | `estudiante_id` | Integer | FK → Estudiante | |
 

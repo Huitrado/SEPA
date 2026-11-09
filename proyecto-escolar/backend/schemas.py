@@ -410,3 +410,58 @@ class EntregaDeAlumno(BaseModel):  # lo que ve el docente por cada alumno activo
     apellidos: str
     estadoEntrega: EstadoEntrega
     entrega: EntregaSalida | None
+
+# ------------------------------------------------------------------ módulo: calificaciones
+class CalificacionCrear(BaseModel):  # RF-43: el máximo (puntuacionMaxima) lo revisa services.py
+    calificacionObtenida: Annotated[float, Field(ge=0)]
+    retroalimentacion: DescripcionLarga | None = None
+
+class CalificacionSalida(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    calificacionObtenida: float
+    retroalimentacion: str | None
+    fecha: str
+
+class CalificacionGuardada(BaseModel):
+    entrega_id: int
+    matricula_id: int
+    calificacion: CalificacionSalida
+    calificacionAcumuladaActual: float  # RF-46, RF-67: ya recalculada
+
+class ColumnaActividad(BaseModel):
+    id: int
+    titulo: str
+    categoria: str
+    fechaHoraLimite: str
+    puntuacionMaxima: float
+    valorEnCurso: float
+
+class CeldaCalificacion(BaseModel):
+    actividad_id: int
+    estadoEntrega: EstadoEntrega
+    entrega_id: int | None
+    calificacion: CalificacionSalida | None
+    cuentaComoCero: bool  # RF-47: venció sin entrega
+
+class ResumenCalificacion(BaseModel):
+    calificacionAcumulada: float          # RF-46: puntos ganados sobre 100
+    puntosPosibles: float                 # lo que ya se pudo ganar: calificadas + vencidas sin entrega
+    desempenoProporcional: float | None   # acumulada / posibles × 100; None si aún no hay nada evaluado
+
+class FilaCalificaciones(ResumenCalificacion):
+    matricula_id: int
+    estudiante_id: int
+    codigoEstudiante: str
+    nombre: str
+    apellidos: str
+    celdas: list[CeldaCalificacion]  # en el mismo orden que las actividades
+
+class CuadriculaCalificaciones(BaseModel):
+    curso_id: int
+    actividades: list[ColumnaActividad]  # por fecha límite
+    alumnos: list[FilaCalificaciones]
+
+class CalificacionesAlumno(ResumenCalificacion):
+    curso_id: int
+    actividades: list[ColumnaActividad]
+    celdas: list[CeldaCalificacion]
