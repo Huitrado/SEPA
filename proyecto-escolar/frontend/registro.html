@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crear cuenta · SEPA CUCEI</title>
+  <!-- Fuentes e íconos de Google -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <!-- Tailwind (estilos del diseño) y su configuración de colores -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link href="css/style.css" rel="stylesheet" />
+</head>
+<body class="bg-surface font-body-md text-on-surface antialiased" data-pagina="registro">
+
+<!-- Encabezado -->
+<header class="fixed top-0 w-full z-40 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+  <div class="h-16 max-w-7xl mx-auto px-gutter flex items-center justify-between">
+    <a href="login.html" class="flex items-center gap-space-md">
+      <span class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center">
+        <span class="material-symbols-outlined text-on-primary text-[20px]">school</span>
+      </span>
+      <span class="flex flex-col">
+        <span class="font-label-lg text-label-lg text-primary leading-tight">SEPA CUCEI</span>
+        <span class="font-caption text-caption text-on-surface-variant leading-none">Universidad de Guadalajara · CUCEI</span>
+      </span>
+    </a>
+    <a href="login.html" class="inline-flex items-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg text-secondary bg-surface-container-low hover:bg-surface-container transition-colors">
+      <span class="material-symbols-outlined text-[18px]">login</span>
+      <span>Iniciar sesión</span>
+    </a>
+  </div>
+</header>
+
+<main class="w-full pt-24 pb-space-2xl min-h-[calc(100vh-6rem)]">
+  <div class="w-full px-gutter">
+    <div class="max-w-2xl mx-auto">
+
+      <!-- Aviso general (errores del backend, sin conexión, etc.) -->
+      <div id="aviso" class="hidden">
+        <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+        <p class="font-body-md text-body-md" data-aviso-texto></p>
+      </div>
+
+      <div class="bg-surface-container-lowest rounded-xl shadow-md p-space-lg md:p-space-xl">
+
+        <!-- Título -->
+        <div class="flex flex-col items-center text-center pb-space-lg mb-space-lg">
+          <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold">Sistema de Evaluación de Progresión Académica</span>
+          <h1 class="font-headline-lg text-headline-lg text-primary tracking-tight mt-1">Crear cuenta</h1>
+          <p class="font-body-md text-body-md text-on-surface-variant max-w-md mt-1">
+            Plataforma de seguimiento y validación curricular del Centro Universitario de Ciencias Exactas e Ingenierías.
+          </p>
+        </div>
+
+        <!-- Pestañas Estudiante / Docente -->
+        <div class="bg-surface-container p-1 rounded-xl flex items-center justify-between gap-1 mb-space-xl">
+          <button id="tab-estudiante" type="button">
+            <span class="material-symbols-outlined text-[20px]">school</span>
+            Soy estudiante
+          </button>
+          <button id="tab-docente" type="button">
+            <span class="material-symbols-outlined text-[20px]">co_present</span>
+            Soy docente
+          </button>
+        </div>
+
+        <!-- Aviso para docentes -->
+        <div id="aviso-docente" class="hidden mb-space-xl p-space-md rounded-xl bg-surface-container-low flex items-start gap-space-sm">
+          <span class="material-symbols-outlined icono-relleno text-secondary text-[22px] mt-0.5">shield</span>
+          <div class="flex flex-col">
+            <span class="font-label-lg text-label-lg font-semibold text-secondary">Aprobación requerida</span>
+            <p class="font-body-md text-body-md text-on-surface-variant mt-0.5">
+              Tu cuenta quedará en estado <span class="font-semibold text-on-secondary-container">Pendiente</span> hasta que un administrador la apruebe. Mientras tanto no podrás iniciar sesión.
+            </p>
+          </div>
+        </div>
+
+        <form id="form-registro" class="space-y-space-xl" novalidate>
+
+          <!-- SECCIÓN 1: Datos personales -->
+          <div class="space-y-space-md">
+            <div class="flex items-center justify-between pb-space-xs">
+              <div class="flex items-center gap-space-xs">
+                <span class="material-symbols-outlined text-primary text-[20px]">badge</span>
+                <h2 class="font-title-lg text-title-lg text-primary">Datos personales</h2>
+              </div>
+              <span class="font-label-md text-label-md px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant">Paso 1 de 2</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+              <div class="flex flex-col space-y-space-xs">
+                <label class="font-label-lg text-label-lg text-on-surface" for="input-nombre">Nombre(s) <span class="text-error">*</span></label>
+                <input id="input-nombre" name="nombre" type="text" maxlength="100" autocomplete="given-name" placeholder="Ej. Ana María"
+                  class="w-full bg-surface-container-lowest text-on-surface px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline-variant shadow-sm focus:outline-none transition-all" />
+                <span id="err-nombre" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+                </span>
+              </div>
+              <div class="flex flex-col space-y-space-xs">
+                <label class="font-label-lg text-label-lg text-on-surface" for="input-apellidos">Apellidos <span class="text-error">*</span></label>
+                <input id="input-apellidos" name="apellidos" type="text" maxlength="100" autocomplete="family-name" placeholder="Ej. López García"
+                  class="w-full bg-surface-container-lowest text-on-surface px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline-variant shadow-sm focus:outline-none transition-all" />
+                <span id="err-apellidos" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+                </span>
+              </div>
+            </div>
+
+            <div class="flex flex-col space-y-space-xs">
+              <label class="font-label-lg text-label-lg text-on-surface" for="input-correo">Correo institucional <span class="text-error">*</span></label>
+              <div class="relative flex items-center">
+                <span class="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">alternate_email</span>
+                <input id="input-correo" name="correoInstitucional" type="email" autocomplete="email"
+                  class="w-full bg-surface-container-lowest text-on-surface pl-10 pr-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline-variant shadow-sm focus:outline-none transition-all" />
+              </div>
+              <p class="font-helper-sm text-helper-sm text-on-surface-variant flex items-center gap-1">
+                <span class="material-symbols-outlined text-[15px] text-secondary">info</span>
+                <span>Usa exclusivamente tu correo con dominio <strong class="text-on-surface" id="dominio-correo">@alumnos.udg.mx</strong></span>
+              </p>
+              <span id="err-correoInstitucional" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+                <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+              <div class="flex flex-col space-y-space-xs">
+                <label class="font-label-lg text-label-lg text-on-surface" for="input-contrasena">Contraseña <span class="text-error">*</span></label>
+                <div class="relative flex items-center">
+                  <span class="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">lock</span>
+                  <input id="input-contrasena" name="contrasena" type="password" maxlength="72" autocomplete="new-password" placeholder="••••••••"
+                    class="w-full bg-surface-container-lowest text-on-surface pl-10 pr-10 py-2.5 rounded-lg text-body-md placeholder:text-outline-variant shadow-sm focus:outline-none transition-all" />
+                  <button type="button" data-ver-contrasena="input-contrasena" class="absolute right-3 text-outline hover:text-on-surface p-1 transition-colors" aria-label="Mostrar u ocultar contraseña">
+                    <span class="material-symbols-outlined text-[20px]">visibility</span>
+                  </button>
+                </div>
+                <span id="err-contrasena" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+                </span>
+              </div>
+              <div class="flex flex-col space-y-space-xs">
+                <label class="font-label-lg text-label-lg text-on-surface" for="input-confirmar">Confirmar contraseña <span class="text-error">*</span></label>
+                <div class="relative flex items-center">
+                  <span class="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">lock_reset</span>
+                  <input id="input-confirmar" name="confirmarContrasena" type="password" maxlength="72" autocomplete="new-password" placeholder="••••••••"
+                    class="w-full bg-surface-container-lowest text-on-surface pl-10 pr-10 py-2.5 rounded-lg text-body-md placeholder:text-outline-variant shadow-sm focus:outline-none transition-all" />
+                  <button type="button" data-ver-contrasena="input-confirmar" class="absolute right-3 text-outline hover:text-on-surface p-1 transition-colors" aria-label="Mostrar u ocultar contraseña">
+                    <span class="material-symbols-outlined text-[20px]">visibility</span>
+                  </button>
+                </div>
+                <span id="err-confirmarContrasena" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Requisitos de contraseña (los mismos que revisa el backend) -->
+            <div class="p-space-md rounded-xl bg-surface-container-low shadow-sm">
+              <span class="font-caption text-caption text-on-surface-variant block mb-2 font-semibold uppercase tracking-wider">Requisitos de la contraseña</span>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div id="regla-largo"><span class="material-symbols-outlined text-[16px]">check_circle</span><span>8 caracteres o más</span></div>
+                <div id="regla-mayuscula"><span class="material-symbols-outlined text-[16px]">check_circle</span><span>Una letra mayúscula</span></div>
+                <div id="regla-minuscula"><span class="material-symbols-outlined text-[16px]">check_circle</span><span>Una letra minúscula</span></div>
+                <div id="regla-numero"><span class="material-symbols-outlined text-[16px]">check_circle</span><span>Al menos un número</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN 2: Datos académicos -->
+          <div class="space-y-space-md pt-space-xs">
+            <div class="flex items-center justify-between pb-space-xs">
+              <div class="flex items-center gap-space-xs">
+                <span class="material-symbols-outlined text-primary text-[20px]">account_balance</span>
+                <h2 class="font-title-lg text-title-lg text-primary">Datos académicos</h2>
+              </div>
+              <span class="font-label-md text-label-md px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant">Paso 2 de 2</span>
+            </div>
+
+            <!-- Campos de estudiante -->
+            <div id="campos-estudiante" class="space-y-space-md">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+                <div class="flex flex-col space-y-space-xs">
+                  <label class="font-label-lg text-label-lg text-on-surface" for="input-codigo">Código de estudiante <span class="text-error">*</span></label>
+                  <div class="relative flex items-center">
+                    <span class="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">tag</span>
+                    <input id="input-codigo" name="codigo" type="text" inputmode="numeric" maxlength="9" placeholder="219876543"
+                      class="w-full bg-surface-container-lowest text-on-surface pl-10 pr-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline-variant shadow-sm focus:outline-none transition-all" />
+                  </div>
+                  <span class="font-helper-sm text-helper-sm text-on-surface-variant">9 dígitos numéricos asignados por Control Escolar</span>
+                  <span id="err-codigo" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+                  </span>
+                </div>
+                <div class="flex flex-col space-y-space-xs">
+                  <div class="flex items-center justify-between">
+                    <label class="font-label-lg text-label-lg text-on-surface" for="input-ciclo">Ciclo escolar</label>
+                    <span class="font-caption text-caption px-2 py-0.5 rounded bg-surface-container text-on-secondary-container font-semibold">Ciclo en curso</span>
+                  </div>
+                  <div class="relative flex items-center">
+                    <span class="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">event_note</span>
+                    <input id="input-ciclo" name="ciclo" type="text" readonly value="Cargando..."
+                      class="w-full bg-surface-container text-on-surface-variant font-semibold pl-10 pr-3.5 py-2.5 rounded-lg text-body-md cursor-not-allowed shadow-none select-none" />
+                  </div>
+                  <span class="font-helper-sm text-helper-sm text-on-surface-variant">Lo asigna el sistema según el calendario escolar</span>
+                  <span id="err-ciclo" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex flex-col space-y-space-xs">
+                <label class="font-label-lg text-label-lg text-on-surface" for="select-carrera">Carrera / Programa académico <span class="text-error">*</span></label>
+                <div class="relative flex items-center">
+                  <span class="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">menu_book</span>
+                  <!-- Las opciones se cargan del backend (GET /catalogos/carreras) -->
+                  <select id="select-carrera" name="carrera"
+                    class="w-full bg-surface-container-lowest text-on-surface pl-10 pr-10 py-2.5 rounded-lg text-body-md shadow-sm focus:outline-none appearance-none transition-all">
+                    <option value="">Cargando carreras...</option>
+                  </select>
+                  <span class="material-symbols-outlined absolute right-3 text-outline text-[22px] pointer-events-none">expand_more</span>
+                </div>
+                <span id="err-carrera" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Campos de docente -->
+            <div id="campos-docente" class="hidden space-y-space-md">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+                <div class="flex flex-col space-y-space-xs">
+                  <label class="font-label-lg text-label-lg text-on-surface" for="input-no-empleado">Número de empleado <span class="text-error">*</span></label>
+                  <div class="relative flex items-center">
+                    <span class="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">badge</span>
+                    <input id="input-no-empleado" name="noEmpleado" type="text" maxlength="20" placeholder="D-1234"
+                      class="w-full bg-surface-container-lowest text-on-surface pl-10 pr-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline-variant shadow-sm focus:outline-none transition-all" />
+                  </div>
+                  <span class="font-helper-sm text-helper-sm text-on-surface-variant">De 3 a 20 caracteres: letras, números o guiones</span>
+                  <span id="err-noEmpleado" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+                  </span>
+                </div>
+                <div class="flex flex-col space-y-space-xs">
+                  <label class="font-label-lg text-label-lg text-on-surface" for="select-departamento">Departamento académico <span class="font-helper-sm text-helper-sm text-on-surface-variant">(opcional)</span></label>
+                  <div class="relative flex items-center">
+                    <span class="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">corporate_fare</span>
+                    <!-- El backend guarda el departamento como texto libre: se manda el nombre completo -->
+                    <select id="select-departamento" name="departamento"
+                      class="w-full bg-surface-container-lowest text-on-surface pl-10 pr-10 py-2.5 rounded-lg text-body-md shadow-sm focus:outline-none appearance-none transition-all">
+                      <option value="">Selecciona tu departamento...</option>
+                      <option>Departamento de Ciencias Computacionales</option>
+                      <option>Departamento de Matemáticas</option>
+                      <option>Departamento de Física</option>
+                      <option>Departamento de Química</option>
+                      <option>Departamento de Ingeniería Electrónica</option>
+                      <option>Departamento de Ingeniería Mecánica Eléctrica</option>
+                      <option>Departamento de Farmacobiología</option>
+                    </select>
+                    <span class="material-symbols-outlined absolute right-3 text-outline text-[22px] pointer-events-none">expand_more</span>
+                  </div>
+                  <span id="err-departamento" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Aceptación de datos personales (solo se revisa en el navegador) -->
+            <div class="pt-2">
+              <div class="flex items-start gap-space-sm">
+                <input id="check-terminos" name="terminos" type="checkbox" class="mt-1 h-4 w-4 rounded text-primary" />
+                <label for="check-terminos" class="font-body-md text-body-md text-on-surface-variant cursor-pointer select-none">
+                  Acepto el tratamiento de mis datos personales conforme a la Normatividad y Código de Ética de la Universidad de Guadalajara.
+                </label>
+              </div>
+              <span id="err-terminos" class="hidden mt-1 font-helper-sm text-helper-sm text-error flex items-center gap-1">
+                <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Botón de envío -->
+          <div class="pt-space-md">
+            <button id="btn-registro" type="submit"
+              class="w-full bg-primary-container hover:bg-primary text-on-primary font-semibold py-3.5 px-space-xl rounded-lg font-label-lg text-label-lg shadow-md transition-all flex items-center justify-center gap-space-sm active:scale-[0.99]">
+              <span class="flex items-center gap-space-sm" data-texto-boton>
+                <span>Crear cuenta</span>
+                <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+              </span>
+              <span class="hidden flex items-center gap-space-sm" data-spinner>
+                <svg class="animate-spin h-5 w-5 text-on-primary" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                </svg>
+                <span>Creando cuenta...</span>
+              </span>
+            </button>
+          </div>
+
+          <div class="text-center">
+            <p class="font-body-md text-body-md text-on-surface-variant">
+              ¿Ya tienes una cuenta registrada en SEPA?
+              <a href="login.html" class="text-secondary font-semibold hover:underline inline-flex items-center">
+                <span>Inicia sesión</span>
+                <span class="material-symbols-outlined text-[18px]">chevron_right</span>
+              </a>
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="w-full bg-surface-container-lowest py-space-xl shadow-[0_-1px_8px_rgba(0,0,0,0.03)]">
+  <div class="max-w-7xl mx-auto px-gutter flex flex-col items-center md:items-start">
+    <p class="font-label-md text-label-md text-on-surface font-semibold">SEPA · Sistema de Evaluación de Progresión Académica</p>
+    <p class="font-caption text-caption text-on-surface-variant">Centro Universitario de Ciencias Exactas e Ingenierías, Universidad de Guadalajara.</p>
+  </div>
+</footer>
+
+<!-- Ventana de éxito: estudiante -->
+<div id="modal-exito-estudiante" class="hidden fixed inset-0 z-50 flex items-center justify-center p-gutter bg-primary/40 backdrop-blur-sm">
+  <div class="bg-surface-container-lowest max-w-md w-full rounded-xl shadow-xl p-space-xl flex flex-col items-center text-center animate-aparecer">
+    <div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center mb-space-md text-secondary">
+      <span class="material-symbols-outlined icono-relleno text-[36px]">check_circle</span>
+    </div>
+    <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold">Registro concluido</span>
+    <h3 class="font-title-lg text-title-lg text-primary mt-1">¡Cuenta creada con éxito!</h3>
+    <p class="font-body-md text-body-md text-on-surface-variant mt-space-sm" id="exito-est-mensaje"></p>
+    <div class="w-full mt-space-md p-space-md rounded-xl bg-surface-container-low space-y-1 text-left font-body-md text-body-md">
+      <div class="flex justify-between gap-space-sm"><span class="text-on-surface-variant">Estudiante:</span><span class="font-semibold text-on-surface text-right" id="exito-est-nombre"></span></div>
+      <div class="flex justify-between gap-space-sm"><span class="text-on-surface-variant">Código:</span><span class="font-semibold text-on-surface" id="exito-est-codigo"></span></div>
+      <div class="flex justify-between gap-space-sm"><span class="text-on-surface-variant">Programa:</span><span class="font-semibold text-on-surface text-right" id="exito-est-carrera"></span></div>
+    </div>
+    <p class="font-helper-sm text-helper-sm text-on-surface-variant mt-space-sm">Para entrar usa tu código de estudiante y tu contraseña.</p>
+    <div class="w-full grid grid-cols-2 gap-space-sm mt-space-lg">
+      <button type="button" data-cerrar-modal="modal-exito-estudiante" class="w-full py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors">Cerrar</button>
+      <a href="login.html" class="w-full py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-1">
+        <span>Iniciar sesión</span><span class="material-symbols-outlined text-[18px]">login</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Ventana de éxito: docente -->
+<div id="modal-exito-docente" class="hidden fixed inset-0 z-50 flex items-center justify-center p-gutter bg-primary/40 backdrop-blur-sm">
+  <div class="bg-surface-container-lowest max-w-md w-full rounded-xl shadow-xl p-space-xl flex flex-col items-center text-center animate-aparecer">
+    <div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center mb-space-md text-secondary">
+      <span class="material-symbols-outlined icono-relleno text-[36px]">assignment_turned_in</span>
+    </div>
+    <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold" id="exito-doc-etiqueta"></span>
+    <h3 class="font-title-lg text-title-lg text-primary mt-1" id="exito-doc-titulo"></h3>
+    <p class="font-body-md text-body-md text-on-surface-variant mt-space-sm" id="exito-doc-mensaje"></p>
+    <div class="w-full mt-space-md p-space-md rounded-xl bg-surface-container-low space-y-1 text-left font-body-md text-body-md">
+      <div class="flex justify-between gap-space-sm"><span class="text-on-surface-variant">Departamento:</span><span class="font-semibold text-on-surface text-right" id="exito-doc-departamento"></span></div>
+      <div class="flex justify-between gap-space-sm"><span class="text-on-surface-variant">Estado de la cuenta:</span><span class="font-semibold text-on-surface" id="exito-doc-estado"></span></div>
+    </div>
+    <div class="w-full grid grid-cols-2 gap-space-sm mt-space-lg">
+      <button type="button" data-cerrar-modal="modal-exito-docente" class="w-full py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors">Cerrar</button>
+      <a href="login.html" class="w-full py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center">Entendido</a>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import os
 import re
+from pathlib import Path
 from datetime import date
 
 # Dominio del correo -> rol que se asigna automáticamente al registrarse
@@ -64,3 +65,29 @@ def fechas_ciclo(nombre: str) -> tuple[date, date] | None:
     anio, letra = int(m[1]), m[2]
     (mi, di), (mt, dt) = CALENDARIO_CICLOS[letra]
     return date(anio, mi, di), date(anio, mt, dt)
+
+# RF-20 a RF-28: control de asistencia
+ESTADOS_ASISTENCIA = ("asistencia", "falta", "retardo")  # "pendiente" solo mientras la lista no se guarda
+ESTADOS_QUE_CUENTAN = ("asistencia", "retardo")            # un retardo cuenta como asistencia
+
+# RF-49: estatus normativo según el porcentaje de asistencia
+ASISTENCIA_ORDINARIO = 80.0       # >= 80 %: Ordinario
+ASISTENCIA_EXTRAORDINARIO = 65.0  # >= 65 % y < 80 %: Extraordinario; < 65 %: Sin Derecho
+
+# Semáforo por asistencia (decisión del equipo entre RF-49 y RF-51):
+# verde > 85 %, amarillo de 80 % a 85 % (80 exacto es amarillo), rojo < 80 %
+SEMAFORO_VERDE = 85.0
+SEMAFORO_AMARILLO = 80.0
+
+# RNF-8: archivos adjuntos (actividades y entregas)
+CARPETA_ARCHIVOS = Path(__file__).with_name("uploads")
+TAMANO_MAXIMO_ARCHIVO = 10 * 1024 * 1024  # 10 MB
+EXTENSIONES_PERMITIDAS = (".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".gif", ".zip")
+
+# RF-48: alerta cuando el desempeño proporcional (puntos obtenidos / puntos posibles hasta hoy) baja de 60 %
+DESEMPENO_ALERTA = 60.0
+# Semáforo por calificación (decisión del equipo), sobre el desempeño proporcional:
+# verde >= 70 %, amarillo de 60 % a < 70 %, rojo < 60 % (igual que la alerta). Sin nada evaluado: verde.
+SEMAFORO_CALIFICACION_VERDE = 70.0
+# RF-61: el semáforo general de la materia es el peor de los dos
+ORDEN_SEMAFORO = ("verde", "amarillo", "rojo")

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Iniciar sesión · SEPA CUCEI</title>
+  <!-- Fuentes e íconos de Google -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <!-- Tailwind (estilos del diseño) y su configuración de colores -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link href="css/style.css" rel="stylesheet" />
+</head>
+<body class="bg-surface font-body-md text-on-surface antialiased" data-pagina="login">
+
+<!-- Encabezado -->
+<header class="fixed top-0 w-full z-40 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+  <div class="h-16 max-w-7xl mx-auto px-gutter flex items-center justify-between">
+    <a href="login.html" class="flex items-center gap-space-md">
+      <span class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center">
+        <span class="material-symbols-outlined text-on-primary text-[20px]">school</span>
+      </span>
+      <span class="flex flex-col">
+        <span class="font-label-lg text-label-lg text-primary leading-tight">SEPA CUCEI</span>
+        <span class="font-caption text-caption text-on-surface-variant leading-none">Universidad de Guadalajara · CUCEI</span>
+      </span>
+    </a>
+    <a href="registro.html" class="inline-flex items-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg text-secondary bg-surface-container-low hover:bg-surface-container transition-colors">
+      <span class="material-symbols-outlined text-[18px]">person_add</span>
+      <span>Crear cuenta</span>
+    </a>
+  </div>
+</header>
+
+<main class="w-full pt-24 pb-space-2xl min-h-[calc(100vh-6rem)]">
+  <div class="w-full px-gutter">
+    <div class="max-w-md mx-auto">
+
+      <!-- Aviso general (errores del backend, sesión expirada, etc.) -->
+      <div id="aviso" class="hidden">
+        <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+        <p class="font-body-md text-body-md" data-aviso-texto></p>
+      </div>
+
+      <div class="bg-surface-container-lowest rounded-xl shadow-md p-space-lg md:p-space-xl">
+        <div class="flex flex-col items-center text-center pb-space-lg mb-space-md">
+          <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold">Sistema de Evaluación de Progresión Académica</span>
+          <h1 class="font-headline-lg text-headline-lg text-primary tracking-tight mt-1">Iniciar sesión</h1>
+          <p class="font-body-md text-body-md text-on-surface-variant mt-1">
+            Entra con tu código de estudiante o tu número de empleado.
+          </p>
+        </div>
+
+        <form id="form-login" class="space-y-space-md" novalidate>
+          <div class="flex flex-col space-y-space-xs">
+            <label class="font-label-lg text-label-lg text-on-surface" for="input-codigo">Código o número de empleado</label>
+            <div class="relative flex items-center">
+              <span class="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">badge</span>
+              <input id="input-codigo" name="codigo" type="text" autocomplete="username" placeholder="219876543"
+                class="w-full bg-surface-container-lowest text-on-surface pl-10 pr-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline-variant shadow-sm focus:outline-none transition-all" />
+            </div>
+            <span id="err-codigo" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+              <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+            </span>
+          </div>
+
+          <div class="flex flex-col space-y-space-xs">
+            <div class="flex items-center justify-between">
+              <label class="font-label-lg text-label-lg text-on-surface" for="input-contrasena">Contraseña</label>
+              <a href="#" id="link-recuperar" class="font-helper-sm text-helper-sm text-secondary hover:underline">¿Olvidaste tu contraseña?</a>
+            </div>
+            <div class="relative flex items-center">
+              <span class="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">lock</span>
+              <input id="input-contrasena" name="contrasena" type="password" autocomplete="current-password" placeholder="••••••••"
+                class="w-full bg-surface-container-lowest text-on-surface pl-10 pr-10 py-2.5 rounded-lg text-body-md placeholder:text-outline-variant shadow-sm focus:outline-none transition-all" />
+              <button type="button" data-ver-contrasena="input-contrasena" class="absolute right-3 text-outline hover:text-on-surface p-1 transition-colors" aria-label="Mostrar u ocultar contraseña">
+                <span class="material-symbols-outlined text-[20px]">visibility</span>
+              </button>
+            </div>
+            <span id="err-contrasena" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+              <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+            </span>
+          </div>
+
+          <div class="pt-space-sm">
+            <button id="btn-login" type="submit"
+              class="w-full bg-primary-container hover:bg-primary text-on-primary font-semibold py-3.5 px-space-xl rounded-lg font-label-lg text-label-lg shadow-md transition-all flex items-center justify-center gap-space-sm active:scale-[0.99]">
+              <span class="flex items-center gap-space-sm" data-texto-boton>
+                <span>Entrar</span>
+                <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+              </span>
+              <span class="hidden flex items-center gap-space-sm" data-spinner>
+                <svg class="animate-spin h-5 w-5 text-on-primary" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                </svg>
+                <span>Entrando...</span>
+              </span>
+            </button>
+          </div>
+
+          <p class="text-center font-body-md text-body-md text-on-surface-variant pt-space-sm">
+            ¿Aún no tienes cuenta?
+            <a href="registro.html" class="text-secondary font-semibold hover:underline inline-flex items-center">
+              <span>Regístrate</span>
+              <span class="material-symbols-outlined text-[18px]">chevron_right</span>
+            </a>
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="w-full bg-surface-container-lowest py-space-xl shadow-[0_-1px_8px_rgba(0,0,0,0.03)]">
+  <div class="max-w-7xl mx-auto px-gutter flex flex-col items-center md:items-start">
+    <p class="font-label-md text-label-md text-on-surface font-semibold">SEPA · Sistema de Evaluación de Progresión Académica</p>
+    <p class="font-caption text-caption text-on-surface-variant">Centro Universitario de Ciencias Exactas e Ingenierías, Universidad de Guadalajara.</p>
+  </div>
+</footer>
+
+<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>

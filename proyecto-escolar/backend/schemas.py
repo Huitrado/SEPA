@@ -1,5 +1,5 @@
 import re
-from datetime import date, time
+from datetime import date, datetime, time
 from typing import Annotated, Literal
 
 from pydantic import (AfterValidator, BaseModel, BeforeValidator, ConfigDict, EmailStr,
@@ -150,6 +150,12 @@ class CarreraSalida(BaseModel):
     clave: str
     nombre: str
 
+class MateriaSalida(BaseModel):  # RF-12: catálogo de materias (de planes.json)
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    clave: str
+    nombre: str
+
 class CicloCrear(BaseModel):  # RF-08: el nombre es AAAA-A o AAAA-B y las fechas salen del calendario oficial
     nombreOficial: str
     fechaInicio: date | None = None    # opcional: si se omite, se usa la fecha oficial
@@ -249,3 +255,250 @@ class AlumnoCurso(BaseModel):  # RF-16
     estado: str
     fechaInscripcion: str
     calificacionAcumuladaActual: float | None
+
+# ------------------------------------------------------------------ módulo: control de asistencia
+EstadoAsistencia = Literal["asistencia", "falta", "retardo"]
+
+class SesionClaseCrear(BaseModel):  # RF-19: fecha y horario los pone el servidor
+    tema: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)] | None = None
+
+class AsistenciaAlumno(BaseModel):  # RF-20, RF-23
+    matricula_id: int
+    estado: EstadoAsistencia
+    observaciones: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+
+class ListaAsistencia(BaseModel):
+    asistencias: list[AsistenciaAlumno]
+
+    @field_validator("asistencias")
+    @classmethod
+    def sin_alumnos_repetidos(cls, v):
+        if len({a.matricula_id for a in v}) != len(v):
+            raise ValueError("Un alumno aparece más de una vez en la lista")
+        return v
+
+class SesionClaseSalida(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    curso_id: int
+    fecha: str
+    horaInicio: str
+    horaFin: str
+    tema: str | None
+    listaGuardada: bool  # False = pendiente: no cuenta en el porcentaje (RF-22)
+
+class AsistenciaEnLista(BaseModel):
+    matricula_id: int
+    estudiante_id: int
+    codigoEstudiante: str
+    nombre: str
+    apellidos: str
+    estado: str  # asistencia | falta | retardo | pendiente
+    observaciones: str | None
+
+class SesionClaseDetalle(SesionClaseSalida):  # una sesión con la lista de sus alumnos
+    alumnos: list[AsistenciaEnLista]
+
+class EstadoEnSesion(BaseModel):
+    sesion_id: int
+    estado: str | None  # None: el alumno aún no estaba inscrito cuando se generó la sesión
+    observaciones: str | None
+
+class FilaAsistencia(BaseModel):  # RF-24, RF-26: un alumno en la cuadrícula
+    matricula_id: int
+    estudiante_id: int
+    codigoEstudiante: str
+    nombre: str
+    apellidos: str
+    estados: list[EstadoEnSesion]  # en el mismo orden que CuadriculaAsistencia.sesiones
+    porcentajeAsistencia: float
+    estatusNormativo: Literal["Ordinario", "Extraordinario", "Sin Derecho"]  # RF-49
+    semaforo: Literal["verde", "amarillo", "rojo"]
+
+class CuadriculaAsistencia(BaseModel):
+    curso_id: int
+    sesiones: list[SesionClaseSalida]  # ordenadas por fecha
+    alumnos: list[FilaAsistencia]
+
+# ------------------------------------------------------------------ módulo: categorías de evaluación
+PesoCategoria = Annotated[float, Field(gt=0, le=100)]  # RF-31: porcentaje del total del curso
+
+class CategoriaCrear(BaseModel):  # RF-31
+    nombre: Texto
+    porcentajePeso: PesoCategoria
+
+class CategoriaActualizar(BaseModel):  # solo se cambia lo que se envía
+    nombre: Texto | None = None
+    porcentajePeso: PesoCategoria | None = None
+
+class CategoriaSalida(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    curso_id: int
+    nombre: str
+    porcentajePeso: float
+
+class ResumenPesos(BaseModel):  # RF-32
+    sumaPesos: float
+    pesosCompletos: bool       # True solo si la suma es exactamente 100
+    advertencia: str | None    # en español cuando la suma no es 100
+
+class CategoriasCurso(ResumenPesos):
+    categorias: list[CategoriaSalida]
+
+class CategoriaGuardada(ResumenPesos):
+    categoria: CategoriaSalida
+
+# ------------------------------------------------------------------ módulo: actividades
+Puntuacion = Annotated[float, Field(gt=0, le=1000)]
+DescripcionLarga = Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]
+
+class ActividadCrear(BaseModel):
+    categoriaEvaluacion_id: int
+    titulo: Texto
+    descripcion: DescripcionLarga | None = None
+    fechaHoraLimite: datetime
+    puntuacionMaxima: Puntuacion
+
+class ActividadActualizar(BaseModel):  # solo se cambia lo que se envía
+    categoriaEvaluacion_id: int | None = None
+    titulo: Texto | None = None
+    descripcion: DescripcionLarga | None = None
+    fechaHoraLimite: datetime | None = None
+    puntuacionMaxima: Puntuacion | None = None
+
+class ActividadSalida(BaseModel):
+    id: int
+    categoriaEvaluacion_id: int
+    categoria: str
+    titulo: str
+    descripcion: str | None
+    fechaHoraLimite: str
+    puntuacionMaxima: float
+    valorEnCurso: float  # RF-34: peso de la categoría / número de actividades de esa categoría
+    tieneArchivo: bool   # RF-36
+
+# ------------------------------------------------------------------ módulo: entregas
+EstadoEntrega = Literal["pendiente", "vencida", "entregada", "entregada_con_retraso"]
+
+class EntregaSalida(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    actividad_id: int
+    matricula_id: int
+    fechaHoraEntrega: str       # RF-37: la pone el servidor
+    entregadoConRetraso: bool   # RF-39
+
+class ActividadAlumno(BaseModel):  # una actividad vista por el alumno, con su entrega
+    id: int
+    categoria: str
+    titulo: str
+    descripcion: str | None
+    fechaHoraLimite: str
+    puntuacionMaxima: float
+    valorEnCurso: float
+    tieneArchivo: bool
+    estadoEntrega: EstadoEntrega  # "vencida": sin entrega y ya pasó la fecha (aún se acepta tarde)
+    entrega: EntregaSalida | None
+    puedeCancelar: bool           # RF-38: hay entrega y aún no llega la fecha límite
+
+class EntregaDeAlumno(BaseModel):  # lo que ve el docente por cada alumno activo
+    matricula_id: int
+    estudiante_id: int
+    codigoEstudiante: str
+    nombre: str
+    apellidos: str
+    estadoEntrega: EstadoEntrega
+    entrega: EntregaSalida | None
+
+# ------------------------------------------------------------------ módulo: calificaciones
+class CalificacionCrear(BaseModel):  # RF-43: el máximo (puntuacionMaxima) lo revisa services.py
+    calificacionObtenida: Annotated[float, Field(ge=0)]
+    retroalimentacion: DescripcionLarga | None = None
+
+class CalificacionSalida(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    calificacionObtenida: float
+    retroalimentacion: str | None
+    fecha: str
+
+class CalificacionGuardada(BaseModel):
+    entrega_id: int
+    matricula_id: int
+    calificacion: CalificacionSalida
+    calificacionAcumuladaActual: float  # RF-46, RF-67: ya recalculada
+
+class ColumnaActividad(BaseModel):
+    id: int
+    titulo: str
+    categoria: str
+    fechaHoraLimite: str
+    puntuacionMaxima: float
+    valorEnCurso: float
+
+class CeldaCalificacion(BaseModel):
+    actividad_id: int
+    estadoEntrega: EstadoEntrega
+    entrega_id: int | None
+    calificacion: CalificacionSalida | None
+    cuentaComoCero: bool  # RF-47: venció sin entrega
+
+class ResumenCalificacion(BaseModel):
+    calificacionAcumulada: float          # RF-46: puntos ganados sobre 100
+    puntosPosibles: float                 # lo que ya se pudo ganar: calificadas + vencidas sin entrega
+    desempenoProporcional: float | None   # acumulada / posibles × 100; None si aún no hay nada evaluado
+
+class FilaCalificaciones(ResumenCalificacion):
+    matricula_id: int
+    estudiante_id: int
+    codigoEstudiante: str
+    nombre: str
+    apellidos: str
+    celdas: list[CeldaCalificacion]  # en el mismo orden que las actividades
+
+class CuadriculaCalificaciones(BaseModel):
+    curso_id: int
+    actividades: list[ColumnaActividad]  # por fecha límite
+    alumnos: list[FilaCalificaciones]
+
+class CalificacionesAlumno(ResumenCalificacion):
+    curso_id: int
+    actividades: list[ColumnaActividad]
+    celdas: list[CeldaCalificacion]
+
+# ------------------------------------------------------------------ módulo: seguimiento y baja
+Semaforo = Literal["verde", "amarillo", "rojo"]
+
+class EstadoMatricula(BaseModel):  # RF-16: el docente da de baja (o reactiva) a un alumno
+    estado: Literal["activo", "baja"]
+
+class IndicadoresSeguimiento(BaseModel):
+    porcentajeAsistencia: float
+    estatusNormativo: Literal["Ordinario", "Extraordinario", "Sin Derecho"]  # RF-49
+    semaforoAsistencia: Semaforo
+    calificacionAcumulada: float
+    puntosPosibles: float
+    desempenoProporcional: float | None
+    alertaCalificacion: bool       # RF-48: desempeño proporcional < 60 %
+    semaforoCalificacion: Semaforo
+    semaforoGeneral: Semaforo      # RF-61: el peor de los dos
+
+class SeguimientoAlumno(IndicadoresSeguimiento):
+    matricula_id: int
+    estudiante_id: int
+    codigoEstudiante: str
+    nombre: str
+    apellidos: str
+
+class ConteoSemaforo(BaseModel):
+    verde: int
+    amarillo: int
+    rojo: int
+
+class SeguimientoCurso(BaseModel):
+    curso_id: int
+    resumen: ConteoSemaforo  # cuántos alumnos hay en cada color del semáforo general
+    alumnos: list[SeguimientoAlumno]
+
+class SeguimientoPropio(IndicadoresSeguimiento):
+    curso_id: int

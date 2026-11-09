@@ -118,6 +118,15 @@ def test_rf12_solo_los_docentes_crean_cursos(client, escenario):
     t = alta_alumno(client)
     assert client.post("/cursos", json=CURSO, headers=auth(t)).status_code == 403
 
+def test_rf12_catalogo_publico_de_materias(client):
+    with Sesion() as db:
+        db.add_all([models.Materia(clave="I5290", nombre="Programación"),
+                    models.Materia(clave="I5288", nombre="Bases de Datos")])
+        db.commit()
+    r = client.get("/catalogos/materias")
+    assert r.status_code == 200
+    assert [(m["clave"], m["nombre"]) for m in r.json()] == [("I5288", "Bases de Datos"), ("I5290", "Programación")]
+
 # ---------------------------------------------------------------- RF-13
 def test_rf13_horario_base(client, escenario):
     _, t1, _ = escenario
