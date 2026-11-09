@@ -30,8 +30,8 @@ Todo se define en **`models.py`**. Cada clase que hereda de `Base` es una **tabl
 
 | Estado | Tablas |
 |--------|--------|
-| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `MallaCurricular`, `Materia`, `MallaMateria` |
-| **Sin uso todavía** | `HistorialAcademico`, `PublicacionAsesoria`, `BibliotecaNormatividad`, `RegistroRiesgo`, `Actividad`, `Entrega`, `Calificacion` |
+| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `MallaCurricular`, `Materia`, `MallaMateria` |
+| **Sin uso todavía** | `HistorialAcademico`, `PublicacionAsesoria`, `BibliotecaNormatividad`, `RegistroRiesgo`, `Entrega`, `Calificacion` |
 
 ---
 
@@ -199,6 +199,7 @@ erDiagram
         string descripcion
         string fechaHoraLimite
         float puntuacionMaxima
+        string archivoAdjunto "ruta en uploads/ (RF-36)"
         int categoriaEvaluacion_id FK
     }
     Entrega {
@@ -399,6 +400,11 @@ flowchart TD
 3. El ciclo inicial se calcula con `services.py → ciclo_para_fecha(hoy())`. Si hoy es 26 de octubre de 2026, crea `2026-B` (del 16/07/2026 al 16/12/2026).
 
 **Para empezar de cero:** detén el servidor, borra `backend/sistema_escolar.db` y vuelve a ejecutar `python crear_admin.py`. Se pierden todos los datos.
+
+> **Columna nueva `Actividad.archivoAdjunto` (RF-36):** si tu `sistema_escolar.db` es anterior, bórrala o agrégale la columna sin perder datos:
+> ```powershell
+> .\venv\Scripts\python.exe -c "import sqlite3; c = sqlite3.connect('sistema_escolar.db'); c.execute('ALTER TABLE Actividad ADD COLUMN archivoAdjunto VARCHAR'); c.commit()"
+> ```
 
 > **Cambios en `models.py`:** `create_all` **no agrega columnas nuevas** a tablas que ya existen. Si alguien modifica un modelo, los demás deben borrar su `.db`. El proyecto no usa una herramienta de migraciones como Alembic.
 

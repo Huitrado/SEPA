@@ -157,6 +157,7 @@ class Actividad(Base):
     descripcion = Column(String)
     fechaHoraLimite = Column(String, nullable=False)
     puntuacionMaxima = Column(Float, nullable=False)
+    archivoAdjunto = Column(String)  # RF-36: ruta dentro de uploads/ del archivo del docente
     categoriaEvaluacion_id = Column(Integer, ForeignKey("CategoriaEvaluacion.id"))
 
 class Entrega(Base):

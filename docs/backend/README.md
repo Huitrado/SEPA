@@ -76,7 +76,7 @@ pip install -r requirements.txt
 pip install pytest httpx
 ```
 
-`requirements.txt` instala fastapi, uvicorn, sqlalchemy, email-validator, bcrypt y PyJWT.
+`requirements.txt` instala fastapi, uvicorn, sqlalchemy, email-validator, bcrypt, PyJWT, python-multipart (subida de archivos), pytest y httpx. La segunda línea ya no es necesaria, pero no hace daño.
 
 > **Por confirmar:** `requirements.txt` **no incluye `pytest` ni `httpx`**, y las pruebas los necesitan. `httpx` lo usa por dentro el `TestClient` de FastAPI. Por eso va la segunda línea. Su `venv` actual sí los tiene instalados. Conviene decidir en equipo si se agregan a `requirements.txt` o a un `requirements-dev.txt`.
 

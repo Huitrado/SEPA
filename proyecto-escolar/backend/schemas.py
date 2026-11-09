@@ -1,5 +1,5 @@
 import re
-from datetime import date, time
+from datetime import date, datetime, time
 from typing import Annotated, Literal
 
 from pydantic import (AfterValidator, BaseModel, BeforeValidator, ConfigDict, EmailStr,
@@ -348,3 +348,32 @@ class CategoriasCurso(ResumenPesos):
 
 class CategoriaGuardada(ResumenPesos):
     categoria: CategoriaSalida
+
+# ------------------------------------------------------------------ módulo: actividades
+Puntuacion = Annotated[float, Field(gt=0, le=1000)]
+DescripcionLarga = Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]
+
+class ActividadCrear(BaseModel):
+    categoriaEvaluacion_id: int
+    titulo: Texto
+    descripcion: DescripcionLarga | None = None
+    fechaHoraLimite: datetime
+    puntuacionMaxima: Puntuacion
+
+class ActividadActualizar(BaseModel):  # solo se cambia lo que se envía
+    categoriaEvaluacion_id: int | None = None
+    titulo: Texto | None = None
+    descripcion: DescripcionLarga | None = None
+    fechaHoraLimite: datetime | None = None
+    puntuacionMaxima: Puntuacion | None = None
+
+class ActividadSalida(BaseModel):
+    id: int
+    categoriaEvaluacion_id: int
+    categoria: str
+    titulo: str
+    descripcion: str | None
+    fechaHoraLimite: str
+    puntuacionMaxima: float
+    valorEnCurso: float  # RF-34: peso de la categoría / número de actividades de esa categoría
+    tieneArchivo: bool   # RF-36

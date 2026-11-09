@@ -9,9 +9,10 @@ from sqlalchemy.orm import Session
 
 import models
 import schemas
-from config import (ASISTENCIA_EXTRAORDINARIO, ASISTENCIA_ORDINARIO, CARRERAS_INICIALES,
-                    DIAS_SEMANA, DOCENTE_REQUIERE_APROBACION, ESTADOS_ASISTENCIA,
-                    ESTADOS_QUE_CUENTAN, PRIORIDAD_PANEL, SEMAFORO_AMARILLO, SEMAFORO_VERDE,
+from config import (ASISTENCIA_EXTRAORDINARIO, ASISTENCIA_ORDINARIO, CARPETA_ARCHIVOS,
+                    CARRERAS_INICIALES, DIAS_SEMANA, DOCENTE_REQUIERE_APROBACION,
+                    ESTADOS_ASISTENCIA, ESTADOS_QUE_CUENTAN, EXTENSIONES_PERMITIDAS,
+                    PRIORIDAD_PANEL, SEMAFORO_AMARILLO, SEMAFORO_VERDE, TAMANO_MAXIMO_ARCHIVO,
                     UMBRAL_APROBATORIO, rol_por_correo)
 from security import crear_token, hashear, verificar
 
@@ -666,3 +667,160 @@ def eliminar_categoria(db: Session, docente: models.Usuario, curso_id: int, cate
     db.delete(categoria)
     db.commit()
     return listar_categorias(db, docente, curso_id)
+
+# ======================================================================
+# Actividades (RF-29, RF-30, RF-33 a RF-36) y archivos adjuntos (RNF-8)
+# ======================================================================
+def ahora() -> datetime:  # las pruebas lo reemplazan para fijar la fecha y hora
+    return datetime.now()
+
+def valores_actividades(db: Session, curso_id: int) -> dict[int, float]:
+    """RF-34: las actividades de una categoría se reparten su peso por igual.
+    Devuelve {actividad_id: porcentaje del curso que vale}."""
+    filas = (db.query(models.Actividad.id, models.CategoriaEvaluacion.id,
+                      models.CategoriaEvaluacion.porcentajePeso)
+             .join(models.CategoriaEvaluacion,
+                   models.CategoriaEvaluacion.id == models.Actividad.categoriaEvaluacion_id)
+             .filter(models.CategoriaEvaluacion.curso_id == curso_id).all())
+    por_categoria: dict[int, int] = {}
+    for _, cat_id, _ in filas:
+        por_categoria[cat_id] = por_categoria.get(cat_id, 0) + 1
+    return {act_id: peso / por_categoria[cat_id] for act_id, cat_id, peso in filas}
+
+def _actividad_dict(db: Session, a: models.Actividad, valores: dict[int, float] | None = None) -> dict:
+    categoria = db.get(models.CategoriaEvaluacion, a.categoriaEvaluacion_id)
+    if valores is None:
+        valores = valores_actividades(db, categoria.curso_id)
+    return {"id": a.id, "categoriaEvaluacion_id": categoria.id, "categoria": categoria.nombre,
+            "titulo": a.titulo, "descripcion": a.descripcion, "fechaHoraLimite": a.fechaHoraLimite,
+            "puntuacionMaxima": a.puntuacionMaxima, "valorEnCurso": round(valores[a.id], 2),
+            "tieneArchivo": bool(a.archivoAdjunto)}
+
+def _fecha_limite(valor: datetime) -> str:
+    if valor.tzinfo:  # si llega con zona horaria, se pasa a la hora local del servidor
+        valor = valor.astimezone().replace(tzinfo=None)
+    if valor <= ahora():
+        raise HTTPException(422, "La fecha límite debe ser posterior a la fecha y hora actuales")
+    return valor.isoformat(timespec="seconds")
+
+def _categoria_de(db: Session, curso_id: int, categoria_id: int) -> models.CategoriaEvaluacion:
+    categoria = db.get(models.CategoriaEvaluacion, categoria_id)
+    if not categoria or categoria.curso_id != curso_id:
+        raise HTTPException(404, "Categoría no encontrada")
+    return categoria
+
+def _actividad_del_curso(db: Session, docente: models.Usuario, curso_id: int,
+                         actividad_id: int) -> models.Actividad:
+    curso = _curso_del_docente(db, docente, curso_id)
+    actividad = db.get(models.Actividad, actividad_id)
+    if not actividad or _curso_de_actividad(db, actividad) != curso.id:
+        raise HTTPException(404, "Actividad no encontrada")
+    return actividad
+
+def _curso_de_actividad(db: Session, actividad: models.Actividad) -> int:
+    return db.get(models.CategoriaEvaluacion, actividad.categoriaEvaluacion_id).curso_id
+
+def listar_actividades(db: Session, docente: models.Usuario, curso_id: int) -> list[dict]:
+    curso = _curso_del_docente(db, docente, curso_id)
+    actividades = (db.query(models.Actividad)
+                   .join(models.CategoriaEvaluacion,
+                         models.CategoriaEvaluacion.id == models.Actividad.categoriaEvaluacion_id)
+                   .filter(models.CategoriaEvaluacion.curso_id == curso.id)
+                   .order_by(models.Actividad.fechaHoraLimite, models.Actividad.id).all())
+    valores = valores_actividades(db, curso.id)
+    return [_actividad_dict(db, a, valores) for a in actividades]
+
+def ver_actividad(db: Session, docente: models.Usuario, curso_id: int, actividad_id: int) -> dict:
+    return _actividad_dict(db, _actividad_del_curso(db, docente, curso_id, actividad_id))
+
+def crearActividad(db: Session, docente: models.Usuario, curso_id: int,
+                   datos: schemas.ActividadCrear) -> dict:
+    curso = _curso_del_docente(db, docente, curso_id)
+    if curso.estado != "activo":
+        raise HTTPException(409, "El curso está archivado")
+    categoria = _categoria_de(db, curso.id, datos.categoriaEvaluacion_id)
+    actividad = models.Actividad(categoriaEvaluacion_id=categoria.id, titulo=datos.titulo,
+                                 descripcion=datos.descripcion,
+                                 fechaHoraLimite=_fecha_limite(datos.fechaHoraLimite),
+                                 puntuacionMaxima=datos.puntuacionMaxima)
+    db.add(actividad)
+    db.commit()
+    db.refresh(actividad)
+    return _actividad_dict(db, actividad)
+
+def actualizar_actividad(db: Session, docente: models.Usuario, curso_id: int, actividad_id: int,
+                         datos: schemas.ActividadActualizar) -> dict:
+    actividad = _actividad_del_curso(db, docente, curso_id, actividad_id)
+    cambios = {k: v for k, v in datos.model_dump(exclude_unset=True).items() if v is not None}
+    if "categoriaEvaluacion_id" in cambios:
+        _categoria_de(db, curso_id, cambios["categoriaEvaluacion_id"])
+    if "fechaHoraLimite" in cambios:
+        cambios["fechaHoraLimite"] = _fecha_limite(cambios["fechaHoraLimite"])
+    for campo, valor in cambios.items():
+        setattr(actividad, campo, valor)
+    db.commit()
+    db.refresh(actividad)
+    return _actividad_dict(db, actividad)
+
+def eliminar_actividad(db: Session, docente: models.Usuario, curso_id: int, actividad_id: int) -> list[dict]:
+    actividad = _actividad_del_curso(db, docente, curso_id, actividad_id)
+    if db.query(models.Entrega).filter_by(actividad_id=actividad.id).first():
+        raise HTTPException(409, "No se puede eliminar una actividad que ya tiene entregas")
+    archivo = actividad.archivoAdjunto
+    db.delete(actividad)
+    db.commit()
+    _borrar_archivo(archivo)
+    return listar_actividades(db, docente, curso_id)
+
+def _guardar_archivo(subcarpeta: str, nombre_original: str, contenido: bytes) -> str:
+    """RNF-8: valida tipo y tamaño y guarda en uploads/<subcarpeta>/. Devuelve la ruta relativa."""
+    extension = Path(nombre_original or "").suffix.lower()
+    if extension not in EXTENSIONES_PERMITIDAS:
+        raise HTTPException(415, "Tipo de archivo no permitido. Solo se aceptan PDF, Word (.doc, .docx), "
+                                 "imágenes (.png, .jpg, .jpeg, .gif) y ZIP")
+    if not contenido:
+        raise HTTPException(422, "El archivo está vacío")
+    if len(contenido) > TAMANO_MAXIMO_ARCHIVO:
+        raise HTTPException(413, "El archivo supera el tamaño máximo de 10 MB")
+    relativa = f"{subcarpeta}/{uuid.uuid4().hex}{extension}"  # nombre aleatorio: no se usa el del usuario
+    destino = CARPETA_ARCHIVOS / relativa
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    destino.write_bytes(contenido)
+    return relativa
+
+def _borrar_archivo(relativa: str | None) -> None:
+    if relativa:
+        (CARPETA_ARCHIVOS / relativa).unlink(missing_ok=True)
+
+def adjuntarArchivoActividad(db: Session, docente: models.Usuario, curso_id: int, actividad_id: int,
+                             nombre_original: str, contenido: bytes) -> dict:
+    """RF-36: reemplaza el archivo anterior, si había."""
+    actividad = _actividad_del_curso(db, docente, curso_id, actividad_id)
+    anterior = actividad.archivoAdjunto
+    actividad.archivoAdjunto = _guardar_archivo("actividades", nombre_original, contenido)
+    db.commit()
+    _borrar_archivo(anterior)
+    return _actividad_dict(db, actividad)
+
+def quitar_archivo_actividad(db: Session, docente: models.Usuario, curso_id: int, actividad_id: int) -> dict:
+    actividad = _actividad_del_curso(db, docente, curso_id, actividad_id)
+    anterior = actividad.archivoAdjunto
+    actividad.archivoAdjunto = None
+    db.commit()
+    _borrar_archivo(anterior)
+    return _actividad_dict(db, actividad)
+
+def archivo_de_actividad(db: Session, usuario: models.Usuario, actividad_id: int) -> tuple[Path, str]:
+    """Lo descargan el docente del curso y sus alumnos activos. Devuelve (ruta, nombre de descarga)."""
+    actividad = db.get(models.Actividad, actividad_id)
+    if not actividad:
+        raise HTTPException(404, "Actividad no encontrada")
+    curso = db.get(models.Curso, _curso_de_actividad(db, actividad))
+    inscrito = db.query(models.Matricula).filter_by(curso_id=curso.id, estudiante_id=usuario.id,
+                                                    estado="activo").first()
+    if curso.docente_id != usuario.id and not inscrito:
+        raise HTTPException(403, "No tienes acceso a esta actividad")
+    if not actividad.archivoAdjunto or not (CARPETA_ARCHIVOS / actividad.archivoAdjunto).is_file():
+        raise HTTPException(404, "La actividad no tiene archivo adjunto")
+    extension = Path(actividad.archivoAdjunto).suffix
+    return CARPETA_ARCHIVOS / actividad.archivoAdjunto, f"{actividad.titulo}{extension}"

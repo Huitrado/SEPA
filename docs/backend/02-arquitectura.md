@@ -32,6 +32,7 @@ SEPA/
         ├── test_registro_login.py
         ├── test_gestion_academica.py
         ├── sistema_escolar.db     ← la base de datos (se crea sola; no se sube a Git)
+        ├── uploads/               ← archivos subidos (RNF-8; se crea sola; no se sube a Git)
         └── venv/                  ← entorno virtual (no se sube a Git)
 ```
 

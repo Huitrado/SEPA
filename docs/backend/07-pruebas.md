@@ -59,6 +59,8 @@ flowchart TD
     T3 --> H
     T4["test_categorias.py<br/>RF-31, RF-32<br/>+ fixture curso"] --> C
     T4 --> H
+    T5["test_actividades.py<br/>RF-29 a RF-36, RNF-8<br/>+ fixtures curso y carpeta_temporal"] --> C
+    T5 --> H
 ```
 
 ### `conftest.py`: la fixture `client`
@@ -197,6 +199,18 @@ Docstring: *"Módulo de categorías de evaluación (RF-31, RF-32)"*. La fixture 
 |----|----------------|
 | RF-31 | Crear, listar, editar y eliminar; peso 0, negativo o mayor que 100, nombre vacío o faltante → 422; nombre repetido → 409; no se elimina una categoría con actividades |
 | RF-32 | Sin categorías o con suma distinta de 100 se guarda con advertencia; decimales que suman 100; superar 100 al crear o editar → 409 |
+| RF-95 | Otro docente, el admin y un alumno reciben 403 |
+
+### `test_actividades.py`
+
+Docstring: *"Módulo de actividades (RF-29, RF-30, RF-33 a RF-36) y archivos adjuntos (RNF-8)"*. La fixture `carpeta_temporal` (automática) manda los archivos a una carpeta temporal de pytest en lugar de `uploads/` y fija `services.ahora()` en el 25/oct/2026 a las 12:00. La fixture `curso` crea un curso con las categorías Tareas (40 %) y Exámenes (60 %) y a Ana inscrita.
+
+| Tema | Qué comprueban |
+|------|----------------|
+| CRUD | Crear, listar por fecha límite, ver, editar (incluso cambiar de categoría) y eliminar; datos inválidos → 422; fecha límite pasada → 422; categoría de otro curso → 404; curso archivado → 409; no se elimina con entregas |
+| RF-34 | Las actividades de una categoría valen lo mismo sin importar su puntuación máxima; los valores suman 100 |
+| RF-36 | Adjuntar, reemplazar (borra el anterior), quitar y descargar; descargan el docente y los alumnos inscritos; nadie más |
+| RNF-8 | Tipos permitidos y no permitidos (415); 10 MB exactos sí, uno más no (413); archivo vacío (422) |
 | RF-95 | Otro docente, el admin y un alumno reciben 403 |
 
 ---

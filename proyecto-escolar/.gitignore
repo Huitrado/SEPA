@@ -21,3 +21,6 @@ htmlcov/
 .vscode/
 .idea/
 .DS_Store
+
+# Archivos subidos por los usuarios (RNF-8)
+uploads/

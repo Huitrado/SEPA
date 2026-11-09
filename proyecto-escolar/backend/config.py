@@ -1,5 +1,6 @@
 import os
 import re
+from pathlib import Path
 from datetime import date
 
 # Dominio del correo -> rol que se asigna automáticamente al registrarse
@@ -77,3 +78,8 @@ ASISTENCIA_EXTRAORDINARIO = 65.0  # >= 65 % y < 80 %: Extraordinario; < 65 %: Si
 # verde > 85 %, amarillo de 80 % a 85 % (80 exacto es amarillo), rojo < 80 %
 SEMAFORO_VERDE = 85.0
 SEMAFORO_AMARILLO = 80.0
+
+# RNF-8: archivos adjuntos (actividades y entregas)
+CARPETA_ARCHIVOS = Path(__file__).with_name("uploads")
+TAMANO_MAXIMO_ARCHIVO = 10 * 1024 * 1024  # 10 MB
+EXTENSIONES_PERMITIDAS = (".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".gif", ".zip")

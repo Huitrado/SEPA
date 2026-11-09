@@ -1,11 +1,12 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
 import models
 import schemas
 import services
+from config import TAMANO_MAXIMO_ARCHIVO
 from database import get_db
 from security import requiere_docente
 
@@ -73,3 +74,40 @@ def editar_categoria(curso_id: int, categoria_id: int, datos: schemas.CategoriaA
 def eliminar_categoria(curso_id: int, categoria_id: int, db: Session = Depends(get_db),
                        docente: models.Usuario = Depends(requiere_docente)):
     return services.eliminar_categoria(db, docente, curso_id, categoria_id)
+
+# ------------------------------------------------------------------ actividades
+@router.get("/cursos/{curso_id}/actividades", response_model=list[schemas.ActividadSalida])
+def listar_actividades(curso_id: int, db: Session = Depends(get_db),
+                       docente: models.Usuario = Depends(requiere_docente)):
+    return services.listar_actividades(db, docente, curso_id)
+
+@router.post("/cursos/{curso_id}/actividades", response_model=schemas.ActividadSalida, status_code=201)
+def crear_actividad(curso_id: int, datos: schemas.ActividadCrear, db: Session = Depends(get_db),
+                    docente: models.Usuario = Depends(requiere_docente)):
+    return services.crearActividad(db, docente, curso_id, datos)
+
+@router.get("/cursos/{curso_id}/actividades/{actividad_id}", response_model=schemas.ActividadSalida)
+def ver_actividad(curso_id: int, actividad_id: int, db: Session = Depends(get_db),
+                  docente: models.Usuario = Depends(requiere_docente)):
+    return services.ver_actividad(db, docente, curso_id, actividad_id)
+
+@router.patch("/cursos/{curso_id}/actividades/{actividad_id}", response_model=schemas.ActividadSalida)
+def editar_actividad(curso_id: int, actividad_id: int, datos: schemas.ActividadActualizar,
+                     db: Session = Depends(get_db), docente: models.Usuario = Depends(requiere_docente)):
+    return services.actualizar_actividad(db, docente, curso_id, actividad_id, datos)
+
+@router.delete("/cursos/{curso_id}/actividades/{actividad_id}", response_model=list[schemas.ActividadSalida])
+def eliminar_actividad(curso_id: int, actividad_id: int, db: Session = Depends(get_db),
+                       docente: models.Usuario = Depends(requiere_docente)):
+    return services.eliminar_actividad(db, docente, curso_id, actividad_id)
+
+@router.put("/cursos/{curso_id}/actividades/{actividad_id}/archivo", response_model=schemas.ActividadSalida)
+def adjuntar_archivo(curso_id: int, actividad_id: int, archivo: UploadFile = File(...),
+                     db: Session = Depends(get_db), docente: models.Usuario = Depends(requiere_docente)):
+    contenido = archivo.file.read(TAMANO_MAXIMO_ARCHIVO + 1)  # no se lee más de lo permitido (RNF-8)
+    return services.adjuntarArchivoActividad(db, docente, curso_id, actividad_id, archivo.filename, contenido)
+
+@router.delete("/cursos/{curso_id}/actividades/{actividad_id}/archivo", response_model=schemas.ActividadSalida)
+def quitar_archivo(curso_id: int, actividad_id: int, db: Session = Depends(get_db),
+                   docente: models.Usuario = Depends(requiere_docente)):
+    return services.quitar_archivo_actividad(db, docente, curso_id, actividad_id)

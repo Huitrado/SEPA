@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 import models
@@ -23,3 +24,10 @@ def inscribir_alumno(datos: schemas.InscripcionCrear, db: Session = Depends(get_
                      usuario: models.Usuario = Depends(usuario_actual)):
     curso = services.inscribirseCurso(db, usuario, datos.codigoCurso)
     return {"mensaje": "Inscripción exitosa", "curso": curso.nombreMateria}
+
+@router.get("/actividades/{actividad_id}/archivo", response_class=FileResponse)
+def descargar_archivo_actividad(actividad_id: int, db: Session = Depends(get_db),
+                                usuario: models.Usuario = Depends(usuario_actual)):
+    """RF-36: el docente del curso y sus alumnos activos descargan el archivo de la actividad."""
+    ruta, nombre = services.archivo_de_actividad(db, usuario, actividad_id)
+    return FileResponse(ruta, filename=nombre)  # se envía como descarga, nunca se muestra en línea

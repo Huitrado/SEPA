@@ -2,7 +2,7 @@
 
 [← Volver al índice](README.md)
 
-Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **35 endpoints** en 5 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
+Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **43 endpoints** en 5 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
 
 ## Cómo leer estas tablas
 
@@ -265,6 +265,7 @@ Archivo: `routers/cursos.py` · Sin prefijo
 | POST | `/cursos` | Docente | JSON `CursoCrear` | **201**, 404, 409, 422, 500 | RF-09, RF-12, RF-13, RF-14, RF-17, RF-18 |
 | GET | `/cursos` | Sesión | Nada | **200** | RF-14 |
 | POST | `/inscripcion` | Estudiante | JSON `{codigoCurso}` | **201**, 403, 404, 409, 422 | RF-15 |
+| GET | `/actividades/{actividad_id}/archivo` | Docente dueño o alumno inscrito activo | Nada | **200** (archivo), 403, 404 | RF-36 |
 
 ### `POST /cursos`
 
@@ -346,6 +347,20 @@ Petición (el código no distingue mayúsculas; máximo 10 caracteres):
 | 409 | `El curso no está activo` (archivado) |
 | 409 | `Ya estás inscrito en este curso` |
 
+### `GET /actividades/{actividad_id}/archivo`
+
+`routers/cursos.py → descargar_archivo_actividad` → `services.py → archivo_de_actividad`. Descarga el archivo que el docente adjuntó a la actividad (RF-36). Lo pueden bajar **el docente del curso** y **los alumnos con matrícula activa** en él.
+
+**200**: el archivo, con `Content-Disposition: attachment; filename="<título de la actividad>.<extensión>"`. Siempre se envía como descarga, nunca se muestra dentro de la página.
+
+Desde el frontend hay que pedirlo con `fetch` y el token, y luego guardarlo con un `Blob`: un `<a href>` normal no envía el encabezado `Authorization`.
+
+| Código | `detail` |
+|--------|----------|
+| 403 | `No tienes acceso a esta actividad` |
+| 404 | `Actividad no encontrada` |
+| 404 | `La actividad no tiene archivo adjunto` |
+
 ---
 
 ## Router `docentes`: controles del docente
@@ -366,6 +381,13 @@ Archivo: `routers/docentes.py` · Prefijo: `/docente` (en singular) · RF-95: so
 | POST | `/docente/cursos/{curso_id}/categorias` | Docente dueño | JSON `{nombre, porcentajePeso}` | **201**, 403, 404, 409, 422 | RF-31, RF-32 |
 | PATCH | `/docente/cursos/{curso_id}/categorias/{categoria_id}` | Docente dueño | JSON `{nombre?, porcentajePeso?}` | **200**, 403, 404, 409, 422 | RF-31, RF-32 |
 | DELETE | `/docente/cursos/{curso_id}/categorias/{categoria_id}` | Docente dueño | Nada | **200**, 403, 404, 409 | RF-31 |
+| GET | `/docente/cursos/{curso_id}/actividades` | Docente dueño | Nada | **200**, 403, 404 | RF-29 a RF-35 |
+| POST | `/docente/cursos/{curso_id}/actividades` | Docente dueño | JSON `ActividadCrear` | **201**, 403, 404, 409, 422 | RF-29 a RF-35 |
+| GET | `/docente/cursos/{curso_id}/actividades/{actividad_id}` | Docente dueño | Nada | **200**, 403, 404 | RF-29 a RF-35 |
+| PATCH | `/docente/cursos/{curso_id}/actividades/{actividad_id}` | Docente dueño | JSON `ActividadActualizar` (todo opcional) | **200**, 403, 404, 422 | RF-29 a RF-35 |
+| DELETE | `/docente/cursos/{curso_id}/actividades/{actividad_id}` | Docente dueño | Nada | **200**, 403, 404, 409 | RF-29 a RF-35 |
+| PUT | `/docente/cursos/{curso_id}/actividades/{actividad_id}/archivo` | Docente dueño | `multipart/form-data` con el campo `archivo` | **200**, 403, 404, 413, 415, 422 | RF-36, RNF-8 |
+| DELETE | `/docente/cursos/{curso_id}/actividades/{actividad_id}/archivo` | Docente dueño | Nada | **200**, 403, 404 | RF-36 |
 
 Errores de dueño (`services.py → _curso_del_docente`): **404** `Curso no encontrado`, **403** `Este curso no te pertenece`.
 
@@ -583,6 +605,102 @@ Sin categorías: `categorias: []`, `sumaPesos: 0` y la advertencia.
 `services.py → eliminar_categoria`. **200**: el listado actualizado (`CategoriasCurso`), igual que `GET .../categorias`.
 
 **409**: `No se puede eliminar una categoría que ya tiene actividades`.
+
+### Actividades (RF-29, RF-30, RF-33 a RF-36)
+
+Cada actividad pertenece a una categoría del curso. Reglas:
+
+- **RF-34:** las actividades de una categoría **valen lo mismo**, sin importar su `puntuacionMaxima`. `valorEnCurso` es el porcentaje del curso que vale la actividad: peso de la categoría / número de actividades de esa categoría. Con Tareas al 40 % y 3 tareas, cada una vale 13.33. Cambia cuando se agregan o quitan actividades. `services.py → valores_actividades(db, curso_id)` lo calcula para otros módulos.
+- La **fecha límite** debe ser posterior a la fecha y hora actuales al crear y al editar. Se guarda en hora local como `"2026-11-01T23:59:00"`. Si llega con zona horaria, se convierte a la hora local del servidor.
+- No se crean actividades en un curso archivado.
+
+Campos de `ActividadCrear` (`schemas.py`):
+
+| Campo | Obligatorio | Reglas |
+|-------|-------------|--------|
+| `categoriaEvaluacion_id` | Sí | Categoría de **este** curso (si no, 404 `Categoría no encontrada`) |
+| `titulo` | Sí | 1–100 caracteres |
+| `descripcion` | No | Hasta 2000 caracteres |
+| `fechaHoraLimite` | Sí | Fecha y hora ISO, p. ej. `"2026-11-01T23:59"`; futura |
+| `puntuacionMaxima` | Sí | Mayor que 0 y hasta 1000 |
+
+Respuesta de una actividad (`ActividadSalida`):
+```json
+{
+  "id": 1, "categoriaEvaluacion_id": 2, "categoria": "Tareas",
+  "titulo": "Tarea 1", "descripcion": "Resolver ejercicios",
+  "fechaHoraLimite": "2026-11-01T23:59:00", "puntuacionMaxima": 10.0,
+  "valorEnCurso": 13.33, "tieneArchivo": false
+}
+```
+
+Errores de actividad (`services.py → _actividad_del_curso`): **404** `Actividad no encontrada` (no existe o es de otro curso).
+
+#### `GET /docente/cursos/{curso_id}/actividades`
+
+`services.py → listar_actividades`. Todas las actividades del curso, ordenadas por fecha límite. **200**: lista de `ActividadSalida`.
+
+#### `POST /docente/cursos/{curso_id}/actividades`
+
+`services.py → crearActividad`.
+
+```json
+{
+  "categoriaEvaluacion_id": 2, "titulo": "Tarea 1", "descripcion": "Resolver ejercicios",
+  "fechaHoraLimite": "2026-11-01T23:59", "puntuacionMaxima": 10
+}
+```
+**201**: `ActividadSalida`.
+
+| Código | `detail` |
+|--------|----------|
+| 404 | `Categoría no encontrada` |
+| 409 | `El curso está archivado` |
+| 422 | `La fecha límite debe ser posterior a la fecha y hora actuales` |
+
+#### `GET /docente/cursos/{curso_id}/actividades/{actividad_id}`
+
+`services.py → ver_actividad`. **200**: `ActividadSalida`.
+
+#### `PATCH /docente/cursos/{curso_id}/actividades/{actividad_id}`
+
+`services.py → actualizar_actividad`. Solo se cambian los campos que envíes; un campo en `null` se ignora. Se puede mover la actividad a otra categoría del mismo curso. Mismas reglas que al crear. **200**: `ActividadSalida`.
+
+#### `DELETE /docente/cursos/{curso_id}/actividades/{actividad_id}`
+
+`services.py → eliminar_actividad`. Borra la actividad y su archivo adjunto. **200**: la lista actualizada de actividades del curso, porque el `valorEnCurso` de las demás cambia.
+
+**409**: `No se puede eliminar una actividad que ya tiene entregas`.
+
+#### `PUT /docente/cursos/{curso_id}/actividades/{actividad_id}/archivo`
+
+`routers/docentes.py → adjuntar_archivo` → `services.py → adjuntarArchivoActividad`. Adjunta el archivo del docente (RF-36). Si ya había uno, lo **reemplaza** y borra el anterior.
+
+Se envía como **`multipart/form-data`** con un campo llamado `archivo`, no como JSON. Desde JavaScript:
+
+```js
+const datos = new FormData();
+datos.append("archivo", input.files[0]);
+fetch(`${API}/docente/cursos/${cursoId}/actividades/${actividadId}/archivo`, {
+  method: "PUT", headers: { Authorization: `Bearer ${token}` }, body: datos,
+});
+```
+No pongas `Content-Type` a mano: el navegador lo arma con el separador correcto.
+
+**RNF-8:** máximo **10 MB**. Solo `.pdf`, `.doc`, `.docx`, `.png`, `.jpg`, `.jpeg`, `.gif` y `.zip`; se revisa la extensión, sin distinguir mayúsculas. El archivo se guarda en `backend/uploads/actividades/` con un nombre aleatorio. Las constantes están en `config.py` (`CARPETA_ARCHIVOS`, `TAMANO_MAXIMO_ARCHIVO`, `EXTENSIONES_PERMITIDAS`).
+
+**200**: `ActividadSalida` con `"tieneArchivo": true`.
+
+| Código | `detail` |
+|--------|----------|
+| 413 | `El archivo supera el tamaño máximo de 10 MB` |
+| 415 | `Tipo de archivo no permitido. Solo se aceptan PDF, Word (.doc, .docx), imágenes (.png, .jpg, .jpeg, .gif) y ZIP` |
+| 422 | `El archivo está vacío` |
+| 422 | `Hay datos inválidos en la solicitud` + `errores[]` (no se envió el campo `archivo`) |
+
+#### `DELETE /docente/cursos/{curso_id}/actividades/{actividad_id}/archivo`
+
+`services.py → quitar_archivo_actividad`. Quita y borra el archivo adjunto. **200**: `ActividadSalida` con `"tieneArchivo": false`.
 
 ---
 
