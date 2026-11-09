@@ -377,3 +377,36 @@ class ActividadSalida(BaseModel):
     puntuacionMaxima: float
     valorEnCurso: float  # RF-34: peso de la categoría / número de actividades de esa categoría
     tieneArchivo: bool   # RF-36
+
+# ------------------------------------------------------------------ módulo: entregas
+EstadoEntrega = Literal["pendiente", "vencida", "entregada", "entregada_con_retraso"]
+
+class EntregaSalida(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    actividad_id: int
+    matricula_id: int
+    fechaHoraEntrega: str       # RF-37: la pone el servidor
+    entregadoConRetraso: bool   # RF-39
+
+class ActividadAlumno(BaseModel):  # una actividad vista por el alumno, con su entrega
+    id: int
+    categoria: str
+    titulo: str
+    descripcion: str | None
+    fechaHoraLimite: str
+    puntuacionMaxima: float
+    valorEnCurso: float
+    tieneArchivo: bool
+    estadoEntrega: EstadoEntrega  # "vencida": sin entrega y ya pasó la fecha (aún se acepta tarde)
+    entrega: EntregaSalida | None
+    puedeCancelar: bool           # RF-38: hay entrega y aún no llega la fecha límite
+
+class EntregaDeAlumno(BaseModel):  # lo que ve el docente por cada alumno activo
+    matricula_id: int
+    estudiante_id: int
+    codigoEstudiante: str
+    nombre: str
+    apellidos: str
+    estadoEntrega: EstadoEntrega
+    entrega: EntregaSalida | None

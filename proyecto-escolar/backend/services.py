@@ -824,3 +824,113 @@ def archivo_de_actividad(db: Session, usuario: models.Usuario, actividad_id: int
         raise HTTPException(404, "La actividad no tiene archivo adjunto")
     extension = Path(actividad.archivoAdjunto).suffix
     return CARPETA_ARCHIVOS / actividad.archivoAdjunto, f"{actividad.titulo}{extension}"
+
+# ======================================================================
+# Entregas del alumno (RF-37 a RF-39)
+# ======================================================================
+def _vencida(actividad: models.Actividad) -> bool:
+    return ahora() > datetime.fromisoformat(actividad.fechaHoraLimite)
+
+def _estado_entrega(actividad: models.Actividad, entrega: models.Entrega | None) -> str:
+    if entrega:
+        return "entregada_con_retraso" if entrega.entregadoConRetraso else "entregada"
+    return "vencida" if _vencida(actividad) else "pendiente"
+
+def _entrega_de(db: Session, actividad_id: int, matricula_id: int) -> models.Entrega | None:
+    return db.query(models.Entrega).filter_by(actividad_id=actividad_id, matricula_id=matricula_id).first()
+
+def _matricula_activa(db: Session, usuario: models.Usuario, curso_id: int) -> models.Matricula:
+    curso = db.get(models.Curso, curso_id)
+    if not curso:
+        raise HTTPException(404, "Curso no encontrado")
+    matricula = db.query(models.Matricula).filter_by(curso_id=curso.id, estudiante_id=usuario.id,
+                                                     estado="activo").first()
+    if not matricula:
+        raise HTTPException(403, "No estás inscrito en este curso")
+    return matricula
+
+def _actividad_del_alumno(db: Session, usuario: models.Usuario,
+                          actividad_id: int) -> tuple[models.Actividad, models.Matricula]:
+    actividad = db.get(models.Actividad, actividad_id)
+    if not actividad:
+        raise HTTPException(404, "Actividad no encontrada")
+    return actividad, _matricula_activa(db, usuario, _curso_de_actividad(db, actividad))
+
+def _actividad_alumno_dict(db: Session, a: models.Actividad, matricula: models.Matricula,
+                           valores: dict[int, float] | None = None) -> dict:
+    entrega = _entrega_de(db, a.id, matricula.id)
+    return {**_actividad_dict(db, a, valores), "estadoEntrega": _estado_entrega(a, entrega),
+            "entrega": entrega, "puedeCancelar": bool(entrega) and not _vencida(a)}
+
+def cursos_del_alumno(db: Session, usuario: models.Usuario) -> list[models.Curso]:
+    """Cursos con matrícula activa del alumno (incluye archivados para consultar su historial)."""
+    return (db.query(models.Curso)
+            .join(models.Matricula, models.Matricula.curso_id == models.Curso.id)
+            .filter(models.Matricula.estudiante_id == usuario.id, models.Matricula.estado == "activo")
+            .order_by(models.Curso.id).all())
+
+def actividades_del_alumno(db: Session, usuario: models.Usuario, curso_id: int) -> list[dict]:
+    matricula = _matricula_activa(db, usuario, curso_id)
+    actividades = (db.query(models.Actividad)
+                   .join(models.CategoriaEvaluacion,
+                         models.CategoriaEvaluacion.id == models.Actividad.categoriaEvaluacion_id)
+                   .filter(models.CategoriaEvaluacion.curso_id == matricula.curso_id)
+                   .order_by(models.Actividad.fechaHoraLimite, models.Actividad.id).all())
+    valores = valores_actividades(db, matricula.curso_id)
+    return [_actividad_alumno_dict(db, a, matricula, valores) for a in actividades]
+
+def entregarActividad(db: Session, usuario: models.Usuario, actividad_id: int,
+                      nombre_original: str, contenido: bytes) -> dict:
+    """RF-37: la fecha y hora las pone el servidor. RF-39: tarde se acepta, marcada con retraso."""
+    actividad, matricula = _actividad_del_alumno(db, usuario, actividad_id)
+    if db.get(models.Curso, matricula.curso_id).estado != "activo":
+        raise HTTPException(409, "El curso está archivado")
+    if _entrega_de(db, actividad.id, matricula.id):
+        raise HTTPException(409, "Ya entregaste esta actividad; cancela tu entrega para volver a subirla")
+    momento = ahora()
+    archivo = _guardar_archivo("entregas", nombre_original, contenido)
+    db.add(models.Entrega(actividad_id=actividad.id, matricula_id=matricula.id, archivoDigital=archivo,
+                          fechaHoraEntrega=momento.isoformat(timespec="seconds"),
+                          entregadoConRetraso=int(_vencida(actividad))))
+    db.commit()
+    return _actividad_alumno_dict(db, actividad, matricula)
+
+def cancelarEntrega(db: Session, usuario: models.Usuario, actividad_id: int) -> dict:
+    """RF-38: solo antes de la fecha límite; después la entrega queda fija."""
+    actividad, matricula = _actividad_del_alumno(db, usuario, actividad_id)
+    entrega = _entrega_de(db, actividad.id, matricula.id)
+    if not entrega:
+        raise HTTPException(404, "No has entregado esta actividad")
+    if _vencida(actividad):
+        raise HTTPException(409, "Ya pasó la fecha límite; no puedes cancelar tu entrega")
+    if db.query(models.Calificacion).filter_by(entrega_id=entrega.id).first():
+        raise HTTPException(409, "Tu entrega ya fue calificada; no puedes cancelarla")
+    archivo = entrega.archivoDigital
+    db.delete(entrega)
+    db.commit()
+    _borrar_archivo(archivo)
+    return _actividad_alumno_dict(db, actividad, matricula)
+
+def entregas_de_actividad(db: Session, docente: models.Usuario, curso_id: int, actividad_id: int) -> list[dict]:
+    """Para el docente: cada alumno activo con su entrega (o sin ella)."""
+    actividad = _actividad_del_curso(db, docente, curso_id, actividad_id)
+    entregas = {e.matricula_id: e for e in db.query(models.Entrega).filter_by(actividad_id=actividad.id).all()}
+    return [{**_datos_alumno(m, e, u), "entrega": entregas.get(m.id),
+             "estadoEntrega": _estado_entrega(actividad, entregas.get(m.id))}
+            for m, e, u in _alumnos_activos(db, curso_id)]
+
+def archivo_de_entrega(db: Session, usuario: models.Usuario, entrega_id: int) -> tuple[Path, str]:
+    """Lo descargan el alumno que entregó y el docente del curso. Devuelve (ruta, nombre de descarga)."""
+    entrega = db.get(models.Entrega, entrega_id)
+    if not entrega:
+        raise HTTPException(404, "Entrega no encontrada")
+    matricula = db.get(models.Matricula, entrega.matricula_id)
+    curso = db.get(models.Curso, matricula.curso_id)
+    if usuario.id not in (matricula.estudiante_id, curso.docente_id):
+        raise HTTPException(403, "No tienes acceso a esta entrega")
+    if not entrega.archivoDigital or not (CARPETA_ARCHIVOS / entrega.archivoDigital).is_file():
+        raise HTTPException(404, "La entrega no tiene archivo")
+    actividad = db.get(models.Actividad, entrega.actividad_id)
+    codigo = db.get(models.Estudiante, matricula.estudiante_id).codigoEstudiante
+    extension = Path(entrega.archivoDigital).suffix
+    return CARPETA_ARCHIVOS / entrega.archivoDigital, f"{codigo}_{actividad.titulo}{extension}"

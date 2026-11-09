@@ -31,3 +31,10 @@ def descargar_archivo_actividad(actividad_id: int, db: Session = Depends(get_db)
     """RF-36: el docente del curso y sus alumnos activos descargan el archivo de la actividad."""
     ruta, nombre = services.archivo_de_actividad(db, usuario, actividad_id)
     return FileResponse(ruta, filename=nombre)  # se envía como descarga, nunca se muestra en línea
+
+@router.get("/entregas/{entrega_id}/archivo", response_class=FileResponse)
+def descargar_archivo_entrega(entrega_id: int, db: Session = Depends(get_db),
+                              usuario: models.Usuario = Depends(usuario_actual)):
+    """El alumno que entregó y el docente del curso descargan el archivo de la entrega."""
+    ruta, nombre = services.archivo_de_entrega(db, usuario, entrega_id)
+    return FileResponse(ruta, filename=nombre)

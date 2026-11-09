@@ -60,3 +60,9 @@ def requiere_docente(usuario: models.Usuario = Depends(usuario_actual),
     if not db.get(models.Docente, usuario.id):
         raise HTTPException(403, "Se requiere rol de docente")
     return usuario
+
+def requiere_estudiante(usuario: models.Usuario = Depends(usuario_actual),
+                        db: Session = Depends(get_db)) -> models.Usuario:
+    if not db.get(models.Estudiante, usuario.id):
+        raise HTTPException(403, "Se requiere rol de estudiante")
+    return usuario

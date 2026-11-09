@@ -111,3 +111,8 @@ def adjuntar_archivo(curso_id: int, actividad_id: int, archivo: UploadFile = Fil
 def quitar_archivo(curso_id: int, actividad_id: int, db: Session = Depends(get_db),
                    docente: models.Usuario = Depends(requiere_docente)):
     return services.quitar_archivo_actividad(db, docente, curso_id, actividad_id)
+
+@router.get("/cursos/{curso_id}/actividades/{actividad_id}/entregas", response_model=list[schemas.EntregaDeAlumno])
+def entregas_de_actividad(curso_id: int, actividad_id: int, db: Session = Depends(get_db),
+                          docente: models.Usuario = Depends(requiere_docente)):
+    return services.entregas_de_actividad(db, docente, curso_id, actividad_id)

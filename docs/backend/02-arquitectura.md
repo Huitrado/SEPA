@@ -26,6 +26,7 @@ SEPA/
         │   ├── catalogos.py       ← /catalogos/... listas públicas (carreras, ciclos…)
         │   ├── cursos.py          ← /cursos y /inscripcion
         │   ├── docentes.py        ← /docente/...   controles del docente sobre sus cursos
+        │   ├── alumnos.py         ← /alumno/...    cursos, actividades y entregas del alumno
         │   └── admin.py           ← /admin/...     gestión de usuarios, catálogos y cursos
         ├── conftest.py            ← configuración de pytest (fixture "client")
         ├── helpers.py             ← datos y funciones de apoyo para las pruebas
@@ -146,7 +147,7 @@ app.include_router(usuarios.router)                   # 6. registra las rutas
 3. **`add_exception_handler`** cambia el formato de los errores de validación (ver [06-errores.md](06-errores.md)).
 4. **CORS** (*Cross-Origin Resource Sharing*) es una regla de los navegadores: una página servida desde un origen (por ejemplo `http://127.0.0.1:5500`) no puede llamar a una API en otro origen (`http://127.0.0.1:8000`) a menos que la API lo autorice. Aquí se autoriza el puerto **5500**, el que usa la extensión *Live Server* de VS Code. Si sirven el frontend en otro puerto, hay que agregarlo a `allow_origins`.
 5. **Middleware `sin_cache`**: un *middleware* es código que se ejecuta en **todas** las peticiones, antes y después del endpoint. Este agrega `Cache-Control: no-store` a cada respuesta para que el navegador no guarde copias. Así, tras cerrar sesión, el botón "atrás" no muestra datos viejos (RF-06).
-6. **`include_router`** agrega a la aplicación las rutas de cada archivo de `routers/`: `usuarios`, `catalogos`, `cursos`, `docentes` y `admin`.
+6. **`include_router`** agrega a la aplicación las rutas de cada archivo de `routers/`: `usuarios`, `catalogos`, `cursos`, `docentes`, `alumnos` y `admin`.
 
 ## Recorrido completo de una petición: `POST /usuarios/registro`
 

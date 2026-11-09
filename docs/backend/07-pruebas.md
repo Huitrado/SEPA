@@ -61,6 +61,8 @@ flowchart TD
     T4 --> H
     T5["test_actividades.py<br/>RF-29 a RF-36, RNF-8<br/>+ fixtures curso y carpeta_temporal"] --> C
     T5 --> H
+    T6["test_entregas.py<br/>RF-37 a RF-39<br/>+ fixtures reloj y curso"] --> C
+    T6 --> H
 ```
 
 ### `conftest.py`: la fixture `client`
@@ -212,6 +214,18 @@ Docstring: *"Módulo de actividades (RF-29, RF-30, RF-33 a RF-36) y archivos adj
 | RF-36 | Adjuntar, reemplazar (borra el anterior), quitar y descargar; descargan el docente y los alumnos inscritos; nadie más |
 | RNF-8 | Tipos permitidos y no permitidos (415); 10 MB exactos sí, uno más no (413); archivo vacío (422) |
 | RF-95 | Otro docente, el admin y un alumno reciben 403 |
+
+### `test_entregas.py`
+
+Docstring: *"Módulo de entregas del alumno (RF-37 a RF-39)"*. La fixture `reloj` reemplaza `services.ahora()` por una hora que cada prueba puede mover (`reloj["ahora"] = DESPUES`) y manda los archivos a una carpeta temporal. La fixture `curso` crea la actividad "Tarea 1" con límite el 1/nov/2026 a las 23:59 y a Ana y Beto inscritos.
+
+| RF | Qué comprueban |
+|----|----------------|
+| Vista del alumno | Sus cursos (sin `codigoCurso`); sus actividades con `estadoEntrega` `pendiente` o `vencida` |
+| RF-37 | La fecha y hora de entrega las pone el servidor; justo en la fecha límite es a tiempo; no se entrega dos veces |
+| RF-38 | Cancelar (borra el archivo) y volver a subir antes de la fecha; no se cancela después ni si ya está calificada |
+| RF-39 | Después de la fecha se acepta con `entregadoConRetraso` |
+| Acceso | Solo alumnos inscritos y activos; curso archivado → 409; el docente ve las entregas de todos; solo el alumno y su docente descargan la entrega |
 
 ---
 

@@ -2,7 +2,7 @@
 
 [← Volver al índice](README.md)
 
-Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **43 endpoints** en 5 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
+Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **49 endpoints** en 6 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
 
 ## Cómo leer estas tablas
 
@@ -22,7 +22,8 @@ Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sa
 |----------|-------------|----------------|
 | **Público** | Sin iniciar sesión | Sin dependencia de seguridad |
 | **Sesión** | Cualquier usuario con token válido y cuenta `activa` | `security.py → usuario_actual` |
-| **Estudiante** | Sesión + tener perfil `Estudiante` | `usuario_actual` + revisión en `services.py` |
+| **Estudiante** | Sesión + tener perfil `Estudiante` | `security.py → requiere_estudiante` (en `POST /inscripcion`, `usuario_actual` + revisión en `services.py`) |
+| **Alumno inscrito** | Estudiante + matrícula **activa** en el curso | `requiere_estudiante` + `services.py → _matricula_activa` |
 | **Docente** | Sesión + tener perfil `Docente` | `security.py → requiere_docente` |
 | **Docente dueño** | Docente + ser el creador del curso (RF-95) | `requiere_docente` + `services.py → _curso_del_docente` |
 | **Admin** | Sesión + tener perfil `Administrador` | `security.py → requiere_admin` |
@@ -266,6 +267,7 @@ Archivo: `routers/cursos.py` · Sin prefijo
 | GET | `/cursos` | Sesión | Nada | **200** | RF-14 |
 | POST | `/inscripcion` | Estudiante | JSON `{codigoCurso}` | **201**, 403, 404, 409, 422 | RF-15 |
 | GET | `/actividades/{actividad_id}/archivo` | Docente dueño o alumno inscrito activo | Nada | **200** (archivo), 403, 404 | RF-36 |
+| GET | `/entregas/{entrega_id}/archivo` | El alumno que entregó o el docente dueño | Nada | **200** (archivo), 403, 404 | RF-37 |
 
 ### `POST /cursos`
 
@@ -361,6 +363,16 @@ Desde el frontend hay que pedirlo con `fetch` y el token, y luego guardarlo con 
 | 404 | `Actividad no encontrada` |
 | 404 | `La actividad no tiene archivo adjunto` |
 
+### `GET /entregas/{entrega_id}/archivo`
+
+`routers/cursos.py → descargar_archivo_entrega` → `services.py → archivo_de_entrega`. Descarga el archivo que entregó el alumno. Lo pueden bajar **el alumno que entregó** y **el docente del curso**. Se descarga como `<código del alumno>_<título de la actividad>.<extensión>`; el nombre viaja codificado en el encabezado (`filename*=utf-8''123456789_Tarea%201.pdf`).
+
+| Código | `detail` |
+|--------|----------|
+| 403 | `No tienes acceso a esta entrega` |
+| 404 | `Entrega no encontrada` |
+| 404 | `La entrega no tiene archivo` |
+
 ---
 
 ## Router `docentes`: controles del docente
@@ -388,6 +400,7 @@ Archivo: `routers/docentes.py` · Prefijo: `/docente` (en singular) · RF-95: so
 | DELETE | `/docente/cursos/{curso_id}/actividades/{actividad_id}` | Docente dueño | Nada | **200**, 403, 404, 409 | RF-29 a RF-35 |
 | PUT | `/docente/cursos/{curso_id}/actividades/{actividad_id}/archivo` | Docente dueño | `multipart/form-data` con el campo `archivo` | **200**, 403, 404, 413, 415, 422 | RF-36, RNF-8 |
 | DELETE | `/docente/cursos/{curso_id}/actividades/{actividad_id}/archivo` | Docente dueño | Nada | **200**, 403, 404 | RF-36 |
+| GET | `/docente/cursos/{curso_id}/actividades/{actividad_id}/entregas` | Docente dueño | Nada | **200**, 403, 404 | RF-37 a RF-39 |
 
 Errores de dueño (`services.py → _curso_del_docente`): **404** `Curso no encontrado`, **403** `Este curso no te pertenece`.
 
@@ -701,6 +714,104 @@ No pongas `Content-Type` a mano: el navegador lo arma con el separador correcto.
 #### `DELETE /docente/cursos/{curso_id}/actividades/{actividad_id}/archivo`
 
 `services.py → quitar_archivo_actividad`. Quita y borra el archivo adjunto. **200**: `ActividadSalida` con `"tieneArchivo": false`.
+
+#### `GET /docente/cursos/{curso_id}/actividades/{actividad_id}/entregas`
+
+`services.py → entregas_de_actividad`. Cada alumno **activo** del curso, por apellidos y nombre, con su entrega o `null`. Sirve para revisar y, más adelante, calificar. **200** (lista de `EntregaDeAlumno`):
+```json
+[
+  {
+    "matricula_id": 1, "estudiante_id": 3, "codigoEstudiante": "123456789",
+    "nombre": "Ana", "apellidos": "López", "estadoEntrega": "entregada",
+    "entrega": { "id": 1, "actividad_id": 1, "matricula_id": 1,
+                 "fechaHoraEntrega": "2026-10-25T12:00:00", "entregadoConRetraso": false }
+  },
+  {
+    "matricula_id": 2, "estudiante_id": 4, "codigoEstudiante": "987654321",
+    "nombre": "Beto", "apellidos": "López", "estadoEntrega": "vencida", "entrega": null
+  }
+]
+```
+El archivo de cada entrega se baja con `GET /entregas/{entrega.id}/archivo`.
+
+---
+
+## Router `alumnos`: lo que hace el alumno en sus cursos
+
+Archivo: `routers/alumnos.py` · Prefijo: `/alumno` (en singular) · **Todos exigen rol de estudiante** (`requiere_estudiante`). Un docente o administrador recibe 403 `Se requiere rol de estudiante`.
+
+| Método | Ruta | Quién | Recibe | Respuestas | RF |
+|--------|------|-------|--------|------------|----|
+| GET | `/alumno/cursos` | Estudiante | Nada | **200** | Por confirmar |
+| GET | `/alumno/cursos/{curso_id}/actividades` | Alumno inscrito | Nada | **200**, 403, 404 | RF-29 a RF-36 |
+| POST | `/alumno/actividades/{actividad_id}/entrega` | Alumno inscrito | `multipart/form-data` con el campo `archivo` | **201**, 403, 404, 409, 413, 415, 422 | RF-37, RF-39, RNF-8 |
+| DELETE | `/alumno/actividades/{actividad_id}/entrega` | Alumno inscrito | Nada | **200**, 403, 404, 409 | RF-38 |
+
+Errores de inscripción (`services.py → _matricula_activa`): **404** `Curso no encontrado` · **404** `Actividad no encontrada` · **403** `No estás inscrito en este curso` (tampoco si su matrícula está dada de baja).
+
+### Estados de una entrega
+
+`estadoEntrega` resume la situación del alumno con una actividad:
+
+| Valor | Significa |
+|-------|-----------|
+| `pendiente` | No ha entregado y aún no llega la fecha límite |
+| `vencida` | No ha entregado y ya pasó la fecha límite. **Aún puede entregar** (RF-39), pero quedará con retraso |
+| `entregada` | Entregó a tiempo |
+| `entregada_con_retraso` | Entregó después de la fecha límite (`entregadoConRetraso: true`) |
+
+Entregar **justo** en la fecha y hora límite cuenta como a tiempo.
+
+### `GET /alumno/cursos`
+
+`services.py → cursos_del_alumno`. Los cursos en los que el alumno tiene matrícula activa, incluidos los archivados. **200**: lista de `CursoPublico` (como `GET /cursos`, **sin** `codigoCurso`).
+
+### `GET /alumno/cursos/{curso_id}/actividades`
+
+`services.py → actividades_del_alumno`. Las actividades del curso, ordenadas por fecha límite, cada una con la entrega del alumno. **200** (lista de `ActividadAlumno`):
+```json
+[
+  {
+    "id": 1, "categoria": "Tareas", "titulo": "Tarea 1", "descripcion": null,
+    "fechaHoraLimite": "2026-11-01T23:59:00", "puntuacionMaxima": 10.0,
+    "valorEnCurso": 100.0, "tieneArchivo": true,
+    "estadoEntrega": "entregada",
+    "entrega": { "id": 1, "actividad_id": 1, "matricula_id": 1,
+                 "fechaHoraEntrega": "2026-10-25T12:00:00", "entregadoConRetraso": false },
+    "puedeCancelar": true
+  }
+]
+```
+- El archivo del docente se baja con `GET /actividades/{id}/archivo` (cuando `tieneArchivo` es `true`).
+- El archivo que entregó el alumno se baja con `GET /entregas/{entrega.id}/archivo`.
+- `puedeCancelar` es `true` si hay entrega y aún no llega la fecha límite (RF-38).
+
+### `POST /alumno/actividades/{actividad_id}/entrega`
+
+`routers/alumnos.py → entregar` → `services.py → entregarActividad`. Sube el archivo de la entrega como **`multipart/form-data`** con el campo `archivo`, igual que el adjunto del docente (mismo ejemplo con `FormData`).
+
+- **RF-37:** `fechaHoraEntrega` la pone el servidor; el cliente no la manda.
+- **RF-39:** después de la fecha límite la entrega **se acepta** con `entregadoConRetraso: true`.
+- **RNF-8:** mismas reglas que el adjunto del docente (10 MB; PDF, Word, imágenes y ZIP). Se guarda en `backend/uploads/entregas/`.
+- Una sola entrega por alumno y actividad: para cambiarla hay que cancelar primero.
+
+**201**: el `ActividadAlumno` actualizado, con `estadoEntrega` y `entrega`.
+
+| Código | `detail` |
+|--------|----------|
+| 409 | `Ya entregaste esta actividad; cancela tu entrega para volver a subirla` |
+| 409 | `El curso está archivado` |
+| 413 / 415 / 422 | Los mismos del archivo del docente (tamaño, tipo, vacío o sin campo `archivo`) |
+
+### `DELETE /alumno/actividades/{actividad_id}/entrega`
+
+`services.py → cancelarEntrega`. Cancela la entrega y borra su archivo para poder volver a subirla (RF-38). **200**: el `ActividadAlumno` sin entrega.
+
+| Código | `detail` |
+|--------|----------|
+| 404 | `No has entregado esta actividad` |
+| 409 | `Ya pasó la fecha límite; no puedes cancelar tu entrega` |
+| 409 | `Tu entrega ya fue calificada; no puedes cancelarla` |
 
 ---
 

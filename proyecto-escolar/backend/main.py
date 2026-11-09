@@ -8,7 +8,7 @@ import models
 import services
 from database import SessionLocal, engine
 from errores import errores_de_validacion
-from routers import admin, catalogos, cursos, docentes, usuarios
+from routers import admin, alumnos, catalogos, cursos, docentes, usuarios
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -40,4 +40,5 @@ app.include_router(usuarios.router)
 app.include_router(catalogos.router)
 app.include_router(cursos.router)
 app.include_router(docentes.router)
+app.include_router(alumnos.router)
 app.include_router(admin.router)

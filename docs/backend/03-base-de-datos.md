@@ -30,8 +30,8 @@ Todo se define en **`models.py`**. Cada clase que hereda de `Base` es una **tabl
 
 | Estado | Tablas |
 |--------|--------|
-| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `MallaCurricular`, `Materia`, `MallaMateria` |
-| **Sin uso todavía** | `HistorialAcademico`, `PublicacionAsesoria`, `BibliotecaNormatividad`, `RegistroRiesgo`, `Entrega`, `Calificacion` |
+| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `Entrega`, `MallaCurricular`, `Materia`, `MallaMateria` |
+| **Sin uso todavía** | `HistorialAcademico`, `PublicacionAsesoria`, `BibliotecaNormatividad`, `RegistroRiesgo`, `Calificacion` |
 
 ---
 
@@ -204,9 +204,9 @@ erDiagram
     }
     Entrega {
         int id PK
-        string fechaHoraEntrega
-        string archivoDigital
-        int entregadoConRetraso "0/1"
+        string fechaHoraEntrega "la pone el servidor (RF-37)"
+        string archivoDigital "ruta en uploads/"
+        int entregadoConRetraso "0/1 (RF-39)"
         int actividad_id FK
         int matricula_id FK
     }

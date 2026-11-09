@@ -183,7 +183,7 @@ bearer = HTTPBearer()
 
 ## 4. Cómo se verifica el rol
 
-FastAPI permite **encadenar dependencias**: una función de seguridad puede depender de otra. En `security.py` hay cuatro, cada una construida sobre la anterior:
+FastAPI permite **encadenar dependencias**: una función de seguridad puede depender de otra. En `security.py` hay cinco, cada una construida sobre la anterior:
 
 ```mermaid
 flowchart LR
@@ -191,6 +191,7 @@ flowchart LR
     B --> C["usuario_actual<br/>el usuario existe y está activo"]
     C --> D1["requiere_admin<br/>hay fila en Administrador"]
     C --> D2["requiere_docente<br/>hay fila en Docente"]
+    C --> D3["requiere_estudiante<br/>hay fila en Estudiante"]
 ```
 
 | Dependencia | Qué revisa | Si falla |
@@ -201,6 +202,7 @@ flowchart LR
 | | Que el usuario exista y su `estado` sea `activo` | 401 `"Usuario no válido"` |
 | `requiere_admin` | Que exista una fila en `Administrador` con ese `id` | 403 `"Se requiere rol de administrador"` |
 | `requiere_docente` | Que exista una fila en `Docente` con ese `id` | 403 `"Se requiere rol de docente"` |
+| `requiere_estudiante` | Que exista una fila en `Estudiante` con ese `id` (rutas `/alumno/...`) | 403 `"Se requiere rol de estudiante"` |
 
 Así se usan en un router (`routers/admin.py`):
 
