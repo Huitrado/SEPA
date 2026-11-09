@@ -361,7 +361,7 @@ Tiene `UniqueConstraint("curso_id", "estudiante_id")`: un estudiante **no puede 
 
 ### `MallaCurricular`, `Materia` y `MallaMateria`: planes de estudio
 
-Se llenan **una sola vez** desde `planes.json` (`services.py → _sembrar_planes`). Hoy ningún endpoint los consulta.
+Se llenan **una sola vez** desde `planes.json` (`services.py → _sembrar_planes`). `Materia` se consulta en `GET /catalogos/materias` y el administrador la mantiene con `/admin/materias` (RF-94); `MallaCurricular` y `MallaMateria` aún no tienen endpoints.
 
 - `MallaCurricular`: un plan por carrera: `ICOM` (generación 2021-B) e `INFO` (generación 2023).
 - `Materia`: cada materia, con su `clave` única (p. ej. `I5288` Fundamentos de la Programación). Una materia que comparten ICOM e INFO se crea una sola vez.

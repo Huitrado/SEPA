@@ -67,6 +67,8 @@ flowchart TD
     T7 --> H
     T8["test_seguimiento.py<br/>RF-16, RF-48, RF-49, RF-61<br/>+ fixture curso"] --> C
     T8 --> H
+    T9["test_materias.py<br/>RF-94<br/>+ fixture ta"] --> C
+    T9 --> H
 ```
 
 ### `conftest.py`: la fixture `client`
@@ -253,6 +255,14 @@ Docstring: *"Baja de alumno (RF-16) y seguimiento: alerta por calificación y se
 | RF-61 | El semáforo general es el peor de los dos; la asistencia puede ponerlo en rojo aunque la calificación vaya bien; conteo por color |
 | RF-16 | El alumno de baja sigue en el listado de matrícula, pero desaparece de asistencia, calificaciones y seguimiento, y ya no ve el curso; reactivarlo lo devuelve con su acumulada al día; validaciones |
 | RF-95 | Otro docente, el admin y un alumno reciben 403 |
+
+### `test_materias.py`
+
+Docstring: *"Catálogo de materias que mantiene el administrador (RF-94)"*. La fixture `ta` crea el administrador y devuelve su token.
+
+| RF | Qué comprueban |
+|----|----------------|
+| RF-94 | Alta (clave en mayúsculas, aparece en `GET /catalogos/materias`); clave repetida → 409; formatos inválidos → 422; editar nombre y clave sin chocar con otra; eliminar si no se usa; no se elimina si está en un plan, un curso o un historial; un docente, un alumno o alguien sin sesión no pueden |
 
 ---
 

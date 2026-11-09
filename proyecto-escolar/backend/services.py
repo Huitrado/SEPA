@@ -105,6 +105,47 @@ def _sembrar_planes(db: Session) -> None:
                                        mallaCurricular_id=malla.id, materia_id=materia.id))
     db.commit()
 
+# RF-94: el administrador da de alta y mantiene el catálogo de materias
+def _clave_libre(db: Session, clave: str, materia_id: int | None = None) -> None:
+    otra = db.query(models.Materia).filter_by(clave=clave).first()
+    if otra and otra.id != materia_id:
+        raise HTTPException(409, "Ya existe una materia con esa clave")
+
+def _materia(db: Session, materia_id: int) -> models.Materia:
+    materia = db.get(models.Materia, materia_id)
+    if not materia:
+        raise HTTPException(404, "Materia no encontrada")
+    return materia
+
+def crear_materia(db: Session, datos: schemas.MateriaCrear) -> models.Materia:
+    _clave_libre(db, datos.clave)
+    materia = models.Materia(clave=datos.clave, nombre=datos.nombre)
+    db.add(materia)
+    db.commit()
+    db.refresh(materia)
+    return materia
+
+def actualizar_materia(db: Session, materia_id: int, datos: schemas.MateriaActualizar) -> models.Materia:
+    materia = _materia(db, materia_id)
+    cambios = {k: v for k, v in datos.model_dump(exclude_unset=True).items() if v is not None}
+    if "clave" in cambios:
+        _clave_libre(db, cambios["clave"], materia.id)
+    for campo, valor in cambios.items():
+        setattr(materia, campo, valor)
+    db.commit()
+    db.refresh(materia)
+    return materia
+
+def eliminar_materia(db: Session, materia_id: int) -> None:
+    """Solo si nadie la usa: un plan de estudios, un curso o un historial académico."""
+    materia = _materia(db, materia_id)
+    for tabla in (models.MallaMateria, models.Curso, models.HistorialAcademico):
+        if db.query(tabla).filter_by(materia_id=materia.id).first():
+            raise HTTPException(409, "No se puede eliminar una materia que ya se usa en un plan de "
+                                     "estudios, un curso o un historial académico")
+    db.delete(materia)
+    db.commit()
+
 def crear_carrera(db: Session, datos: schemas.CarreraCrear) -> models.Carrera:
     if db.query(models.Carrera).filter(
             or_(models.Carrera.clave == datos.clave, models.Carrera.nombre == datos.nombre)).first():
