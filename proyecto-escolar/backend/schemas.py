@@ -502,3 +502,15 @@ class SeguimientoCurso(BaseModel):
 
 class SeguimientoPropio(IndicadoresSeguimiento):
     curso_id: int
+
+# ------------------------------------------------------------------ módulo: catálogo de materias (RF-94)
+ClaveMateria = Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, min_length=2,
+                                                max_length=15, pattern=r"^[A-Za-z0-9-]+$")]  # p. ej. I5288, PROV-01
+
+class MateriaCrear(BaseModel):
+    clave: ClaveMateria
+    nombre: Texto
+
+class MateriaActualizar(BaseModel):  # solo se cambia lo que se envía
+    clave: ClaveMateria | None = None
+    nombre: Texto | None = None

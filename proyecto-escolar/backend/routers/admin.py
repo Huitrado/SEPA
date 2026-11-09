@@ -57,3 +57,19 @@ def listar_todos_los_cursos(db: Session = Depends(get_db), _: models.Usuario = D
 def reasignar_docente(curso_id: int, datos: schemas.ReasignarDocente,
                       db: Session = Depends(get_db), _: models.Usuario = Depends(requiere_admin)):
     return services.reasignar_docente(db, curso_id, datos.docente_id)
+
+# ------------------------------------------------------------------ catálogo de materias (RF-94)
+@router.post("/materias", response_model=schemas.MateriaSalida, status_code=201)
+def crear_materia(datos: schemas.MateriaCrear, db: Session = Depends(get_db),
+                  _: models.Usuario = Depends(requiere_admin)):
+    return services.crear_materia(db, datos)
+
+@router.patch("/materias/{materia_id}", response_model=schemas.MateriaSalida)
+def editar_materia(materia_id: int, datos: schemas.MateriaActualizar, db: Session = Depends(get_db),
+                   _: models.Usuario = Depends(requiere_admin)):
+    return services.actualizar_materia(db, materia_id, datos)
+
+@router.delete("/materias/{materia_id}")
+def eliminar_materia(materia_id: int, db: Session = Depends(get_db), _: models.Usuario = Depends(requiere_admin)):
+    services.eliminar_materia(db, materia_id)
+    return {"mensaje": "Materia eliminada correctamente"}

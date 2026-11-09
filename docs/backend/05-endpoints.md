@@ -2,7 +2,7 @@
 
 [← Volver al índice](README.md)
 
-Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **55 endpoints** en 6 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
+Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **58 endpoints** en 6 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
 
 ## Cómo leer estas tablas
 
@@ -212,7 +212,7 @@ Ordenadas por nombre. **200**:
 
 ### `GET /catalogos/materias`
 
-`routers/catalogos.py → materias`. Materias del plan de estudios (se cargan de `planes.json`), ordenadas por nombre, para elegir al crear un curso. **200**:
+`routers/catalogos.py → materias`. Materias del plan de estudios (se cargan de `planes.json` y el administrador las mantiene con `/admin/materias`, RF-94), ordenadas por nombre, para elegir al crear un curso. **200**:
 ```json
 [
   { "id": 12, "clave": "I5288", "nombre": "Bases de Datos" }
@@ -986,6 +986,9 @@ Archivo: `routers/admin.py` · Prefijo: `/admin` · **Todos exigen Admin** (`req
 | PATCH | `/admin/usuarios/{usuario_id}/estado` | Admin | JSON `{estado}` = `activo` o `inactivo` | **200**, 404, 409, 422 | RF-93 |
 | PATCH | `/admin/usuarios/{usuario_id}/contrasena` | Admin | JSON `{nueva_contrasena}` | **200**, 404, 422 | RF-07 |
 | POST | `/admin/carreras` | Admin | JSON `{clave, nombre}` | **201**, 409, 422 | RF-02 |
+| POST | `/admin/materias` | Admin | JSON `{clave, nombre}` | **201**, 409, 422 | RF-94 |
+| PATCH | `/admin/materias/{materia_id}` | Admin | JSON `{clave?, nombre?}` | **200**, 404, 409, 422 | RF-94 |
+| DELETE | `/admin/materias/{materia_id}` | Admin | Nada | **200**, 404, 409 | RF-94 |
 | POST | `/admin/ciclos` | Admin | JSON `CicloCrear` | **201**, 409, 422 | RF-08 |
 | GET | `/admin/cursos` | Admin | Nada | **200** | Por confirmar |
 | PATCH | `/admin/cursos/{curso_id}/docente` | Admin | JSON `{docente_id}` | **200**, 404, 409, 422 | Por confirmar |
@@ -1057,6 +1060,46 @@ El correo **debe** terminar en `@academicos.udg.mx` (`schemas.py → DocenteCrea
 ```
 **201**: `{"id": 3, "clave": "ICOM", "nombre": "Ingeniería en Computación"}` (la clave se guarda en mayúsculas)
 **409**: `Ya existe una carrera con esa clave o nombre`
+
+### Catálogo de materias (RF-94)
+
+El administrador da de alta y mantiene las materias. La lista se consulta con el endpoint público `GET /catalogos/materias`. Las materias iniciales salen de `planes.json`.
+
+| Campo | Reglas |
+|-------|--------|
+| `clave` | 2–15 caracteres: letras, números y guiones (p. ej. `I5288`, `PROV-01`); se guarda en mayúsculas; única |
+| `nombre` | 1–100 caracteres |
+
+#### `POST /admin/materias`
+
+`services.py → crear_materia`.
+
+```json
+{ "clave": "i5288", "nombre": "Bases de Datos" }
+```
+**201** (`MateriaSalida`): `{"id": 80, "clave": "I5288", "nombre": "Bases de Datos"}`
+
+**409**: `Ya existe una materia con esa clave`
+
+#### `PATCH /admin/materias/{materia_id}`
+
+`services.py → actualizar_materia`. Solo se cambian los campos que envíes; un campo en `null` se ignora. **200**: `MateriaSalida`.
+
+| Código | `detail` |
+|--------|----------|
+| 404 | `Materia no encontrada` |
+| 409 | `Ya existe una materia con esa clave` |
+
+#### `DELETE /admin/materias/{materia_id}`
+
+`services.py → eliminar_materia`. Solo se puede eliminar una materia que **nadie usa**. Las de `planes.json` están en un plan de estudios, así que no se pueden borrar; se pueden corregir con `PATCH`.
+
+**200**: `{"mensaje": "Materia eliminada correctamente"}`
+
+| Código | `detail` |
+|--------|----------|
+| 404 | `Materia no encontrada` |
+| 409 | `No se puede eliminar una materia que ya se usa en un plan de estudios, un curso o un historial académico` |
 
 ### `POST /admin/ciclos`
 
