@@ -127,3 +127,14 @@ def calificar_entrega(curso_id: int, entrega_id: int, datos: schemas.Calificacio
 def cuadricula_calificaciones(curso_id: int, db: Session = Depends(get_db),
                               docente: models.Usuario = Depends(requiere_docente)):
     return services.cuadricula_calificaciones(db, docente, curso_id)
+
+# ------------------------------------------------------------------ baja de alumno y seguimiento
+@router.patch("/cursos/{curso_id}/alumnos/{matricula_id}/estado", response_model=schemas.AlumnoCurso)
+def cambiar_estado_alumno(curso_id: int, matricula_id: int, datos: schemas.EstadoMatricula,
+                          db: Session = Depends(get_db), docente: models.Usuario = Depends(requiere_docente)):
+    return services.cambiar_estado_matricula(db, docente, curso_id, matricula_id, datos.estado)
+
+@router.get("/cursos/{curso_id}/seguimiento", response_model=schemas.SeguimientoCurso)
+def seguimiento(curso_id: int, db: Session = Depends(get_db),
+                docente: models.Usuario = Depends(requiere_docente)):
+    return services.seguimiento_de_curso(db, docente, curso_id)

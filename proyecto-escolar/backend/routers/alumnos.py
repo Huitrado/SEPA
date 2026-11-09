@@ -35,3 +35,8 @@ def cancelar_entrega(actividad_id: int, db: Session = Depends(get_db),
 def mis_calificaciones(curso_id: int, db: Session = Depends(get_db),
                        alumno: models.Usuario = Depends(requiere_estudiante)):
     return services.calificaciones_del_alumno(db, alumno, curso_id)
+
+@router.get("/cursos/{curso_id}/seguimiento", response_model=schemas.SeguimientoPropio)
+def mi_seguimiento(curso_id: int, db: Session = Depends(get_db),
+                   alumno: models.Usuario = Depends(requiere_estudiante)):
+    return services.seguimiento_del_alumno(db, alumno, curso_id)

@@ -2,7 +2,7 @@
 
 [← Volver al índice](README.md)
 
-Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **52 endpoints** en 6 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
+Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **55 endpoints** en 6 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
 
 ## Cómo leer estas tablas
 
@@ -403,6 +403,8 @@ Archivo: `routers/docentes.py` · Prefijo: `/docente` (en singular) · RF-95: so
 | GET | `/docente/cursos/{curso_id}/actividades/{actividad_id}/entregas` | Docente dueño | Nada | **200**, 403, 404 | RF-37 a RF-39 |
 | PUT | `/docente/cursos/{curso_id}/entregas/{entrega_id}/calificacion` | Docente dueño | JSON `{calificacionObtenida, retroalimentacion?}` | **200**, 403, 404, 409, 422 | RF-43, RF-46, RF-67 |
 | GET | `/docente/cursos/{curso_id}/calificaciones` | Docente dueño | Nada | **200**, 403, 404 | RF-46, RF-47 |
+| PATCH | `/docente/cursos/{curso_id}/alumnos/{matricula_id}/estado` | Docente dueño | JSON `{estado}` = `activo` o `baja` | **200**, 403, 404, 422 | RF-16 |
+| GET | `/docente/cursos/{curso_id}/seguimiento` | Docente dueño | Nada | **200**, 403, 404 | RF-48, RF-49, RF-61 |
 
 Errores de dueño (`services.py → _curso_del_docente`): **404** `Curso no encontrado`, **403** `Este curso no te pertenece`.
 
@@ -809,6 +811,60 @@ Una vez calificada, el alumno ya no puede cancelar su entrega. Tampoco se puede 
 }
 ```
 
+### Baja de alumno (RF-16)
+
+#### `PATCH /docente/cursos/{curso_id}/alumnos/{matricula_id}/estado`
+
+`services.py → cambiar_estado_matricula`. El docente da de baja a un alumno o lo reactiva. El `matricula_id` sale de `GET /docente/cursos/{curso_id}/alumnos`.
+
+```json
+{ "estado": "baja" }
+```
+
+Un alumno de `baja`:
+- Sigue en `GET .../alumnos` (con `"estado": "baja"`), para poder reactivarlo.
+- **No aparece** en la asistencia, las calificaciones ni el seguimiento, ni en listas nuevas.
+- Ya no ve el curso en `GET /alumno/cursos` y recibe 403 en sus rutas del curso.
+- Sus registros no se borran: si se reactiva con `{"estado": "activo"}`, vuelve a aparecer con su historial y su acumulada al día.
+
+**200**: el alumno con el formato de `GET .../alumnos` (`AlumnoCurso`).
+
+**404**: `El alumno no está inscrito en este curso` (la matrícula no existe o es de otro curso).
+
+### Seguimiento: alerta y semáforo (RF-48, RF-49, RF-61)
+
+Por cada alumno activo se combinan la asistencia y la calificación:
+
+| Indicador | Regla | Constante en `config.py` |
+|-----------|-------|--------------------------|
+| `estatusNormativo` (RF-49) | Ordinario ≥ 80 %, Extraordinario ≥ 65 %, Sin Derecho < 65 % (por asistencia) | `ASISTENCIA_ORDINARIO`, `ASISTENCIA_EXTRAORDINARIO` |
+| `semaforoAsistencia` | Verde > 85 %, amarillo de 80 % a 85 %, rojo < 80 % | `SEMAFORO_VERDE`, `SEMAFORO_AMARILLO` |
+| `alertaCalificacion` (RF-48) | `desempenoProporcional` < 60 %. Se usa el **desempeño proporcional**, no la acumulada: quien lleva 25 de 100 puntos pero sacó 50 % en lo evaluado está en alerta por el 50 % | `DESEMPENO_ALERTA` |
+| `semaforoCalificacion` | Verde ≥ 70 %, amarillo de 60 % a < 70 %, rojo < 60 %; **verde** si aún no hay nada evaluado | `SEMAFORO_CALIFICACION_VERDE` |
+| `semaforoGeneral` (RF-61) | El **peor** de los dos semáforos | `ORDEN_SEMAFORO` |
+
+Las funciones están en `services.py` para reutilizarlas: `alerta_calificacion`, `semaforo_calificacion` y `semaforo_general`.
+
+#### `GET /docente/cursos/{curso_id}/seguimiento`
+
+`services.py → seguimiento_de_curso`. **200** (`SeguimientoCurso`):
+```json
+{
+  "curso_id": 1,
+  "resumen": { "verde": 0, "amarillo": 1, "rojo": 1 },
+  "alumnos": [
+    {
+      "matricula_id": 1, "estudiante_id": 3, "codigoEstudiante": "123456789",
+      "nombre": "Ana", "apellidos": "López",
+      "porcentajeAsistencia": 100.0, "estatusNormativo": "Ordinario", "semaforoAsistencia": "verde",
+      "calificacionAcumulada": 25.0, "puntosPosibles": 50.0, "desempenoProporcional": 50.0,
+      "alertaCalificacion": true, "semaforoCalificacion": "rojo", "semaforoGeneral": "rojo"
+    }
+  ]
+}
+```
+`resumen` cuenta cuántos alumnos hay en cada color del semáforo general.
+
 ---
 
 ## Router `alumnos`: lo que hace el alumno en sus cursos
@@ -822,6 +878,7 @@ Archivo: `routers/alumnos.py` · Prefijo: `/alumno` (en singular) · **Todos exi
 | POST | `/alumno/actividades/{actividad_id}/entrega` | Alumno inscrito | `multipart/form-data` con el campo `archivo` | **201**, 403, 404, 409, 413, 415, 422 | RF-37, RF-39, RNF-8 |
 | DELETE | `/alumno/actividades/{actividad_id}/entrega` | Alumno inscrito | Nada | **200**, 403, 404, 409 | RF-38 |
 | GET | `/alumno/cursos/{curso_id}/calificaciones` | Alumno inscrito | Nada | **200**, 403, 404 | RF-46, RF-47 |
+| GET | `/alumno/cursos/{curso_id}/seguimiento` | Alumno inscrito | Nada | **200**, 403, 404 | RF-48, RF-49, RF-61 |
 
 Errores de inscripción (`services.py → _matricula_activa`): **404** `Curso no encontrado` · **404** `Actividad no encontrada` · **403** `No estás inscrito en este curso` (tampoco si su matrícula está dada de baja).
 
@@ -900,6 +957,18 @@ Entregar **justo** en la fecha y hora límite cuenta como a tiempo.
                 "calificacion": { "calificacionObtenida": 9.0, "retroalimentacion": "Bien", "fecha": "2026-10-26T09:30:00" },
                 "cuentaComoCero": false } ],
   "calificacionAcumulada": 18.0, "puntosPosibles": 20.0, "desempenoProporcional": 90.0
+}
+```
+
+### `GET /alumno/cursos/{curso_id}/seguimiento`
+
+`services.py → seguimiento_del_alumno`. El seguimiento del propio alumno en el curso: los mismos indicadores que ve el docente, sin los datos personales. **200** (`SeguimientoPropio`):
+```json
+{
+  "curso_id": 1,
+  "porcentajeAsistencia": 100.0, "estatusNormativo": "Ordinario", "semaforoAsistencia": "verde",
+  "calificacionAcumulada": 25.0, "puntosPosibles": 50.0, "desempenoProporcional": 50.0,
+  "alertaCalificacion": true, "semaforoCalificacion": "rojo", "semaforoGeneral": "rojo"
 }
 ```
 

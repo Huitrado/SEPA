@@ -465,3 +465,40 @@ class CalificacionesAlumno(ResumenCalificacion):
     curso_id: int
     actividades: list[ColumnaActividad]
     celdas: list[CeldaCalificacion]
+
+# ------------------------------------------------------------------ módulo: seguimiento y baja
+Semaforo = Literal["verde", "amarillo", "rojo"]
+
+class EstadoMatricula(BaseModel):  # RF-16: el docente da de baja (o reactiva) a un alumno
+    estado: Literal["activo", "baja"]
+
+class IndicadoresSeguimiento(BaseModel):
+    porcentajeAsistencia: float
+    estatusNormativo: Literal["Ordinario", "Extraordinario", "Sin Derecho"]  # RF-49
+    semaforoAsistencia: Semaforo
+    calificacionAcumulada: float
+    puntosPosibles: float
+    desempenoProporcional: float | None
+    alertaCalificacion: bool       # RF-48: desempeño proporcional < 60 %
+    semaforoCalificacion: Semaforo
+    semaforoGeneral: Semaforo      # RF-61: el peor de los dos
+
+class SeguimientoAlumno(IndicadoresSeguimiento):
+    matricula_id: int
+    estudiante_id: int
+    codigoEstudiante: str
+    nombre: str
+    apellidos: str
+
+class ConteoSemaforo(BaseModel):
+    verde: int
+    amarillo: int
+    rojo: int
+
+class SeguimientoCurso(BaseModel):
+    curso_id: int
+    resumen: ConteoSemaforo  # cuántos alumnos hay en cada color del semáforo general
+    alumnos: list[SeguimientoAlumno]
+
+class SeguimientoPropio(IndicadoresSeguimiento):
+    curso_id: int

@@ -352,7 +352,7 @@ El ciclo **vigente** (`services.py → ciclo_vigente`) es el que está `activo`.
 |-------|------|-------------|-------|
 | `id` | Integer | PK | |
 | `fechaInscripcion` | String | Sí | Fecha y hora local |
-| `estado` | String | Sí | `activo`. Con cualquier otro valor (por ejemplo `baja`) el alumno no aparece en asistencia ni calificaciones y no puede entregar |
+| `estado` | String | Sí | `activo` o `baja` (RF-16, la pone el docente). Un alumno de `baja` no aparece en asistencia, calificaciones ni seguimiento, no ve el curso y no puede entregar; si se reactiva, todo vuelve a aparecer |
 | `calificacionAcumuladaActual` | Float | No | Puntos ganados sobre 100 (RF-46, RF-67). Vacía hasta que se califica algo o cambian los pesos o actividades del curso; se recalcula sola (`services.py → recalcular_acumuladas`) |
 | `curso_id` | Integer | FK → Curso | |
 | `estudiante_id` | Integer | FK → Estudiante | |

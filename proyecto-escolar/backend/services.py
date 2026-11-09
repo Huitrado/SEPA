@@ -10,10 +10,10 @@ from sqlalchemy.orm import Session
 import models
 import schemas
 from config import (ASISTENCIA_EXTRAORDINARIO, ASISTENCIA_ORDINARIO, CARPETA_ARCHIVOS,
-                    CARRERAS_INICIALES, DIAS_SEMANA, DOCENTE_REQUIERE_APROBACION,
-                    ESTADOS_ASISTENCIA, ESTADOS_QUE_CUENTAN, EXTENSIONES_PERMITIDAS,
-                    PRIORIDAD_PANEL, SEMAFORO_AMARILLO, SEMAFORO_VERDE, TAMANO_MAXIMO_ARCHIVO,
-                    UMBRAL_APROBATORIO, rol_por_correo)
+                    CARRERAS_INICIALES, DESEMPENO_ALERTA, DIAS_SEMANA, DOCENTE_REQUIERE_APROBACION,
+                    ESTADOS_ASISTENCIA, ESTADOS_QUE_CUENTAN, EXTENSIONES_PERMITIDAS, ORDEN_SEMAFORO,
+                    PRIORIDAD_PANEL, SEMAFORO_AMARILLO, SEMAFORO_CALIFICACION_VERDE, SEMAFORO_VERDE,
+                    TAMANO_MAXIMO_ARCHIVO, UMBRAL_APROBATORIO, rol_por_correo)
 from security import crear_token, hashear, verificar
 
 import json
@@ -1046,3 +1046,58 @@ def calificaciones_del_alumno(db: Session, usuario: models.Usuario, curso_id: in
     datos = _datos_calificaciones(db, matricula.curso_id)
     return {"curso_id": matricula.curso_id, "actividades": _columnas(db, datos[0], datos[1]),
             **_fila_calificaciones(matricula.id, *datos)}
+
+# ======================================================================
+# Baja de alumno (RF-16) y seguimiento: alerta y semáforo (RF-48, RF-49, RF-61)
+# ======================================================================
+def cambiar_estado_matricula(db: Session, docente: models.Usuario, curso_id: int, matricula_id: int,
+                             estado: str) -> dict:
+    """RF-16: un alumno de baja deja de aparecer en asistencia y calificaciones; se puede reactivar."""
+    curso = _curso_del_docente(db, docente, curso_id)
+    matricula = db.get(models.Matricula, matricula_id)
+    if not matricula or matricula.curso_id != curso.id:
+        raise HTTPException(404, "El alumno no está inscrito en este curso")
+    matricula.estado = estado
+    recalcular_acumuladas(db, curso.id)  # al reactivarlo su acumulada vuelve a estar al día
+    db.commit()
+    return next(a for a in alumnos_de_curso(db, docente, curso.id) if a["matricula_id"] == matricula.id)
+
+def alerta_calificacion(desempeno: float | None) -> bool:
+    """RF-48: se compara el desempeño proporcional, no la acumulada absoluta."""
+    return desempeno is not None and desempeno < DESEMPENO_ALERTA
+
+def semaforo_calificacion(desempeno: float | None) -> str:
+    """Verde >= 70 %, amarillo de 60 % a < 70 %, rojo < 60 %. Sin nada evaluado: verde."""
+    if desempeno is None or desempeno >= SEMAFORO_CALIFICACION_VERDE:
+        return "verde"
+    return "rojo" if alerta_calificacion(desempeno) else "amarillo"
+
+def semaforo_general(*semaforos: str) -> str:
+    """RF-61: el peor de los semáforos de la materia."""
+    return max(semaforos, key=ORDEN_SEMAFORO.index)
+
+def _indicadores(asistencia: float, calificacion: dict) -> dict:
+    desempeno = calificacion["desempenoProporcional"]
+    sem_asistencia, sem_calificacion = semaforo_asistencia(asistencia), semaforo_calificacion(desempeno)
+    return {"porcentajeAsistencia": round(asistencia, 2), "estatusNormativo": estatus_normativo(asistencia),
+            "semaforoAsistencia": sem_asistencia,
+            "calificacionAcumulada": calificacion["calificacionAcumulada"],
+            "puntosPosibles": calificacion["puntosPosibles"], "desempenoProporcional": desempeno,
+            "alertaCalificacion": alerta_calificacion(desempeno),
+            "semaforoCalificacion": sem_calificacion,
+            "semaforoGeneral": semaforo_general(sem_asistencia, sem_calificacion)}
+
+def seguimiento_de_curso(db: Session, docente: models.Usuario, curso_id: int) -> dict:
+    curso = _curso_del_docente(db, docente, curso_id)
+    datos = _datos_calificaciones(db, curso.id)
+    alumnos = [{**_datos_alumno(m, e, u),
+                **_indicadores(porcentaje_asistencia(db, m.id), _fila_calificaciones(m.id, *datos))}
+               for m, e, u in _alumnos_activos(db, curso.id)]
+    resumen = {color: sum(a["semaforoGeneral"] == color for a in alumnos) for color in ORDEN_SEMAFORO}
+    return {"curso_id": curso.id, "resumen": resumen, "alumnos": alumnos}
+
+def seguimiento_del_alumno(db: Session, usuario: models.Usuario, curso_id: int) -> dict:
+    matricula = _matricula_activa(db, usuario, curso_id)
+    datos = _datos_calificaciones(db, matricula.curso_id)
+    return {"curso_id": matricula.curso_id,
+            **_indicadores(porcentaje_asistencia(db, matricula.id), _fila_calificaciones(matricula.id, *datos))}

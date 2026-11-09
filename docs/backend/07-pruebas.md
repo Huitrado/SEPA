@@ -65,6 +65,8 @@ flowchart TD
     T6 --> H
     T7["test_calificaciones.py<br/>RF-43, RF-46, RF-47, RF-67<br/>+ fixtures reloj y curso"] --> C
     T7 --> H
+    T8["test_seguimiento.py<br/>RF-16, RF-48, RF-49, RF-61<br/>+ fixture curso"] --> C
+    T8 --> H
 ```
 
 ### `conftest.py`: la fixture `client`
@@ -239,6 +241,17 @@ Docstring: *"Módulo de calificaciones (RF-43, RF-46, RF-47, RF-67)"*. `_prepara
 | RF-46 / RF-47 | Acumulada con todas las actividades; vencida sin entrega cuenta 0 y suma a los puntos posibles; entregado sin calificar no cuenta todavía; cálculo puro con `calcular_calificacion` |
 | RF-67 | La acumulada guardada se recalcula al agregar o eliminar actividades y al cambiar el peso de una categoría; la puntuación máxima no baja de una calificación ya puesta |
 | Vistas | Cuadrícula del docente por fecha límite; el alumno ve solo lo suyo; los cursos aprobado/no aprobado se califican igual |
+| RF-95 | Otro docente, el admin y un alumno reciben 403 |
+
+### `test_seguimiento.py`
+
+Docstring: *"Baja de alumno (RF-16) y seguimiento: alerta por calificación y semáforo (RF-48, RF-49, RF-61)"*. La fixture `curso` fija hoy en el lunes 26/oct/2026 y crea Tareas 100 % con T1 y T2 (valen 50 cada una), y a Ana y Beto inscritos.
+
+| RF | Qué comprueban |
+|----|----------------|
+| RF-48 | Alerta y semáforo por calificación con los bordes 70 / 60 %; sin nada evaluado es verde; la alerta usa el desempeño proporcional, no la acumulada |
+| RF-61 | El semáforo general es el peor de los dos; la asistencia puede ponerlo en rojo aunque la calificación vaya bien; conteo por color |
+| RF-16 | El alumno de baja sigue en el listado de matrícula, pero desaparece de asistencia, calificaciones y seguimiento, y ya no ve el curso; reactivarlo lo devuelve con su acumulada al día; validaciones |
 | RF-95 | Otro docente, el admin y un alumno reciben 403 |
 
 ---

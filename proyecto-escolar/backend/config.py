@@ -83,3 +83,11 @@ SEMAFORO_AMARILLO = 80.0
 CARPETA_ARCHIVOS = Path(__file__).with_name("uploads")
 TAMANO_MAXIMO_ARCHIVO = 10 * 1024 * 1024  # 10 MB
 EXTENSIONES_PERMITIDAS = (".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".gif", ".zip")
+
+# RF-48: alerta cuando el desempeño proporcional (puntos obtenidos / puntos posibles hasta hoy) baja de 60 %
+DESEMPENO_ALERTA = 60.0
+# Semáforo por calificación (decisión del equipo), sobre el desempeño proporcional:
+# verde >= 70 %, amarillo de 60 % a < 70 %, rojo < 60 % (igual que la alerta). Sin nada evaluado: verde.
+SEMAFORO_CALIFICACION_VERDE = 70.0
+# RF-61: el semáforo general de la materia es el peor de los dos
+ORDEN_SEMAFORO = ("verde", "amarillo", "rojo")
