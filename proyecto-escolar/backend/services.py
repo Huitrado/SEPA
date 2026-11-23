@@ -415,6 +415,10 @@ def _curso_del_docente(db: Session, docente: models.Usuario, curso_id: int) -> m
         raise HTTPException(403, "Este curso no te pertenece")
     return curso
 
+def ver_curso_docente(db: Session, docente: models.Usuario, curso_id: int) -> models.Curso:
+    """Un curso del docente, activo o archivado (para la página de detalle del curso)."""
+    return _curso_del_docente(db, docente, curso_id)
+
 def cursos_del_docente(db: Session, docente: models.Usuario, estado: str = "activo") -> list[models.Curso]:
     """RF-11: por defecto solo los activos; los archivados se piden con estado='archivado'."""
     return (db.query(models.Curso).filter_by(docente_id=docente.id, estado=estado)

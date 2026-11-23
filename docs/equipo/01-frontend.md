@@ -33,14 +33,21 @@ frontend/
 ├── login.html           Pantalla "Iniciar sesión"
 ├── dashboard.html       Panel de estudiante y administrador (por ahora, solo el perfil)
 ├── docente.html         Dashboard del docente: sus cursos y "Crear curso"
+├── curso.html           Detalle de un curso del docente (curso.html?id=N), con pestañas
+├── actividad.html       Revisar entregas y calificar una actividad (actividad.html?curso=N&actividad=M)
 ├── css/
 │   └── style.css        Estilos que Tailwind no trae (campo en rojo, animación)
 └── js/
     ├── tailwind-config.js  Colores y tipografía del diseño (para Tailwind)
     ├── app.js              Herramientas comunes: URL del backend, sesión, pedir(), errores,
-    │                       protegerPagina() y cerrarSesion()
+    │                       protegerPagina(), cerrarSesion(), descargarArchivo(), el(), fechas,
+    │                       chipSemaforo() y ventanas (abrirModal, confirmar)
     ├── auth.js             Registro, login y dashboard.html
-    └── docente.js          Dashboard del docente
+    ├── docente.js          Dashboard del docente
+    ├── curso.js            curso.html: ficha, resumen, pestañas, matrícula y configurar curso
+    ├── curso-asistencia.js curso.html: pestaña Asistencia
+    ├── curso-evaluacion.js curso.html: pestañas Actividades, Encuadre y Calificaciones
+    └── actividad.js        actividad.html
 ```
 
 | Pantalla | Qué hace | Lógica en |
@@ -48,7 +55,9 @@ frontend/
 | `registro.html` | Formulario con dos pestañas: **Soy estudiante** (código de 9 dígitos, carrera, ciclo) y **Soy docente** (número de empleado, departamento opcional). | `auth.js → iniciarRegistro`, `enviarRegistro` |
 | `login.html` | Pide **código** (de estudiante o número de empleado) y **contraseña**. No se entra con el correo. | `auth.js → iniciarLogin`, `enviarLogin` |
 | `dashboard.html` | Muestra tu perfil (estudiante y administrador). Tiene el botón **Cerrar sesión**. | `auth.js → iniciarPanel`, `mostrarPerfil` |
-| `docente.html` | Cursos activos y archivados del docente, código de cada curso con botón de copiar, y ventana **Crear curso**. | `docente.js` |
+| `docente.html` | Cursos activos y archivados del docente, código de cada curso con botón de copiar, ventana **Crear curso** y botón **Abrir curso**. | `docente.js` |
+| `curso.html` | Ficha del curso con su código, resumen (alumnos, asistencia promedio, alumnos en rojo, encuadre) y cinco pestañas: **Matrícula** (seguimiento con semáforo, dar de baja y reactivar), **Asistencia** (cuadrícula, generar la sesión de hoy, pasar y corregir lista), **Actividades** (por categoría; crear, editar, adjuntar archivo, eliminar), **Encuadre** (categorías y barra del 100 %) y **Calificaciones** (cuadrícula con la acumulada). Botón **Configurar curso** para editarlo, archivarlo o reactivarlo. | `curso.js`, `curso-asistencia.js`, `curso-evaluacion.js` |
+| `actividad.html` | Lista de alumnos con su entrega (filtros: por calificar, calificadas, sin entrega) y panel para descargar la entrega, calificar de 0 al máximo y dejar retroalimentación. "Guardar y siguiente" salta al próximo pendiente. | `actividad.js` |
 
 ### Páginas protegidas: `protegerPagina()`
 
@@ -124,6 +133,17 @@ Un **endpoint** es una "ventanilla" del backend: un método (GET, POST…) más 
 | Login | `GET /usuarios/recuperar-contrasena` | Enlace "¿Olvidaste tu contraseña?": solo muestra instrucciones |
 | Panel | `GET /usuarios/yo` | Traer tu perfil (requiere token) |
 | Panel | `POST /usuarios/logout` | Cerrar la sesión en el servidor (requiere token) |
+| Docente | `GET /docente/cursos?estado=`, `POST /cursos`, `GET /catalogos/ciclos`, `GET /catalogos/materias` | Lista de cursos y crear curso |
+| Curso | `GET /docente/cursos/{id}`, `PATCH /docente/cursos/{id}`, `PATCH .../estado` | Ficha, editar, archivar y reactivar |
+| Curso · Matrícula | `GET .../alumnos`, `GET .../seguimiento`, `PATCH .../alumnos/{matricula}/estado` | Lista con semáforo, baja y reactivación |
+| Curso · Asistencia | `GET .../asistencia`, `POST .../sesiones`, `GET .../sesiones/{id}`, `PUT .../sesiones/{id}/lista` | Cuadrícula y pase de lista |
+| Curso · Encuadre | `GET/POST .../categorias`, `PATCH/DELETE .../categorias/{id}` | Categorías y pesos |
+| Curso · Actividades | `GET/POST .../actividades`, `PATCH/DELETE .../actividades/{id}`, `PUT/DELETE .../actividades/{id}/archivo`, `GET /actividades/{id}/archivo` | Actividades y archivo adjunto |
+| Curso · Calificaciones y `actividad.html` | `GET .../calificaciones`, `GET .../actividades/{id}/entregas`, `GET /entregas/{id}/archivo`, `PUT .../entregas/{id}/calificacion` | Cuadrícula, revisar y calificar |
+
+Los `...` significan `/docente/cursos/{id}`.
+
+**Archivos:** para subir un archivo se pasa un `FormData` a `pedir()` (no se pone `Content-Type`; lo arma el navegador). Para descargar se usa `descargarArchivo(ruta)`, porque un enlace `<a href>` normal no manda el token.
 
 La lista completa de endpoints del backend está en [docs/backend/05-endpoints.md](../backend/05-endpoints.md).
 
@@ -191,8 +211,9 @@ Si abres el frontend en otro puerto (o haciendo doble clic sobre el `.html`, que
 
 ## 5. Qué falta o está incompleto (dicho tal cual)
 
-- **El panel es mínimo:** `dashboard.html` solo muestra el perfil y el botón de cerrar sesión. Es igual para estudiante, docente y administrador.
-- **No hay pantallas** para cursos, inscripción ni administración, aunque **el backend ya tiene esos endpoints** (crear curso, inscribirse con código, aprobar docentes, etc.). Es trabajo pendiente del frontend.
+- **Estudiante y administrador:** `dashboard.html` solo muestra el perfil y el botón de cerrar sesión. Sus pantallas (panel del estudiante, entregas, administración) están pendientes; el backend ya tiene la mayoría de los endpoints.
+- **Docente:** ya tiene sus pantallas completas (`docente.html`, `curso.html` y `actividad.html`).
+- **Caché del navegador:** si cambias un `.js` y no ves el cambio, recarga con **Ctrl + Shift + R**.
 - **La carpeta `frontend/assets/` está vacía.** Como Git no guarda carpetas vacías, puede que en tu copia ni aparezca.
 - **Sin internet no hay diseño:** Tailwind, la tipografía y los íconos se descargan de internet.
 - **Textos del diseño original que se quitaron:** el diseño de registro venía de una herramienta de prototipos y traía enlaces (Inicio, Validación, Soporte, Ayuda) y un logo que no existen. Se quitaron.

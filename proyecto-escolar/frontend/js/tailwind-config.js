@@ -28,7 +28,18 @@ tailwind.config = {
         "on-surface": "#0b1c30",
         "on-surface-variant": "#44474f",
         "outline": "#747780",
-        "outline-variant": "#c4c6d0"
+        "outline-variant": "#c4c6d0",
+        // Acento ámbar del diseño (avisos y pendientes)
+        "tertiary-fixed": "#ffdcc3",
+        "on-tertiary-fixed-variant": "#6e3900",
+        "on-tertiary-container": "#de7b0e",
+        // Semáforo de riesgo (RF-50 a RF-52, RF-61): verde, amarillo y rojo
+        "semaforo-verde": "#1b6e3a",
+        "semaforo-verde-fondo": "#d5f2de",
+        "semaforo-amarillo": "#7a4d00",
+        "semaforo-amarillo-fondo": "#ffe6a8",
+        "semaforo-rojo": "#ba1a1a",
+        "semaforo-rojo-fondo": "#ffdad6"
       },
       borderRadius: { DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px" },
       spacing: {
@@ -41,11 +52,12 @@ tailwind.config = {
         "gutter": "1.5rem"
       },
       fontFamily: {
-        "headline-lg": ["Inter"], "title-lg": ["Inter"], "label-md": ["Inter"], "label-lg": ["Inter"],
+        "headline-lg": ["Inter"], "headline-md": ["Inter"], "title-lg": ["Inter"], "label-md": ["Inter"], "label-lg": ["Inter"],
         "body-md": ["Inter"], "body-lg": ["Inter"], "helper-sm": ["Inter"], "caption": ["Inter"]
       },
       fontSize: {
         "headline-lg": ["30px", { lineHeight: "38px", letterSpacing: "-0.015em", fontWeight: "600" }],
+        "headline-md": ["22px", { lineHeight: "28px", letterSpacing: "-0.01em", fontWeight: "600" }],
         "title-lg": ["18px", { lineHeight: "24px", fontWeight: "600" }],
         "label-md": ["12px", { lineHeight: "16px", letterSpacing: "0.02em", fontWeight: "600" }],
         "label-lg": ["14px", { lineHeight: "20px", letterSpacing: "0.01em", fontWeight: "600" }],

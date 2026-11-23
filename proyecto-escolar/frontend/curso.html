@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="es" class="validando-sesion">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Curso · SEPA CUCEI</title>
+  <!-- Fuentes e íconos de Google -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <!-- Tailwind (estilos del diseño) y su configuración de colores -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link href="css/style.css" rel="stylesheet" />
+</head>
+<body class="bg-surface font-body-md text-on-surface antialiased" data-pagina="curso">
+
+<!-- Encabezado con el usuario y el botón de salir (RF-91) -->
+<header class="fixed top-0 w-full z-40 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+  <div class="h-16 max-w-7xl mx-auto px-gutter flex items-center justify-between gap-space-md">
+    <a href="docente.html" class="flex items-center gap-space-md">
+      <span class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center">
+        <span class="material-symbols-outlined text-on-primary text-[20px]">school</span>
+      </span>
+      <span class="flex flex-col">
+        <span class="font-label-lg text-label-lg text-primary leading-tight">SEPA CUCEI</span>
+        <span class="font-caption text-caption text-on-surface-variant leading-none">Universidad de Guadalajara · CUCEI</span>
+      </span>
+    </a>
+    <div class="flex items-center gap-space-sm">
+      <span class="hidden sm:inline font-label-lg text-label-lg text-on-surface" id="header-nombre"></span>
+      <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+        <span class="material-symbols-outlined text-on-primary text-[18px]">person</span>
+      </div>
+      <button id="btn-logout" type="button"
+        class="inline-flex items-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg text-secondary bg-surface-container-low hover:bg-surface-container transition-colors disabled:opacity-60">
+        <span class="material-symbols-outlined text-[18px]">logout</span>
+        <span class="hidden sm:inline">Cerrar sesión</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="w-full pt-24 pb-space-2xl min-h-[calc(100vh-6rem)]">
+  <div class="w-full px-gutter">
+    <div class="max-w-7xl mx-auto">
+
+      <!-- Migas de pan -->
+      <nav class="flex items-center gap-space-xs font-label-md text-label-md text-on-surface-variant mb-space-md">
+        <a href="docente.html" class="hover:text-primary inline-flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px]">arrow_back</span> Mis cursos
+        </a>
+        <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+        <span class="text-primary" id="miga-curso">Curso</span>
+      </nav>
+
+      <!-- Aviso general (errores del backend) -->
+      <div id="aviso" class="hidden">
+        <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+        <p class="font-body-md text-body-md" data-aviso-texto></p>
+      </div>
+
+      <p id="curso-cargando" class="text-center font-body-md text-body-md text-on-surface-variant py-space-2xl">Cargando el curso...</p>
+
+      <div id="curso-contenido" class="hidden">
+        <!-- Ficha del curso (RF-12 a RF-14, RF-17, RF-18) -->
+        <section class="bg-surface-container-lowest rounded-xl shadow-md p-space-lg sm:p-space-xl mb-space-lg">
+          <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-space-lg">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-space-xs mb-space-sm" id="curso-etiquetas"></div>
+              <h1 class="font-headline-lg text-headline-lg text-primary tracking-tight" id="curso-titulo"></h1>
+              <p class="font-body-md text-body-md text-on-surface-variant mt-space-xs max-w-3xl" id="curso-descripcion"></p>
+              <div class="flex flex-wrap items-center gap-x-space-lg gap-y-space-xs mt-space-md font-body-md text-body-md text-on-surface" id="curso-horario"></div>
+              <!-- RF-14: código para compartir -->
+              <div class="inline-flex items-center gap-space-sm mt-space-md pl-space-md pr-1 py-1 rounded-lg bg-surface-container-low">
+                <span class="font-caption text-caption uppercase tracking-wider text-on-surface-variant">Código</span>
+                <span class="font-mono text-[16px] font-semibold tracking-[0.15em] text-primary" id="curso-codigo"></span>
+                <button type="button" id="btn-copiar-codigo" data-copiar=""
+                  class="inline-flex items-center gap-1 font-label-md text-label-md px-space-sm py-1 rounded-md text-secondary bg-surface-container-lowest hover:bg-surface-container transition-colors">
+                  <span class="material-symbols-outlined text-[16px]">content_copy</span><span data-etiqueta>Copiar</span>
+                </button>
+              </div>
+            </div>
+            <div class="flex flex-col sm:flex-row lg:flex-col gap-space-sm lg:w-56 shrink-0">
+              <button type="button" id="btn-crear-actividad"
+                class="inline-flex items-center justify-center gap-space-xs py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors">
+                <span class="material-symbols-outlined text-[20px]">add_task</span> Crear actividad
+              </button>
+              <button type="button" id="btn-pasar-lista"
+                class="inline-flex items-center justify-center gap-space-xs py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-surface-container-high text-primary hover:bg-surface-container transition-colors">
+                <span class="material-symbols-outlined text-[20px]">how_to_reg</span> Pasar lista
+              </button>
+              <button type="button" id="btn-configurar"
+                class="inline-flex items-center justify-center gap-space-xs py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-surface-container-low text-on-surface hover:bg-surface-container transition-colors">
+                <span class="material-symbols-outlined text-[20px]">settings</span> Configurar curso
+              </button>
+            </div>
+          </div>
+
+          <!-- Resumen rápido -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md mt-space-lg" id="curso-metricas"></div>
+        </section>
+
+        <!-- Pestañas del curso -->
+        <div class="flex gap-1 p-1 rounded-xl bg-surface-container-low mb-space-lg overflow-x-auto" role="tablist" id="pestanas"></div>
+
+        <!-- ============ MATRÍCULA Y SEGUIMIENTO (RF-16, RF-48 a RF-52, RF-61) ============ -->
+        <section id="panel-matricula" data-panel class="hidden">
+          <div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md mb-space-md flex flex-col md:flex-row md:items-center gap-space-md">
+            <div class="relative flex-1">
+              <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
+              <input id="buscar-alumno" type="search" placeholder="Buscar por nombre, código o correo"
+                class="w-full pl-10 pr-4 py-2.5 rounded-lg bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none" />
+            </div>
+            <div class="flex flex-wrap gap-1" id="filtros-semaforo"></div>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-surface-container text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">
+                    <th class="py-3 px-space-lg">Alumno</th>
+                    <th class="py-3 px-space-md">Inscripción</th>
+                    <th class="py-3 px-space-md">Asistencia</th>
+                    <th class="py-3 px-space-md">Calificación</th>
+                    <th class="py-3 px-space-md">Riesgo</th>
+                    <th class="py-3 px-space-lg text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-matricula" class="font-body-md text-body-md"></tbody>
+              </table>
+            </div>
+            <p id="matricula-vacia" class="hidden text-center text-on-surface-variant py-space-xl px-space-md"></p>
+          </div>
+          <p class="font-helper-sm text-helper-sm text-on-surface-variant mt-space-sm">
+            Asistencia: Ordinario ≥ 80 %, Extraordinario ≥ 65 %, Sin Derecho &lt; 65 %. La alerta por calificación usa el desempeño
+            sobre lo ya evaluado (&lt; 60 %). El riesgo general es el peor entre asistencia y calificación.
+          </p>
+        </section>
+
+        <!-- ============ ASISTENCIA (RF-19 a RF-28) ============ -->
+        <section id="panel-asistencia" data-panel class="hidden">
+          <div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md mb-space-md flex flex-col lg:flex-row lg:items-center justify-between gap-space-md">
+            <div class="flex flex-wrap items-center gap-space-md font-helper-sm text-helper-sm text-on-surface-variant" id="leyenda-asistencia"></div>
+            <div class="flex flex-col sm:flex-row gap-space-sm">
+              <input id="input-tema" type="text" maxlength="200" placeholder="Tema de hoy (opcional)"
+                class="sm:w-56 bg-surface-container-low text-on-surface px-3.5 py-2 rounded-lg font-body-md text-body-md placeholder:text-outline focus:outline-none" />
+              <button type="button" id="btn-generar-sesion"
+                class="inline-flex items-center justify-center gap-space-xs py-2 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors disabled:opacity-60">
+                <span class="material-symbols-outlined text-[20px]">add_circle</span>
+                <span data-texto-boton>Generar sesión de hoy</span>
+                <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+              </button>
+            </div>
+          </div>
+          <p class="font-helper-sm text-helper-sm text-on-surface-variant mb-space-sm flex items-center gap-1">
+            <span class="material-symbols-outlined text-[16px]">info</span>
+            Solo se puede generar la sesión del día, en un día de clase del curso. Toca una fecha para pasar o corregir la lista.
+          </p>
+          <div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+            <!-- RF-28: desplazamiento horizontal con las columnas del alumno fijas -->
+            <div class="overflow-x-auto" id="contenedor-asistencia">
+              <table class="text-left border-separate border-spacing-0 min-w-full" id="tabla-asistencia"></table>
+            </div>
+            <p id="asistencia-vacia" class="hidden text-center text-on-surface-variant py-space-xl px-space-md"></p>
+          </div>
+        </section>
+
+        <!-- ============ ACTIVIDADES (RF-29 a RF-36) ============ -->
+        <section id="panel-actividades" data-panel class="hidden">
+          <div id="actividades-lista" class="space-y-space-lg"></div>
+        </section>
+
+        <!-- ============ ENCUADRE DE EVALUACIÓN (RF-31, RF-32, RF-34) ============ -->
+        <section id="panel-encuadre" data-panel class="hidden">
+          <div class="grid grid-cols-1 xl:grid-cols-3 gap-space-lg">
+            <div class="xl:col-span-2 space-y-space-lg">
+              <div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg">
+                <div class="flex items-start justify-between gap-space-md mb-space-md">
+                  <div>
+                    <h2 class="font-title-lg text-title-lg text-primary">Distribución del encuadre</h2>
+                    <p class="font-helper-sm text-helper-sm text-on-surface-variant">Las categorías deben sumar exactamente 100 %.</p>
+                  </div>
+                  <span id="encuadre-estado"></span>
+                </div>
+                <div class="h-4 w-full rounded-full bg-surface-container overflow-hidden flex" id="encuadre-barra"></div>
+                <div class="flex flex-wrap gap-x-space-md gap-y-space-xs mt-space-sm font-helper-sm text-helper-sm text-on-surface-variant" id="encuadre-leyenda"></div>
+                <div id="encuadre-advertencia" class="hidden mt-space-md p-space-sm rounded-lg bg-tertiary-fixed text-on-tertiary-fixed-variant font-body-md text-body-md flex items-start gap-space-xs">
+                  <span class="material-symbols-outlined text-[20px]">warning</span><span data-texto></span>
+                </div>
+              </div>
+              <div id="categorias-lista" class="space-y-space-md"></div>
+            </div>
+
+            <!-- Añadir categoría -->
+            <form id="form-categoria" novalidate class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg h-fit space-y-space-md">
+              <div>
+                <h2 class="font-title-lg text-title-lg text-primary flex items-center gap-space-xs">
+                  <span class="material-symbols-outlined">add_box</span> Añadir categoría
+                </h2>
+                <p class="font-helper-sm text-helper-sm text-on-surface-variant mt-1">Por ejemplo: Exámenes 40 %, Tareas 30 %, Proyecto 30 %.</p>
+              </div>
+              <div id="aviso-categoria" class="hidden">
+                <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+                <p class="font-body-md text-body-md" data-aviso-texto></p>
+              </div>
+              <div class="flex flex-col space-y-space-xs">
+                <label for="input-cat-nombre" class="font-label-lg text-label-lg text-on-surface">Nombre</label>
+                <input id="input-cat-nombre" name="nombre" type="text" maxlength="100" placeholder="Tareas"
+                  class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline focus:outline-none" />
+                <span id="err-nombre" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+                </span>
+              </div>
+              <div class="flex flex-col space-y-space-xs">
+                <label for="input-cat-peso" class="font-label-lg text-label-lg text-on-surface">Peso (%)</label>
+                <input id="input-cat-peso" name="porcentajePeso" type="number" min="0.01" max="100" step="0.01" placeholder="30"
+                  class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline focus:outline-none" />
+                <span id="err-porcentajePeso" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+                </span>
+              </div>
+              <button type="submit" id="btn-guardar-categoria"
+                class="w-full py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
+                <span data-texto-boton>Agregar al encuadre</span>
+                <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+              </button>
+              <p class="font-helper-sm text-helper-sm text-on-surface-variant">
+                Las actividades de una categoría valen lo mismo dentro de su peso (RF-34).
+              </p>
+            </form>
+          </div>
+        </section>
+
+        <!-- ============ CALIFICACIONES (RF-40, RF-46, RF-47, RF-67) ============ -->
+        <section id="panel-calificaciones" data-panel class="hidden">
+          <p class="font-helper-sm text-helper-sm text-on-surface-variant mb-space-sm flex items-center gap-1">
+            <span class="material-symbols-outlined text-[16px]">info</span>
+            Toca una actividad para revisar entregas y calificar. Una actividad vencida sin entrega cuenta como 0.
+          </p>
+          <div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="text-left border-separate border-spacing-0 min-w-full" id="tabla-calificaciones"></table>
+            </div>
+            <p id="calificaciones-vacia" class="hidden text-center text-on-surface-variant py-space-xl px-space-md"></p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="w-full bg-surface-container-lowest py-space-xl shadow-[0_-1px_8px_rgba(0,0,0,0.03)]">
+  <div class="max-w-7xl mx-auto px-gutter flex flex-col items-center md:items-start">
+    <p class="font-label-md text-label-md text-on-surface font-semibold">SEPA · Sistema de Evaluación de Progresión Académica</p>
+    <p class="font-caption text-caption text-on-surface-variant">Centro Universitario de Ciencias Exactas e Ingenierías, Universidad de Guadalajara.</p>
+  </div>
+</footer>
+
+<!-- ============ VENTANA: PASAR O CORREGIR LISTA (RF-20 a RF-25) ============ -->
+<div id="modal-lista" data-modal class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-space-md sm:p-gutter bg-primary/40 backdrop-blur-sm overflow-y-auto">
+  <div class="bg-surface-container-lowest w-full max-w-3xl rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer my-auto">
+    <div class="flex items-start justify-between gap-space-md mb-space-md">
+      <div>
+        <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold" id="lista-estado"></span>
+        <h2 class="font-title-lg text-title-lg text-primary mt-1" id="lista-titulo"></h2>
+        <p class="font-helper-sm text-helper-sm text-on-surface-variant" id="lista-tema"></p>
+      </div>
+      <button type="button" data-cerrar-modal="modal-lista" aria-label="Cerrar"
+        class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div id="aviso-lista" class="hidden">
+      <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+      <p class="font-body-md text-body-md" data-aviso-texto></p>
+    </div>
+    <div class="flex justify-between items-center gap-space-sm mb-space-sm">
+      <p class="font-helper-sm text-helper-sm text-on-surface-variant">Los alumnos sin registro aparecen con <strong>Asistencia</strong>; cámbialo si faltó o llegó tarde.</p>
+      <button type="button" id="btn-todos-asistencia"
+        class="shrink-0 inline-flex items-center gap-1 font-label-md text-label-md px-space-sm py-1.5 rounded-lg text-secondary bg-surface-container-low hover:bg-surface-container">
+        <span class="material-symbols-outlined text-[16px]">done_all</span> Todos asistieron
+      </button>
+    </div>
+    <div class="divide-y divide-surface-container max-h-[55vh] overflow-y-auto" id="lista-alumnos"></div>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm mt-space-lg">
+      <button type="button" data-cerrar-modal="modal-lista"
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button type="button" id="btn-guardar-lista"
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
+        <span data-texto-boton>Guardar lista</span>
+        <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ VENTANA: CREAR O EDITAR ACTIVIDAD (RF-29, RF-30, RF-33, RF-36) ============ -->
+<div id="modal-actividad" data-modal class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-space-md sm:p-gutter bg-primary/40 backdrop-blur-sm overflow-y-auto">
+  <form id="form-actividad" novalidate class="bg-surface-container-lowest w-full max-w-3xl rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer my-auto">
+    <div class="flex items-start justify-between gap-space-md mb-space-lg">
+      <div>
+        <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold">Actividad</span>
+        <h2 class="font-title-lg text-title-lg text-primary mt-1" id="actividad-titulo-modal">Crear actividad</h2>
+      </div>
+      <button type="button" data-cerrar-modal="modal-actividad" aria-label="Cerrar"
+        class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div id="aviso-actividad" class="hidden">
+      <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+      <p class="font-body-md text-body-md" data-aviso-texto></p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-space-lg">
+      <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+        <div class="sm:col-span-2 flex flex-col space-y-space-xs">
+          <label for="input-act-titulo" class="font-label-lg text-label-lg text-on-surface">Título</label>
+          <input id="input-act-titulo" name="titulo" type="text" maxlength="100" placeholder="Práctica 3: Árboles AVL"
+            class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline focus:outline-none" />
+          <span id="err-titulo" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+            <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+          </span>
+        </div>
+        <div class="sm:col-span-2 flex flex-col space-y-space-xs">
+          <label for="input-act-descripcion" class="font-label-lg text-label-lg text-on-surface">Descripción e instrucciones</label>
+          <textarea id="input-act-descripcion" name="descripcion" rows="4" maxlength="2000"
+            placeholder="Qué deben hacer, cómo entregar y en qué formato..."
+            class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline resize-y focus:outline-none"></textarea>
+          <span id="err-descripcion" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+            <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+          </span>
+        </div>
+        <div class="sm:col-span-2 flex flex-col space-y-space-xs">
+          <label for="select-act-categoria" class="font-label-lg text-label-lg text-on-surface">Categoría del encuadre</label>
+          <select id="select-act-categoria" name="categoriaEvaluacion_id"
+            class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none"></select>
+          <span id="err-categoriaEvaluacion_id" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+            <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+          </span>
+        </div>
+        <div class="flex flex-col space-y-space-xs">
+          <label for="input-act-limite" class="font-label-lg text-label-lg text-on-surface">Fecha y hora límite</label>
+          <input id="input-act-limite" name="fechaHoraLimite" type="datetime-local"
+            class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+          <span id="err-fechaHoraLimite" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+            <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+          </span>
+        </div>
+        <div class="flex flex-col space-y-space-xs">
+          <label for="input-act-puntos" class="font-label-lg text-label-lg text-on-surface">Puntuación máxima</label>
+          <input id="input-act-puntos" name="puntuacionMaxima" type="number" min="0.01" max="1000" step="0.01" placeholder="10"
+            class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline focus:outline-none" />
+          <span id="err-puntuacionMaxima" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+            <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+          </span>
+        </div>
+        <!-- RF-36: archivo del docente -->
+        <div class="sm:col-span-2 flex flex-col space-y-space-xs">
+          <span class="font-label-lg text-label-lg text-on-surface">Archivo para los alumnos (opcional)</span>
+          <div id="actividad-archivo-actual" class="hidden items-center justify-between gap-space-sm p-space-sm rounded-lg bg-surface-container-low">
+            <span class="flex items-center gap-space-xs text-on-surface"><span class="material-symbols-outlined text-[18px]">attach_file</span> Ya tiene un archivo adjunto</span>
+            <label class="flex items-center gap-1 font-label-md text-label-md text-error cursor-pointer">
+              <input type="checkbox" id="check-quitar-archivo" class="accent-[#ba1a1a]" /> Quitarlo
+            </label>
+          </div>
+          <input id="input-act-archivo" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.gif,.zip"
+            class="block w-full font-body-md text-body-md text-on-surface-variant file:mr-space-md file:py-2 file:px-space-md file:rounded-lg file:border-0 file:font-label-md file:bg-surface-container-high file:text-primary hover:file:bg-surface-container" />
+          <span class="font-helper-sm text-helper-sm text-on-surface-variant">PDF, Word, imágenes o ZIP, hasta 10 MB. Si eliges otro, reemplaza al anterior.</span>
+        </div>
+      </div>
+      <!-- Impacto en el encuadre (RF-34) -->
+      <aside class="p-space-md rounded-xl bg-surface-container-low h-fit">
+        <h3 class="font-label-lg text-label-lg text-primary flex items-center gap-space-xs mb-space-sm">
+          <span class="material-symbols-outlined text-[18px]">donut_small</span> Impacto en el encuadre
+        </h3>
+        <p class="font-body-md text-body-md text-on-surface" id="actividad-impacto">Elige una categoría.</p>
+      </aside>
+    </div>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm mt-space-xl">
+      <button type="button" data-cerrar-modal="modal-actividad"
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button id="btn-guardar-actividad" type="submit"
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
+        <span data-texto-boton>Publicar actividad</span>
+        <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ VENTANA: EDITAR CATEGORÍA (RF-31, RF-32) ============ -->
+<div id="modal-categoria" data-modal class="hidden fixed inset-0 z-50 flex items-center justify-center p-gutter bg-primary/40 backdrop-blur-sm">
+  <form id="form-editar-categoria" novalidate class="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer space-y-space-md">
+    <div class="flex items-start justify-between gap-space-md">
+      <h2 class="font-title-lg text-title-lg text-primary">Editar categoría</h2>
+      <button type="button" data-cerrar-modal="modal-categoria" aria-label="Cerrar"
+        class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div id="aviso-editar-categoria" class="hidden">
+      <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+      <p class="font-body-md text-body-md" data-aviso-texto></p>
+    </div>
+    <div class="flex flex-col space-y-space-xs">
+      <label for="input-edit-cat-nombre" class="font-label-lg text-label-lg text-on-surface">Nombre</label>
+      <input id="input-edit-cat-nombre" type="text" maxlength="100"
+        class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+    </div>
+    <div class="flex flex-col space-y-space-xs">
+      <label for="input-edit-cat-peso" class="font-label-lg text-label-lg text-on-surface">Peso (%)</label>
+      <input id="input-edit-cat-peso" type="number" min="0.01" max="100" step="0.01"
+        class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+    </div>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm pt-space-sm">
+      <button type="button" data-cerrar-modal="modal-categoria"
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button type="submit" id="btn-editar-categoria"
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
+        <span data-texto-boton>Guardar</span>
+        <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ VENTANA: CONFIGURAR CURSO (RF-10, RF-12, RF-13, RF-17, RF-18) ============ -->
+<div id="modal-configurar" data-modal class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-space-md sm:p-gutter bg-primary/40 backdrop-blur-sm overflow-y-auto">
+  <form id="form-configurar" novalidate class="bg-surface-container-lowest w-full max-w-2xl rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer my-auto">
+    <div class="flex items-start justify-between gap-space-md mb-space-lg">
+      <div>
+        <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold">Configuración</span>
+        <h2 class="font-title-lg text-title-lg text-primary mt-1">Editar curso</h2>
+      </div>
+      <button type="button" data-cerrar-modal="modal-configurar" aria-label="Cerrar"
+        class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div id="aviso-configurar" class="hidden">
+      <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+      <p class="font-body-md text-body-md" data-aviso-texto></p>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-space-md">
+      <div class="sm:col-span-2 flex flex-col space-y-space-xs">
+        <label for="cfg-materia" class="font-label-lg text-label-lg text-on-surface">Materia</label>
+        <input id="cfg-materia" name="nombreMateria" type="text" list="cfg-lista-materias" autocomplete="off"
+          class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+        <datalist id="cfg-lista-materias"></datalist>
+      </div>
+      <div class="flex flex-col space-y-space-xs">
+        <label for="cfg-seccion" class="font-label-lg text-label-lg text-on-surface">Sección</label>
+        <input id="cfg-seccion" name="seccion" type="text" maxlength="10"
+          class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md uppercase focus:outline-none" />
+      </div>
+      <div class="sm:col-span-3 flex flex-col space-y-space-xs">
+        <label for="cfg-descripcion" class="font-label-lg text-label-lg text-on-surface">Descripción</label>
+        <textarea id="cfg-descripcion" name="descripcion" rows="3" maxlength="500"
+          class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md resize-y focus:outline-none"></textarea>
+      </div>
+      <fieldset class="sm:col-span-3 flex flex-col space-y-space-xs">
+        <legend class="font-label-lg text-label-lg text-on-surface mb-space-xs">Días de clase</legend>
+        <div id="cfg-dias" class="flex flex-wrap gap-space-sm"></div>
+      </fieldset>
+      <div class="flex flex-col space-y-space-xs">
+        <label for="cfg-hora-inicio" class="font-label-lg text-label-lg text-on-surface">Hora de inicio</label>
+        <input id="cfg-hora-inicio" name="horaInicio" type="time" step="300"
+          class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+      </div>
+      <div class="flex flex-col space-y-space-xs">
+        <label for="cfg-hora-fin" class="font-label-lg text-label-lg text-on-surface">Hora de fin</label>
+        <input id="cfg-hora-fin" name="horaFin" type="time" step="300"
+          class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+      </div>
+      <div class="hidden sm:block"></div>
+      <fieldset class="sm:col-span-3 flex flex-col space-y-space-xs">
+        <legend class="font-label-lg text-label-lg text-on-surface mb-space-xs">Tipo de evaluación</legend>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
+          <label class="flex items-start gap-space-sm p-space-md rounded-lg bg-surface-container-low cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-secondary">
+            <input type="radio" name="cfgTipoEvaluacion" value="numerica" class="mt-0.5 accent-[#305ea1]" />
+            <span><span class="block font-label-lg text-label-lg text-on-surface">Calificación numérica</span>
+              <span class="block font-helper-sm text-helper-sm text-on-surface-variant">Mínimo aprobatorio fijo: 60</span></span>
+          </label>
+          <label class="flex items-start gap-space-sm p-space-md rounded-lg bg-surface-container-low cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-secondary">
+            <input type="radio" name="cfgTipoEvaluacion" value="aprobado_no_aprobado" class="mt-0.5 accent-[#305ea1]" />
+            <span><span class="block font-label-lg text-label-lg text-on-surface">Aprobado / No aprobado</span>
+              <span class="block font-helper-sm text-helper-sm text-on-surface-variant">Sin calificación numérica</span></span>
+          </label>
+        </div>
+      </fieldset>
+      <p class="sm:col-span-3 font-helper-sm text-helper-sm text-on-surface-variant flex items-center gap-1">
+        <span class="material-symbols-outlined text-[16px]">lock</span> El ciclo escolar y el código del curso no se pueden cambiar.
+      </p>
+    </div>
+    <!-- RF-10: archivar o reactivar -->
+    <div class="mt-space-lg p-space-md rounded-xl bg-surface-container-low flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
+      <div>
+        <p class="font-label-lg text-label-lg text-on-surface" id="cfg-estado-titulo"></p>
+        <p class="font-helper-sm text-helper-sm text-on-surface-variant" id="cfg-estado-texto"></p>
+      </div>
+      <button type="button" id="btn-cambiar-estado"
+        class="shrink-0 inline-flex items-center justify-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg transition-colors"></button>
+    </div>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm mt-space-xl">
+      <button type="button" data-cerrar-modal="modal-configurar"
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button id="btn-guardar-configurar" type="submit"
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
+        <span data-texto-boton>Guardar cambios</span>
+        <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ VENTANA: CONFIRMAR ============ -->
+<div id="modal-confirmar" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-gutter bg-primary/40 backdrop-blur-sm">
+  <div class="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer">
+    <h2 class="font-title-lg text-title-lg text-primary" data-confirmar-titulo></h2>
+    <p class="font-body-md text-body-md text-on-surface-variant mt-space-sm" data-confirmar-texto></p>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm mt-space-lg">
+      <button type="button" data-confirmar-cancelar
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button type="button" data-confirmar-aceptar
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors"></button>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/curso.js"></script>
+<script src="js/curso-asistencia.js"></script>
+<script src="js/curso-evaluacion.js"></script>
+</body>
+</html>

@@ -18,6 +18,10 @@ def mis_cursos(estado: Literal["activo", "archivado"] = "activo", db: Session = 
                docente: models.Usuario = Depends(requiere_docente)):
     return services.cursos_del_docente(db, docente, estado)
 
+@router.get("/cursos/{curso_id}", response_model=schemas.CursoSalida)
+def ver_curso(curso_id: int, db: Session = Depends(get_db), docente: models.Usuario = Depends(requiere_docente)):
+    return services.ver_curso_docente(db, docente, curso_id)
+
 @router.get("/cursos/{curso_id}/alumnos", response_model=list[schemas.AlumnoCurso])
 def alumnos_del_curso(curso_id: int, db: Session = Depends(get_db),
                       docente: models.Usuario = Depends(requiere_docente)):

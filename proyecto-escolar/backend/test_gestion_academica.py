@@ -95,6 +95,16 @@ def test_rf10_rf11_archivar_y_filtrar(client, escenario):
     archivados = client.get("/docente/cursos?estado=archivado", headers=auth(t1)).json()
     assert [c["seccion"] for c in archivados] == ["D01"]
 
+def test_rf95_ver_un_curso_propio_activo_o_archivado(client, escenario):
+    ta, t1, t2 = escenario
+    c = _crear_curso(client, t1)
+    client.patch(f"/docente/cursos/{c['id']}/estado", json={"estado": "archivado"}, headers=auth(t1))
+    r = client.get(f"/docente/cursos/{c['id']}", headers=auth(t1))
+    assert r.status_code == 200
+    assert (r.json()["codigoCurso"], r.json()["estado"]) == (c["codigoCurso"], "archivado")
+    assert client.get(f"/docente/cursos/{c['id']}", headers=auth(t2)).status_code == 403
+    assert client.get("/docente/cursos/999", headers=auth(t1)).status_code == 404
+
 def test_rf10_un_curso_archivado_se_puede_reactivar(client, escenario):
     _, t1, _ = escenario
     c = _crear_curso(client, t1)

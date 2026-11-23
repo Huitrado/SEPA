@@ -2,7 +2,7 @@
 
 [← Volver al índice](README.md)
 
-Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **58 endpoints** en 6 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
+Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **59 endpoints** en 6 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
 
 ## Cómo leer estas tablas
 
@@ -382,6 +382,7 @@ Archivo: `routers/docentes.py` · Prefijo: `/docente` (en singular) · RF-95: so
 | Método | Ruta | Quién | Recibe | Respuestas | RF |
 |--------|------|-------|--------|------------|----|
 | GET | `/docente/cursos` | Docente | Query `estado` = `activo` (por defecto) o `archivado` | **200**, 422 | RF-11, RF-14, RF-95 |
+| GET | `/docente/cursos/{curso_id}` | Docente dueño | Nada | **200**, 403, 404 | RF-14, RF-95 |
 | GET | `/docente/cursos/{curso_id}/alumnos` | Docente dueño | Nada | **200**, 403, 404 | RF-16, RF-95 |
 | PATCH | `/docente/cursos/{curso_id}` | Docente dueño | JSON `CursoActualizar` (todo opcional) | **200**, 403, 404, 422 | RF-13, RF-17, RF-18, RF-95 |
 | PATCH | `/docente/cursos/{curso_id}/estado` | Docente dueño | JSON `{estado}` = `activo` o `archivado` | **200**, 403, 404, 422 | RF-10, RF-95 |
@@ -411,6 +412,10 @@ Errores de dueño (`services.py → _curso_del_docente`): **404** `Curso no enco
 ### `GET /docente/cursos`
 
 `services.py → cursos_del_docente`. Solo los cursos del docente, **con** `codigoCurso`, para compartirlo con los alumnos. **200**: lista de objetos `CursoSalida`, iguales al de `POST /cursos`. Si no tiene cursos, `[]`.
+
+### `GET /docente/cursos/{curso_id}`
+
+`services.py → ver_curso_docente`. Un curso del docente, activo **o archivado**, con su `codigoCurso`. Lo usa la página de detalle del curso (`curso.html`). **200**: `CursoSalida`.
 
 ### `GET /docente/cursos/{curso_id}/alumnos`
 

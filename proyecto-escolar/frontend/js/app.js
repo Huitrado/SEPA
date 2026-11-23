@@ -72,10 +72,13 @@ class ErrorApi extends Error {
 // Hace una petición al backend.
 //   ruta:     por ejemplo "/usuarios/login"
 //   opciones: { metodo: "POST", datos: {...}, conToken: true }
+//   Si "datos" es un FormData (subir archivos, RF-36), se manda tal cual y el
+//   navegador arma el Content-Type multipart; si no, se manda como JSON.
 // Devuelve el JSON de la respuesta o lanza un ErrorApi.
 async function pedir(ruta, { metodo = "GET", datos, conToken = false } = {}) {
   const encabezados = {};
-  if (datos !== undefined) encabezados["Content-Type"] = "application/json";
+  const esArchivo = datos instanceof FormData;
+  if (datos !== undefined && !esArchivo) encabezados["Content-Type"] = "application/json";
 
   if (conToken) {
     const sesion = leerSesion();
@@ -91,7 +94,7 @@ async function pedir(ruta, { metodo = "GET", datos, conToken = false } = {}) {
     respuesta = await fetch(API_URL + ruta, {
       method: metodo,
       headers: encabezados,
-      body: datos !== undefined ? JSON.stringify(datos) : undefined
+      body: datos === undefined ? undefined : esArchivo ? datos : JSON.stringify(datos)
     });
   } catch {
     throw new ErrorApi(0, `No se pudo conectar con el servidor (${API_URL}). Revisa que el backend esté encendido.`);
@@ -263,4 +266,188 @@ async function cerrarSesion() {
       if (boton) boton.disabled = false;
     }
   }
+}
+
+// ---------------- Descargar archivos (RF-36, RF-41) ----------------
+// Un <a href> no manda el token, así que se pide con fetch y se guarda como Blob.
+// El nombre sale del encabezado Content-Disposition que pone el backend.
+async function descargarArchivo(ruta) {
+  const sesion = leerSesion();
+  if (!sesion) return irALogin("Inicia sesión para continuar.");
+  let respuesta;
+  try {
+    respuesta = await fetch(API_URL + ruta, { headers: { Authorization: `Bearer ${sesion.token}` } });
+  } catch {
+    throw new ErrorApi(0, `No se pudo conectar con el servidor (${API_URL}). Revisa que el backend esté encendido.`);
+  }
+  if (!respuesta.ok) {
+    let detalle = `Error ${respuesta.status}`;
+    try { detalle = (await respuesta.json()).detail || detalle; } catch { /* sin JSON */ }
+    if (respuesta.status === 401) irALogin("Tu sesión expiró o ya no es válida. Inicia sesión de nuevo.");
+    throw new ErrorApi(respuesta.status, detalle);
+  }
+  const disposicion = respuesta.headers.get("Content-Disposition") || "";
+  const codificado = disposicion.match(/filename\*=utf-8''([^;]+)/i);
+  const simple = disposicion.match(/filename="?([^";]+)"?/i);
+  const nombre = codificado ? decodeURIComponent(codificado[1]) : simple ? simple[1] : "archivo";
+  const url = URL.createObjectURL(await respuesta.blob());
+  const enlace = Object.assign(document.createElement("a"), { href: url, download: nombre });
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ---------------- Construir la página con JavaScript ----------------
+
+// Crea un elemento con clases y texto (textContent: nunca se interpreta como HTML).
+function el(etiqueta, clases = "", texto) {
+  const nodo = document.createElement(etiqueta);
+  if (clases) nodo.className = clases;
+  if (texto !== undefined && texto !== null) nodo.textContent = texto;
+  return nodo;
+}
+
+function icono(nombre, clases = "text-[18px]") {
+  return el("span", `material-symbols-outlined ${clases}`, nombre);
+}
+
+// Botón pequeño con ícono y texto. variante: "primario", "secundario", "peligro" o "suave".
+function boton(texto, nombreIcono, variante = "suave") {
+  const estilos = {
+    primario: "bg-primary-container text-on-primary hover:bg-primary",
+    secundario: "bg-surface-container-high text-primary hover:bg-surface-container",
+    peligro: "bg-surface-container-low text-error hover:bg-error-container",
+    suave: "bg-surface-container-low text-secondary hover:bg-surface-container"
+  };
+  const b = el("button", `inline-flex items-center justify-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg transition-colors disabled:opacity-60 ${estilos[variante]}`);
+  b.type = "button";
+  if (nombreIcono) b.appendChild(icono(nombreIcono));
+  if (texto) b.appendChild(el("span", "", texto));
+  return b;
+}
+
+// Mismo orden y valores que config.py -> DIAS_SEMANA
+const DIAS = [
+  ["lunes", "Lun", "Lunes"],
+  ["martes", "Mar", "Martes"],
+  ["miercoles", "Mié", "Miércoles"],
+  ["jueves", "Jue", "Jueves"],
+  ["viernes", "Vie", "Viernes"],
+  ["sabado", "Sáb", "Sábado"]
+];
+
+const ETIQUETA_EVALUACION = {
+  numerica: "Calificación numérica",
+  aprobado_no_aprobado: "Aprobado / No aprobado"
+};
+
+function diasCortos(dias) {
+  return DIAS.filter(([valor]) => dias.includes(valor)).map(([, corto]) => corto).join(" · ");
+}
+
+// Botón de copiar (RF-14). El botón trae data-copiar con el texto y un <span data-etiqueta>.
+async function copiarCodigo(boton) {
+  const codigo = boton.dataset.copiar;
+  let copiado = false;
+  try {
+    await navigator.clipboard.writeText(codigo);
+    copiado = true;
+  } catch {
+    // Respaldo para navegadores que no permiten el portapapeles moderno
+    const temporal = el("textarea");
+    temporal.value = codigo;
+    temporal.style.position = "fixed";
+    temporal.style.opacity = "0";
+    document.body.appendChild(temporal);
+    temporal.select();
+    try { copiado = document.execCommand("copy"); } catch { copiado = false; }
+    temporal.remove();
+  }
+  const etiqueta = boton.querySelector("[data-etiqueta]");
+  const icon = boton.querySelector(".material-symbols-outlined");
+  etiqueta.textContent = copiado ? "Copiado" : "No se pudo copiar";
+  icon.textContent = copiado ? "check" : "error";
+  clearTimeout(boton._temporizador);
+  boton._temporizador = setTimeout(() => {
+    etiqueta.textContent = "Copiar";
+    icon.textContent = "content_copy";
+  }, 2000);
+}
+
+// ---------------- Fechas ----------------
+// El backend manda fechas como texto: "2026-10-26" o "2026-11-01T23:59:00" (hora local del servidor).
+
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+function fechaCorta(texto) {            // "2026-10-26" -> "26 oct"
+  const [, mes, dia] = texto.slice(0, 10).split("-").map(Number);
+  return `${dia} ${MESES[mes - 1]}`;
+}
+
+function fechaHora(texto) {             // "2026-11-01T23:59:00" -> "1 nov 2026, 23:59"
+  const [anio, mes, dia] = texto.slice(0, 10).split("-").map(Number);
+  return `${dia} ${MESES[mes - 1]} ${anio}, ${texto.slice(11, 16)}`;
+}
+
+// Número sin ceros de sobra: 13.333 -> "13.33", 40 -> "40"
+function numero(valor, decimales = 2) {
+  return Number(valor).toLocaleString("es-MX", { maximumFractionDigits: decimales });
+}
+
+// ---------------- Semáforo (RF-50 a RF-52, RF-61) ----------------
+
+const SEMAFORO = {
+  verde: { texto: "Verde", clases: "bg-semaforo-verde-fondo text-semaforo-verde", punto: "bg-semaforo-verde" },
+  amarillo: { texto: "Amarillo", clases: "bg-semaforo-amarillo-fondo text-semaforo-amarillo", punto: "bg-semaforo-amarillo" },
+  rojo: { texto: "Rojo", clases: "bg-semaforo-rojo-fondo text-semaforo-rojo", punto: "bg-semaforo-rojo" }
+};
+
+// Etiqueta redonda con el color del semáforo. "texto" reemplaza al nombre del color.
+function chipSemaforo(color, texto) {
+  const s = SEMAFORO[color] || SEMAFORO.verde;
+  const chip = el("span", `inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-label-md text-label-md whitespace-nowrap ${s.clases}`);
+  chip.append(el("span", `w-2 h-2 rounded-full ${s.punto}`), el("span", "", texto || s.texto));
+  return chip;
+}
+
+// ---------------- Ventanas (modales) ----------------
+// Cualquier botón con data-cerrar-modal="id" cierra esa ventana; Escape cierra la que esté abierta.
+
+function abrirModal(id) {
+  document.getElementById(id).classList.remove("hidden");
+}
+
+function cerrarModal(id) {
+  document.getElementById(id).classList.add("hidden");
+}
+
+function activarModales() {
+  document.querySelectorAll("[data-cerrar-modal]").forEach(b =>
+    b.addEventListener("click", () => cerrarModal(b.dataset.cerrarModal)));
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") document.querySelectorAll("[data-modal]:not(.hidden)").forEach(m => m.classList.add("hidden"));
+  });
+}
+
+// Ventana de confirmación con promesa: if (await confirmar("¿Archivar?", "Texto")) {...}
+// Usa la ventana #modal-confirmar si la página la tiene; si no, confirm() del navegador.
+function confirmar(titulo, texto, textoAceptar = "Confirmar") {
+  const modal = document.getElementById("modal-confirmar");
+  if (!modal) return Promise.resolve(window.confirm(`${titulo}\n\n${texto}`));
+  modal.querySelector("[data-confirmar-titulo]").textContent = titulo;
+  modal.querySelector("[data-confirmar-texto]").textContent = texto;
+  const aceptar = modal.querySelector("[data-confirmar-aceptar]");
+  const cancelar = modal.querySelector("[data-confirmar-cancelar]");
+  aceptar.textContent = textoAceptar;
+  modal.classList.remove("hidden");
+  return new Promise(resolver => {
+    const terminar = valor => {
+      modal.classList.add("hidden");
+      aceptar.onclick = cancelar.onclick = null;
+      resolver(valor);
+    };
+    aceptar.onclick = () => terminar(true);
+    cancelar.onclick = () => terminar(false);
+  });
 }
