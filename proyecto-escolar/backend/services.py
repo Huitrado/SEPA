@@ -641,13 +641,16 @@ def semaforo_asistencia(porcentaje: float) -> str:
         return "amarillo"
     return "rojo"
 
+def _estados_asistencia(db: Session, matricula_id: int) -> list[str]:
+    """Estados del alumno en las listas guardadas de su curso."""
+    return [e for (e,) in (db.query(models.Asistencia.estado)
+            .join(models.SesionClase, models.SesionClase.id == models.Asistencia.sesionClase_id)
+            .filter(models.Asistencia.matricula_id == matricula_id,
+                    models.SesionClase.listaGuardada == 1).all())]
+
 def porcentaje_asistencia(db: Session, matricula_id: int) -> float:
     """Porcentaje de un alumno en su curso, contando solo las listas guardadas."""
-    estados = (db.query(models.Asistencia.estado)
-               .join(models.SesionClase, models.SesionClase.id == models.Asistencia.sesionClase_id)
-               .filter(models.Asistencia.matricula_id == matricula_id,
-                       models.SesionClase.listaGuardada == 1).all())
-    return calcular_porcentaje_asistencia([e for (e,) in estados])
+    return calcular_porcentaje_asistencia(_estados_asistencia(db, matricula_id))
 
 def _alumnos_activos(db: Session, curso_id: int) -> list[tuple]:
     """(Matricula, Estudiante, Usuario) de las matrículas activas, por apellidos y nombre."""
@@ -1301,8 +1304,9 @@ def seguimiento_de_curso(db: Session, docente: models.Usuario, curso_id: int) ->
 def seguimiento_del_alumno(db: Session, usuario: models.Usuario, curso_id: int) -> dict:
     matricula = _matricula_activa(db, usuario, curso_id)
     datos = _datos_calificaciones(db, matricula.curso_id)
-    return {"curso_id": matricula.curso_id,
-            **_indicadores(porcentaje_asistencia(db, matricula.id), _fila_calificaciones(matricula.id, *datos))}
+    estados = _estados_asistencia(db, matricula.id)
+    return {"curso_id": matricula.curso_id, "clasesRegistradas": sum(e in ESTADOS_ASISTENCIA for e in estados),
+            **_indicadores(calcular_porcentaje_asistencia(estados), _fila_calificaciones(matricula.id, *datos))}
 
 # ======================================================================
 # Asesorías entre estudiantes (RF-73 a RF-80, RF-92)

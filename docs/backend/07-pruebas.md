@@ -207,6 +207,7 @@ Docstring: *"Módulo de control de asistencia (RF-19 a RF-28, RF-49)"*. La fixtu
 | RF-20 / RF-23 | Guardar lista con observaciones; faltan alumnos, alumno ajeno, repetido o estado inválido → 422; un alumno de baja no aparece ni se acepta; un alumno inscrito después no es obligatorio |
 | RF-25 | Editar la lista de una sesión pasada |
 | RF-24 / RF-26 / RF-49 | Cuadrícula ordenada por fecha, estados por sesión, porcentaje, estatus normativo y semáforo; bordes de 85, 80 y 65 % |
+| Vista del alumno | `clasesRegistradas` en su seguimiento: 0 sin listas guardadas (aunque haya una sin guardar) y cuenta las guardadas |
 | RF-95 | Otro docente, el admin y un alumno reciben 403 |
 
 ### `test_categorias.py`

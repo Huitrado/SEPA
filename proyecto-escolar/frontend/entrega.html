@@ -26,17 +26,8 @@
         <span class="font-caption text-caption text-on-surface-variant leading-none">Universidad de Guadalajara · CUCEI</span>
       </span>
     </a>
-    <div class="flex items-center gap-space-sm">
-      <a href="dashboard.html" class="hidden sm:inline font-label-lg text-label-lg text-on-surface hover:text-primary" id="header-nombre" title="Mi perfil"></a>
-      <a href="dashboard.html" class="w-8 h-8 rounded-full bg-primary flex items-center justify-center" title="Mi perfil">
-        <span class="material-symbols-outlined text-on-primary text-[18px]">person</span>
-      </a>
-      <button id="btn-logout" type="button"
-        class="inline-flex items-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg text-secondary bg-surface-container-low hover:bg-surface-container transition-colors disabled:opacity-60">
-        <span class="material-symbols-outlined text-[18px]">logout</span>
-        <span class="hidden sm:inline">Cerrar sesión</span>
-      </button>
-    </div>
+    <!-- Enlaces, nombre y "Salir": los pinta app.js → pintarBarraEstudiante() -->
+    <div id="barra-estudiante" data-actual="cursos"></div>
   </div>
 </header>
 

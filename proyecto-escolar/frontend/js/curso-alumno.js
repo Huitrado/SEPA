@@ -116,6 +116,11 @@ function pintarAlertas(seg, riesgo) {
 // RF-67, RF-68
 function pintarCalificacion(seg) {
   const bloque = document.getElementById("bloque-calificacion");
+  if (seg.puntosPosibles === 0) {
+    bloque.appendChild(sinDatos("hourglass_empty", "Aún sin calificaciones",
+      "Cuando tu profesor califique tu primera actividad, aquí verás tus puntos."));
+    return;
+  }
   const principal = el("div", "p-space-md rounded-xl bg-surface-container-low text-center mb-space-md");
   principal.append(
     el("p", "font-caption text-caption uppercase tracking-wider text-on-surface-variant", "Calificación acumulada real"),
@@ -150,6 +155,11 @@ function pintarCalificacion(seg) {
 // RF-64 a RF-66: porcentaje, estatus normativo y color del semáforo de asistencia
 function pintarAsistencia(seg) {
   const bloque = document.getElementById("bloque-asistencia");
+  if (seg.clasesRegistradas === 0) {
+    bloque.appendChild(sinDatos("event_note", "Sin clases registradas",
+      "Tu profesor aún no ha pasado lista. Tu porcentaje aparecerá con la primera clase."));
+    return;
+  }
   const color = { verde: "#1b6e3a", amarillo: "#de7b0e", rojo: "#ba1a1a" }[seg.semaforoAsistencia];
   const anillo = el("div", "relative w-36 h-36 mx-auto rounded-full flex items-center justify-center");
   anillo.style.background = `conic-gradient(${color} ${seg.porcentajeAsistencia}%, #e5eeff 0)`;
@@ -161,6 +171,15 @@ function pintarAsistencia(seg) {
   estatus.append(el("span", "font-body-md text-body-md text-on-surface-variant", "Estatus UdeG"), chipSemaforo(seg.semaforoAsistencia, seg.estatusNormativo));
   bloque.append(anillo, estatus,
     el("p", "font-helper-sm text-helper-sm text-on-surface-variant mt-space-sm", "Ordinario ≥ 80 % · Extraordinario ≥ 65 % · Sin Derecho < 65 %. Un retardo cuenta como asistencia."));
+}
+
+// Bloque vacío: en lugar de cifras que confunden (100 % o 0 puntos sin datos), un mensaje claro.
+function sinDatos(nombreIcono, titulo, texto) {
+  const caja = el("div", "p-space-lg rounded-xl bg-surface-container-low text-center");
+  caja.append(icono(nombreIcono, "text-[32px] text-on-surface-variant"),
+    el("p", "font-label-lg text-label-lg text-primary mt-space-xs", titulo),
+    el("p", "font-body-md text-body-md text-on-surface-variant mt-1", texto));
+  return caja;
 }
 
 // RF-63

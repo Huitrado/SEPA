@@ -67,42 +67,21 @@ function pintarCursos() {
   visibles.forEach(c => lista.appendChild(tarjeta(c)));
 }
 
-// RF-61: materia, profesor y semáforo
+// RF-61: materia, profesor y semáforo. Solo lo necesario para reconocer el curso y entrar;
+// el horario, la asistencia, la calificación y las alertas se ven dentro del curso.
 function tarjeta(c) {
   const enlace = el("a", "group bg-surface-container-lowest rounded-xl shadow-md overflow-hidden flex flex-col hover:shadow-lg transition-shadow");
   enlace.href = `curso-alumno.html?id=${c.id}`;
   const franja = el("div", `h-1.5 ${SEMAFORO[c.semaforoGeneral].punto}`);
-  const cuerpo = el("div", "p-space-lg flex flex-col gap-space-md flex-1");
+  const cuerpo = el("div", "p-space-lg flex items-center justify-between gap-space-md flex-1");
 
-  const cabeza = el("div", "flex items-start justify-between gap-space-sm");
   const titulos = el("div", "min-w-0");
   titulos.append(el("h2", "font-title-lg text-title-lg text-primary leading-snug group-hover:underline", c.nombreMateria),
-    el("p", "font-body-md text-body-md text-on-surface-variant mt-0.5", `Sección ${c.seccion}`));
-  cabeza.append(titulos, chipSemaforo(c.semaforoGeneral));
+    el("p", "font-body-md text-body-md text-on-surface-variant mt-1", c.profesor || "Sin profesor asignado"));
+  const derecha = el("div", "shrink-0 flex items-center gap-space-sm");
+  derecha.append(chipSemaforo(c.semaforoGeneral), icono("chevron_right", "text-[22px] text-on-surface-variant"));
 
-  const datos = el("div", "space-y-1.5 font-body-md text-body-md text-on-surface");
-  const fila = (nombreIcono, texto) => {
-    const f = el("p", "flex items-center gap-space-sm");
-    f.append(icono(nombreIcono, "text-[18px] text-on-surface-variant"), el("span", "", texto));
-    return f;
-  };
-  datos.append(fila("person", c.profesor || "Sin profesor asignado"),
-    fila("calendar_month", `${diasCortos(c.diasSemana)} · ${c.horaInicio} – ${c.horaFin}`));
-
-  const metricas = el("div", "mt-auto grid grid-cols-2 gap-space-sm");
-  const metrica = (valor, texto) => {
-    const m = el("div", "p-space-sm rounded-lg bg-surface-container-low");
-    m.append(el("p", "font-title-lg text-title-lg text-primary", valor), el("p", "font-caption text-caption text-on-surface-variant", texto));
-    return m;
-  };
-  metricas.append(metrica(`${numero(c.porcentajeAsistencia, 1)} %`, "asistencia"), metrica(`${numero(c.calificacionAcumulada)}`, "puntos acumulados"));
-
-  cuerpo.append(cabeza, datos, metricas);
-  if (c.alertaCalificacion) {
-    const alerta = el("p", "flex items-center gap-1 font-helper-sm text-helper-sm text-error");
-    alerta.append(icono("notification_important", "text-[16px]"), el("span", "", "Tu desempeño está por debajo del 60 %"));
-    cuerpo.appendChild(alerta);
-  }
+  cuerpo.append(titulos, derecha);
   enlace.append(franja, cuerpo);
   return enlace;
 }
@@ -126,7 +105,7 @@ async function unirse(evento) {
   try {
     const r = await pedir("/inscripcion", { metodo: "POST", datos: { codigoCurso }, conToken: true });
     cerrarModal("modal-unirse");
-    mostrarAviso(`${r.mensaje}: ${r.curso}.`, "info");
+    mostrarToast(`${r.mensaje}: ${r.curso}.`);
     await cargarCursos();
   } catch (error) {
     // 404 código inexistente · 409 curso archivado o ya inscrito

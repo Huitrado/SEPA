@@ -168,7 +168,7 @@ async function enviarEntrega(evento) {
     document.getElementById("form-entrega").reset();
     mostrarArchivoElegido();
     await cargar();
-    mostrarAviso("¡Entrega enviada!", "info", "aviso-entrega");
+    mostrarToast("¡Entrega enviada!");
   } catch (error) {
     // 409 ya entregada o curso archivado · 413 / 415 / 422 archivo inválido
     if (error.status !== 401) mostrarErrorApi(error, "aviso-entrega");
@@ -184,7 +184,7 @@ async function cancelarEntrega() {
   try {
     await pedir(`/alumno/actividades/${ACTIVIDAD_ID}/entrega`, { metodo: "DELETE", conToken: true });
     await cargar();
-    mostrarAviso("Entrega cancelada. Ya puedes subir otro archivo.", "info", "aviso-entrega");
+    mostrarToast("Entrega cancelada. Ya puedes subir otro archivo.");
   } catch (error) {
     if (error.status !== 401) mostrarErrorApi(error, "aviso-entrega");
   }

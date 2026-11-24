@@ -315,9 +315,15 @@ function mostrarPerfil(perfil) {
   const texto = (id, valor) => { document.getElementById(id).textContent = valor; };
   const nombreCompleto = `${perfil.nombre} ${perfil.apellidos}`;
 
-  // Regreso al panel propio: "Mis cursos" (estudiante) o "Administración"
-  const regreso = { estudiante: "Mis cursos", administrador: "Administración" }[perfil.panel];
-  if (regreso) {
+  // Estudiante: la misma barra que en sus demás páginas, con "Mi historial" marcado.
+  // Administrador: enlace de regreso a "Administración".
+  if (perfil.panel === "estudiante") {
+    const acciones = document.getElementById("acciones-encabezado");
+    acciones.id = "barra-estudiante";
+    acciones.dataset.actual = "historial";
+    pintarBarraEstudiante();
+  } else if (perfil.panel === "administrador") {
+    const regreso = "Administración";
     const enlace = document.getElementById("link-mis-cursos");
     enlace.href = PAGINA_POR_PANEL[perfil.panel];
     enlace.querySelector("span:last-child").textContent = regreso;

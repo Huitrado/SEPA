@@ -298,7 +298,13 @@ No existe un "olvidé mi contraseña" automático:
 2. En cada petición con token, si `ahora - ultimaActividad > 30 min`, borra la fila y responde **401** `"Tu sesión se cerró por inactividad; inicia sesión de nuevo"`. Si no, actualiza `ultimaActividad`.
 3. Sin fila, el token ya no sirve aunque su `exp` no haya llegado. El logout también borra la fila.
 
-**En el frontend** (`app.js → vigilarInactividad`, lo activa `protegerPagina`): guarda en `sessionStorage` la hora del último movimiento del ratón, tecla, scroll o toque. Cada 30 s (y al volver a la pestaña) revisa: si pasaron 30 min, llama a `POST /usuarios/logout` y manda al login con *"Tu sesión se cerró por inactividad"*. Así la pantalla no se queda abierta con datos a la vista aunque nadie haga peticiones. Si el backend contesta antes con el 401 de inactividad, `pedir()` muestra el mismo aviso.
+**En el frontend** (`app.js → vigilarInactividad`, lo activa `protegerPagina`):
+
+- Guarda en `sessionStorage` la hora del último movimiento del ratón, tecla, scroll o toque.
+- **El backend solo ve peticiones**, no movimientos. Para que alguien que lee la página sin hacer clic no pierda la sesión, con actividad se manda `GET /usuarios/yo` como mucho una vez por minuto (`avisarActividadAlServidor`; cualquier petición con token de `pedir()` también cuenta).
+- **A los 27 minutos** sin actividad aparece el aviso *"¿Sigues ahí?"* con cuenta regresiva y el botón **Seguir conectado**; cualquier movimiento también lo quita.
+- **A los 29 minutos** llama a `POST /usuarios/logout` y manda al login con *"Tu sesión se cerró por inactividad"*. Cierra un minuto antes que el backend para que "Seguir conectado" nunca llegue tarde. Así la pantalla no se queda abierta con datos a la vista.
+- Si el backend contesta antes con el 401 de inactividad, `pedir()` muestra el mismo aviso.
 
 > Nota: al desplegar este cambio, los tokens emitidos antes no tienen fila en `SesionActiva`, así que todos deben volver a iniciar sesión una vez.
 

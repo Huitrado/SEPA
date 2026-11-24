@@ -68,10 +68,10 @@ frontend/
 | `registro.html` | Formulario con dos pestañas: **Soy estudiante** (código de 9 dígitos, carrera y ciclo de ingreso: el vigente o uno anterior) y **Soy docente** (número de empleado, departamento opcional). | `auth.js → iniciarRegistro`, `enviarRegistro` |
 | `login.html` | Pide **código** (de estudiante o número de empleado) y **contraseña**. No se entra con el correo. | `auth.js → iniciarLogin`, `enviarLogin` |
 | `dashboard.html` | "Mi perfil" de estudiante y administrador. Al estudiante le muestra además la insignia de **riesgo por historial** (RF-55), su semestre según el ingreso, su plan de estudios y su historial en SEPA. | `auth.js → iniciarPanel`, `mostrarPerfil`, `mostrarTrayectoria` |
-| `docente.html` | Cursos activos y archivados del docente, código de cada curso con botón de copiar, ventana **Crear curso** y botón **Abrir curso**. | `docente.js` |
-| `curso.html` | Ficha del curso con su código, resumen (alumnos, asistencia promedio, alumnos en rojo, encuadre) y cinco pestañas: **Matrícula** (seguimiento con semáforo, dar de baja y reactivar), **Asistencia** (cuadrícula, generar la sesión de hoy, pasar y corregir lista), **Actividades** (por categoría; crear, editar, adjuntar archivo, eliminar), **Encuadre** (categorías y barra del 100 %) y **Calificaciones** (cuadrícula con la acumulada). Botón **Configurar curso** para editarlo, archivarlo o reactivarlo. | `curso.js`, `curso-asistencia.js`, `curso-evaluacion.js` |
-| `estudiante.html` | Tarjetas de los cursos del ciclo activo con profesor, horario, asistencia, puntos y semáforo; filtro por color y ventana **Unirse a un curso** con el código. | `estudiante.js` |
-| `curso-alumno.html` | Panel del curso: semáforo general, alertas, calificación acumulada con puntos obtenidos/perdidos, anillo de asistencia con estatus UdeG, encuadre, tareas pendientes (enlazan a la entrega) e historial con retroalimentación. En amarillo o rojo aparece el botón "Buscar asesoría para esta materia", que abre el tablero ya filtrado (RF-72). | `curso-alumno.js` |
+| `docente.html` | Cursos activos y archivados del docente. Cada tarjeta muestra solo materia, sección, ciclo y **Abrir curso** (el horario y el código están dentro del curso). Ventana **Crear curso**. | `docente.js` |
+| `curso.html` | Ficha del curso con su código, resumen (alumnos, asistencia promedio, alumnos en rojo, encuadre) y cinco pestañas: **Matrícula** (seguimiento con semáforo, dar de baja y reactivar), **Asistencia** (cuadrícula, generar la sesión de hoy, pasar y corregir lista), **Actividades** (por categoría; crear, editar, adjuntar archivo, eliminar), **Encuadre** (categorías y barra del 100 %) y **Calificaciones** (cuadrícula con la acumulada). Botón **Pasar lista**: abre directo la lista de hoy (la genera si no existe; si hoy no hay clase, dice por qué). Botón **Configurar curso** para editarlo, archivarlo o reactivarlo. | `curso.js`, `curso-asistencia.js`, `curso-evaluacion.js` |
+| `estudiante.html` | Tarjetas de los cursos del ciclo activo con **solo** materia, profesor y semáforo (el resto está dentro del curso); filtro por color y ventana **Unirse a un curso** con el código. | `estudiante.js` |
+| `curso-alumno.html` | Panel del curso, en este orden: semáforo general, alertas, **tareas pendientes** (enlazan a la entrega) e historial de entregas, y debajo calificación acumulada con puntos obtenidos/perdidos, anillo de asistencia con estatus UdeG y encuadre. Sin calificaciones o sin listas guardadas muestra "Aún sin calificaciones" o "Sin clases registradas" en lugar de cifras. En amarillo o rojo aparece el botón "Buscar asesoría para esta materia", que abre el tablero ya filtrado (RF-72). | `curso-alumno.js` |
 | `entrega.html` | Instrucciones de la actividad, archivo del profesor, subir el archivo (arrastrar o elegir), cancelar y volver a subir antes de la fecha límite, y la calificación con retroalimentación. | `entrega.js` |
 | `admin.html` | Cuatro secciones: **Inicio** (conteos y docentes por aprobar), **Usuarios y roles** (buscar y filtrar; registrar docente o administrador; editar datos; rol de asesor; restablecer contraseña; aprobar, desactivar y reactivar), **Ciclos escolares** (lista con estado y alta con fechas oficiales) y **Carreras y materias** (catálogos) y **Planes de estudio** (materias por semestre, base del rezago). En Inicio, el botón **Ejecutar análisis** relanza el análisis de riesgo. | `admin.js`, `admin-catalogos.js` |
 | `asesorias.html` | Tarjetas de las asesorías disponibles con filtros por materia, modalidad y texto, y ventana de detalle con el lugar o enlace. Si el alumno es asesor, ve el acceso a "Mis publicaciones". | `asesorias.js` |
@@ -86,7 +86,22 @@ Toda página que requiere sesión empieza con `<html class="validando-sesion">` 
 2. Si el rol no corresponde a la página, manda al usuario a la suya (RF-90).
 3. Llena `#header-nombre` y activa `#btn-logout` (RF-91).
 4. Al volver con el botón "atrás" desde la caché del navegador, valida otra vez (RF-06).
-5. Vigila la inactividad (RNF-02, `vigilarInactividad`): tras 30 min sin mover el ratón ni teclear, cierra la sesión y manda al login.
+5. Vigila la inactividad (RNF-02, `vigilarInactividad`): a los 27 min sin mover el ratón ni teclear avisa "¿Sigues ahí?" con el botón **Seguir conectado**; a los 29 cierra la sesión y manda al login.
+6. En las páginas del estudiante, pinta su barra (`pintarBarraEstudiante`).
+
+### Barra del estudiante
+
+Todas las páginas del estudiante (`estudiante`, `curso-alumno`, `entrega`, `asesorias`, `mis-asesorias` y `dashboard` cuando entra un alumno) tienen la **misma** barra: **Mis cursos**, **Asesorías** y **Mi historial** (`dashboard.html`), su nombre y **Salir**. En el HTML solo va un hueco:
+
+```html
+<div id="barra-estudiante" data-actual="cursos"></div>   <!-- cursos | asesorias | historial -->
+```
+
+`app.js → pintarBarraEstudiante` lo llena y marca la sección actual. En pantallas chicas, los tres enlaces pasan a una barra fija abajo, cada uno con ícono **y texto**. Para agregar una sección, se agrega una fila a `ENLACES_ESTUDIANTE`.
+
+### Mensajes que se cierran solos
+
+`app.js → mostrarToast(texto, tipo)` muestra un mensaje abajo que desaparece a los 4 s. Se usa para confirmar algo que el usuario acaba de hacer ("Lista guardada", "¡Entrega enviada!", "Te inscribiste…"). Lo que el usuario tiene que leer con calma (un error, un código para compartir) sigue en el recuadro `#aviso` con `mostrarAviso`. Si una página no tiene `#aviso`, `mostrarAviso` usa un toast en lugar de `alert()`.
 
 Solo cuando todo está bien quita `validando-sesion` y la página se muestra.
 

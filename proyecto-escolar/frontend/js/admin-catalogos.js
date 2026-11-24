@@ -119,7 +119,7 @@ async function recalcularRiesgo() {
   b.disabled = true;
   try {
     const r = await pedir("/admin/riesgo/recalcular", { metodo: "POST", conToken: true });
-    mostrarAviso(r.mensaje, "info");
+    mostrarToast(r.mensaje);
   } catch (error) {
     if (error.status !== 401) mostrarErrorApi(error);
   } finally {

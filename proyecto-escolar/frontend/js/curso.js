@@ -53,7 +53,7 @@ async function iniciarCurso() {
   document.getElementById("btn-configurar").addEventListener("click", abrirConfigurar);
   document.getElementById("form-configurar").addEventListener("submit", guardarConfiguracion);
   document.getElementById("btn-cambiar-estado").addEventListener("click", cambiarEstadoCurso);
-  document.getElementById("btn-pasar-lista").addEventListener("click", () => mostrarPestana("asistencia"));
+  document.getElementById("btn-pasar-lista").addEventListener("click", pasarListaHoy);
   document.getElementById("buscar-alumno").addEventListener("input", pintarMatricula);
   window.addEventListener("hashchange", () => mostrarPestana(location.hash.slice(1), false));
   iniciarAsistencia();

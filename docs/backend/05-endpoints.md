@@ -996,10 +996,10 @@ Entregar **justo** en la fecha y hora límite cuenta como a tiempo.
 
 ### `GET /alumno/cursos/{curso_id}/seguimiento`
 
-`services.py → seguimiento_del_alumno`. El seguimiento del propio alumno en el curso: los mismos indicadores que ve el docente, sin los datos personales. **200** (`SeguimientoPropio`):
+`services.py → seguimiento_del_alumno`. El seguimiento del propio alumno en el curso: los mismos indicadores que ve el docente, sin los datos personales, más `clasesRegistradas`: cuántas listas guardadas cuentan para su asistencia. Con `0`, `porcentajeAsistencia` vale 100 por regla (RF-49), así que la pantalla muestra "Sin clases registradas" en lugar del porcentaje. **200** (`SeguimientoPropio`):
 ```json
 {
-  "curso_id": 1,
+  "curso_id": 1, "clasesRegistradas": 6,
   "porcentajeAsistencia": 100.0, "estatusNormativo": "Ordinario", "semaforoAsistencia": "verde",
   "calificacionAcumulada": 25.0, "puntosPosibles": 50.0, "desempenoProporcional": 50.0,
   "alertaCalificacion": true, "semaforoCalificacion": "rojo", "semaforoGeneral": "rojo"

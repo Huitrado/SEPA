@@ -524,6 +524,7 @@ class SeguimientoCurso(BaseModel):
 
 class SeguimientoPropio(IndicadoresSeguimiento):
     curso_id: int
+    clasesRegistradas: int  # listas guardadas que cuentan para su asistencia; 0 = aún no hay clases
 
 # ------------------------------------------------------------------ módulo: catálogo de materias (RF-94)
 ClaveMateria = Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, min_length=2,

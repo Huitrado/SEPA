@@ -26,17 +26,8 @@
         <span class="font-caption text-caption text-on-surface-variant leading-none">Universidad de Guadalajara · CUCEI</span>
       </span>
     </a>
-    <div class="flex items-center gap-space-sm">
-      <a href="dashboard.html" class="hidden sm:inline font-label-lg text-label-lg text-on-surface hover:text-primary" id="header-nombre" title="Mi perfil"></a>
-      <a href="dashboard.html" class="w-8 h-8 rounded-full bg-primary flex items-center justify-center" title="Mi perfil">
-        <span class="material-symbols-outlined text-on-primary text-[18px]">person</span>
-      </a>
-      <button id="btn-logout" type="button"
-        class="inline-flex items-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg text-secondary bg-surface-container-low hover:bg-surface-container transition-colors disabled:opacity-60">
-        <span class="material-symbols-outlined text-[18px]">logout</span>
-        <span class="hidden sm:inline">Cerrar sesión</span>
-      </button>
-    </div>
+    <!-- Enlaces, nombre y "Salir": los pinta app.js → pintarBarraEstudiante() -->
+    <div id="barra-estudiante" data-actual="cursos"></div>
   </div>
 </header>
 
@@ -85,6 +76,21 @@
         <!-- Alertas (RF-48, RF-83) -->
         <div id="alertas" class="space-y-space-sm"></div>
 
+        <!-- RF-69, RF-70: pendientes · RF-71: historial (primero: es lo que el alumno tiene que hacer) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-space-lg">
+          <section class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg">
+            <h2 class="font-title-lg text-title-lg text-primary flex items-center gap-space-xs mb-space-md">
+              <span class="material-symbols-outlined">pending_actions</span> Tareas pendientes
+            </h2>
+            <div id="lista-pendientes" class="space-y-space-sm"></div>
+          </section>
+          <section class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg">
+            <h2 class="font-title-lg text-title-lg text-primary flex items-center gap-space-xs mb-space-md">
+              <span class="material-symbols-outlined">history</span> Historial de entregas
+            </h2>
+            <div id="lista-historial" class="space-y-space-sm"></div>
+          </section>
+        </div>
         <!-- Bloques: rendimiento, asistencia y encuadre (RF-62 a RF-68) -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-space-lg">
           <section class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg">
@@ -107,21 +113,6 @@
           </section>
         </div>
 
-        <!-- RF-69, RF-70: pendientes · RF-71: historial -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-space-lg">
-          <section class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg">
-            <h2 class="font-title-lg text-title-lg text-primary flex items-center gap-space-xs mb-space-md">
-              <span class="material-symbols-outlined">pending_actions</span> Tareas pendientes
-            </h2>
-            <div id="lista-pendientes" class="space-y-space-sm"></div>
-          </section>
-          <section class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg">
-            <h2 class="font-title-lg text-title-lg text-primary flex items-center gap-space-xs mb-space-md">
-              <span class="material-symbols-outlined">history</span> Historial de entregas
-            </h2>
-            <div id="lista-historial" class="space-y-space-sm"></div>
-          </section>
-        </div>
       </div>
     </div>
   </div>

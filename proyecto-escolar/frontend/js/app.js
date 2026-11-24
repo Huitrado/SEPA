@@ -108,7 +108,10 @@ async function pedir(ruta, { metodo = "GET", datos, conToken = false } = {}) {
     // La respuesta no traía JSON: se queda en null
   }
 
-  if (respuesta.ok) return cuerpo;
+  if (respuesta.ok) {
+    if (conToken) ultimaPeticionConToken = Date.now();  // RNF-02: el backend ya contó esta actividad
+    return cuerpo;
+  }
 
   const error = new ErrorApi(respuesta.status, cuerpo?.detail || `Error ${respuesta.status}`, cuerpo?.errores);
 
@@ -128,7 +131,7 @@ async function pedir(ruta, { metodo = "GET", datos, conToken = false } = {}) {
 // idAviso permite usar otro recuadro (por ejemplo, uno dentro de una ventana).
 function mostrarAviso(texto, tipo = "error", idAviso = "aviso") {
   const aviso = document.getElementById(idAviso);
-  if (!aviso) return alert(texto);
+  if (!aviso) return mostrarToast(texto, tipo);
   aviso.className = tipo === "error"
     ? "mb-space-lg p-space-md rounded-xl bg-error-container text-on-error-container flex items-start gap-space-sm animate-aparecer"
     : "mb-space-lg p-space-md rounded-xl bg-surface-container-low text-on-secondary-container flex items-start gap-space-sm animate-aparecer";
@@ -220,11 +223,59 @@ function botonCargando(boton, cargando) {
 // Devuelve el perfil (o null si se redirigió a otra página).
 async function protegerPagina(panelesPermitidos) {
   document.getElementById("btn-logout")?.addEventListener("click", cerrarSesion);
+  pintarBarraEstudiante();
   vigilarInactividad();
   window.addEventListener("pageshow", evento => {
     if (evento.persisted) validarSesionDePagina(panelesPermitidos);
   });
   return validarSesionDePagina(panelesPermitidos);
+}
+
+// ---------------- Barra del estudiante (igual en todas sus páginas) ----------------
+// Las páginas del estudiante ponen <div id="barra-estudiante" data-actual="cursos|asesorias|historial">
+// en el encabezado. Aquí se llena: en pantallas medianas, los enlaces van en el encabezado;
+// en el celular, abajo, cada uno con su ícono y su texto.
+const ENLACES_ESTUDIANTE = [
+  ["cursos", "estudiante.html", "menu_book", "Mis cursos"],
+  ["asesorias", "asesorias.html", "support_agent", "Asesorías"],
+  ["historial", "dashboard.html", "history_edu", "Mi historial"]
+];
+
+function pintarBarraEstudiante() {
+  const barra = document.getElementById("barra-estudiante");
+  if (!barra) return;
+  const actual = barra.dataset.actual;
+  barra.className = "flex items-center gap-space-sm";
+
+  const nav = el("nav", "hidden sm:flex items-center gap-1");
+  nav.setAttribute("aria-label", "Secciones del estudiante");
+  const abajo = el("nav", "sm:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-container-lowest border-t border-surface-container grid grid-cols-3");
+  abajo.setAttribute("aria-label", "Secciones del estudiante");
+  for (const [clave, href, nombreIcono, texto] of ENLACES_ESTUDIANTE) {
+    const activo = clave === actual;
+    const arriba = el("a", `inline-flex items-center gap-1 font-label-md text-label-md px-space-sm py-space-sm rounded-lg transition-colors ${activo ? "bg-surface-container-high text-primary" : "text-on-surface-variant hover:text-primary"}`);
+    arriba.href = href;
+    arriba.append(icono(nombreIcono), el("span", "", texto));
+    const movil = el("a", `flex flex-col items-center justify-center gap-0.5 py-2 font-caption text-caption ${activo ? "text-primary font-semibold" : "text-on-surface-variant"}`);
+    movil.href = href;
+    movil.append(icono(nombreIcono, "text-[22px]"), el("span", "", texto));
+    if (activo) { arriba.setAttribute("aria-current", "page"); movil.setAttribute("aria-current", "page"); }
+    nav.appendChild(arriba);
+    abajo.appendChild(movil);
+  }
+
+  const nombre = el("span", "hidden lg:inline font-label-lg text-label-lg text-on-surface ml-space-sm");
+  nombre.id = "header-nombre";
+  const salir = el("button", "inline-flex items-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg text-secondary bg-surface-container-low hover:bg-surface-container transition-colors disabled:opacity-60");
+  salir.type = "button";
+  salir.id = "btn-logout";
+  salir.append(icono("logout"), el("span", "", "Salir"));
+  salir.title = "Cerrar sesión";
+  salir.addEventListener("click", cerrarSesion);
+
+  barra.replaceChildren(nav, nombre, salir);
+  document.body.appendChild(abajo);
+  document.body.classList.add("pb-16", "sm:pb-0");  // que la barra de abajo no tape el pie de página
 }
 
 async function validarSesionDePagina(panelesPermitidos) {
@@ -261,29 +312,46 @@ async function validarSesionDePagina(panelesPermitidos) {
 // ---------------- Cierre por inactividad (RNF-02) ----------------
 // Mismo tiempo que config.py -> MINUTOS_INACTIVIDAD. El backend también lo revisa:
 // aunque esta página se quede abierta sin moverse, el token deja de servir.
-// Aquí además se cierra la sesión y se manda al login sin esperar a otra petición.
+//   - Mover el ratón, teclear o tocar cuenta como actividad. Para que el backend también
+//     lo sepa, con actividad se le avisa (GET /usuarios/yo) como mucho una vez por minuto.
+//   - 2 minutos antes del cierre aparece un aviso con "Seguir conectado".
+//   - El cierre ocurre un minuto antes que en el backend, para no chocar con su reloj.
 const MINUTOS_INACTIVIDAD = 30;
+const MS_CIERRE = (MINUTOS_INACTIVIDAD - 1) * 60 * 1000;
+const MS_AVISO = MS_CIERRE - 2 * 60 * 1000;
 const MENSAJE_INACTIVIDAD = "Tu sesión se cerró por inactividad. Inicia sesión de nuevo.";
 const CLAVE_ACTIVIDAD = "sepa_ultima_actividad";
+let ultimaPeticionConToken = Date.now();  // la actualiza pedir()
 
 function marcarActividad() {
   try { sessionStorage.setItem(CLAVE_ACTIVIDAD, String(Date.now())); } catch { /* sin almacenamiento */ }
 }
 
+function avisarActividadAlServidor() {
+  if (Date.now() - ultimaPeticionConToken < 60 * 1000 || !leerSesion()) return;
+  ultimaPeticionConToken = Date.now();
+  pedir("/usuarios/yo", { conToken: true }).catch(() => { /* si ya expiró, pedir() manda al login */ });
+}
+
 function vigilarInactividad() {
   // Al recargar o cambiar de página se conserva la última actividad de esta pestaña.
   if (!sessionStorage.getItem(CLAVE_ACTIVIDAD)) marcarActividad();
-  let ultimoAviso = 0;
-  const alMoverse = () => {          // como mucho una escritura cada 5 s
+  let ultimoMovimiento = 0;
+  const alMoverse = () => {          // como mucho una vez cada 5 s
     const t = Date.now();
-    if (t - ultimoAviso > 5000) { ultimoAviso = t; marcarActividad(); }
+    if (t - ultimoMovimiento < 5000) return;
+    ultimoMovimiento = t;
+    marcarActividad();
+    avisarActividadAlServidor();
+    ocultarAvisoInactividad();
   };
   for (const evento of ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "wheel"]) {
     window.addEventListener(evento, alMoverse, { passive: true });
   }
   const revisar = async () => {
-    const ultima = Number(sessionStorage.getItem(CLAVE_ACTIVIDAD)) || Date.now();
-    if (Date.now() - ultima < MINUTOS_INACTIVIDAD * 60 * 1000) return;
+    const inactivo = Date.now() - (Number(sessionStorage.getItem(CLAVE_ACTIVIDAD)) || Date.now());
+    if (inactivo < MS_AVISO) return ocultarAvisoInactividad();
+    if (inactivo < MS_CIERRE) return mostrarAvisoInactividad(Math.ceil((MS_CIERRE - inactivo) / 1000));
     clearInterval(reloj);
     const sesion = leerSesion();
     if (sesion) {
@@ -297,10 +365,59 @@ function vigilarInactividad() {
     sessionStorage.removeItem(CLAVE_ACTIVIDAD);
     irALogin(MENSAJE_INACTIVIDAD);
   };
-  const reloj = setInterval(revisar, 30 * 1000);
+  const reloj = setInterval(revisar, 1000);
   // Si la pestaña estuvo en segundo plano (el navegador frena los relojes), revisar al volver.
   document.addEventListener("visibilitychange", () => { if (!document.hidden) revisar(); });
   revisar();
+}
+
+function mostrarAvisoInactividad(segundos) {
+  let aviso = document.getElementById("aviso-inactividad");
+  if (!aviso) {
+    aviso = el("div", "fixed z-50 bottom-20 sm:bottom-6 inset-x-4 sm:inset-x-auto sm:right-6 sm:w-96 p-space-md rounded-xl shadow-lg bg-surface-container-lowest border border-surface-container flex items-start gap-space-sm animate-aparecer");
+    aviso.id = "aviso-inactividad";
+    aviso.setAttribute("role", "alertdialog");
+    aviso.setAttribute("aria-live", "assertive");
+    const textos = el("div", "flex-1");
+    const texto = el("p", "font-body-md text-body-md text-on-surface");
+    texto.dataset.texto = "";
+    const seguir = boton("Seguir conectado", "touch_app", "primario");
+    seguir.classList.add("mt-space-sm");
+    seguir.addEventListener("click", () => {
+      marcarActividad();
+      ultimaPeticionConToken = 0;
+      avisarActividadAlServidor();
+      ocultarAvisoInactividad();
+    });
+    textos.append(el("p", "font-label-lg text-label-lg text-primary", "¿Sigues ahí?"), texto, seguir);
+    aviso.append(icono("timer", "text-[24px] text-on-tertiary-container"), textos);
+    document.body.appendChild(aviso);
+  }
+  const m = Math.floor(segundos / 60), s = segundos % 60;
+  aviso.querySelector("[data-texto]").textContent =
+    `Por seguridad, tu sesión se cerrará en ${m ? `${m} min ` : ""}${s} s si no hay actividad.`;
+}
+
+function ocultarAvisoInactividad() {
+  document.getElementById("aviso-inactividad")?.remove();
+}
+
+// ---------------- Mensajes que se cierran solos ----------------
+// Para confirmar algo ("Lista guardada") o cuando la página no tiene recuadro #aviso.
+function mostrarToast(texto, tipo = "info", segundos = 4) {
+  let pila = document.getElementById("pila-toasts");
+  if (!pila) {
+    pila = el("div", "fixed z-50 bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] sm:w-auto sm:max-w-md flex flex-col gap-space-sm pointer-events-none");
+    pila.id = "pila-toasts";
+    pila.setAttribute("aria-live", "polite");
+    document.body.appendChild(pila);
+  }
+  const error = tipo === "error";
+  const toast = el("div", `pointer-events-auto p-space-md rounded-xl shadow-lg flex items-start gap-space-sm animate-aparecer ${error ? "bg-error-container text-on-error-container" : "bg-primary-container text-on-primary"}`);
+  toast.setAttribute("role", error ? "alert" : "status");
+  toast.append(icono(error ? "error" : "check_circle", "text-[20px]"), el("p", "font-body-md text-body-md", texto));
+  pila.appendChild(toast);
+  setTimeout(() => toast.remove(), segundos * 1000);
 }
 
 async function cerrarSesion() {

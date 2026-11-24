@@ -150,6 +150,32 @@ async function generarSesion() {
   }
 }
 
+// Botón "Pasar lista" de la ficha: abre directo la lista de hoy (la crea si aún no existe).
+// Si hoy no hay clase, se queda en la pestaña Asistencia con el motivo.
+async function pasarListaHoy() {
+  mostrarPestana("asistencia");
+  const b = document.getElementById("btn-pasar-lista");
+  b.disabled = true;
+  try {
+    if (!C.asistencia) await cargarAsistencia();
+    const d = new Date();
+    const hoy = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const deHoy = C.asistencia?.sesiones.find(s => s.fecha === hoy);
+    if (deHoy) {
+      await abrirLista(deHoy.id);
+    } else {
+      mostrarLista(await pedir(rutaCurso("/sesiones"), { metodo: "POST", conToken: true }));
+      cargarAsistencia();
+    }
+  } catch (error) {
+    // 409: hoy no hay clase, curso archivado o ciclo no vigente
+    avisarError(error);
+    window.scrollTo({ top: 0, behavior: "smooth" });  // el aviso está arriba
+  } finally {
+    b.disabled = false;
+  }
+}
+
 // ==================== PASAR O CORREGIR LISTA (RF-20 a RF-25) ====================
 
 async function abrirLista(sesionId) {
@@ -235,6 +261,7 @@ async function guardarLista() {
   try {
     await pedir(rutaCurso(`/sesiones/${sesionAbierta.id}/lista`), { metodo: "PUT", datos: { asistencias }, conToken: true });
     cerrarModal("modal-lista");
+    mostrarToast("Lista guardada");
     await Promise.all([cargarAsistencia(), cargarMatricula()]);
     pintarMetricas();
   } catch (error) {
