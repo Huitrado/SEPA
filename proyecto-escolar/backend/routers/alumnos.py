@@ -11,9 +11,18 @@ from security import requiere_estudiante
 # Lo que hace el alumno dentro de los cursos en los que está inscrito
 router = APIRouter(prefix="/alumno", tags=["Alumno"])
 
-@router.get("/cursos", response_model=list[schemas.CursoPublico])
+@router.get("/cursos", response_model=list[schemas.CursoAlumno])
 def mis_cursos(db: Session = Depends(get_db), alumno: models.Usuario = Depends(requiere_estudiante)):
     return services.cursos_del_alumno(db, alumno)
+
+@router.get("/cursos/{curso_id}", response_model=schemas.CursoAlumno)
+def mi_curso(curso_id: int, db: Session = Depends(get_db), alumno: models.Usuario = Depends(requiere_estudiante)):
+    return services.curso_del_alumno(db, alumno, curso_id)
+
+@router.get("/cursos/{curso_id}/encuadre", response_model=schemas.CategoriasCurso)
+def encuadre_del_curso(curso_id: int, db: Session = Depends(get_db),
+                       alumno: models.Usuario = Depends(requiere_estudiante)):
+    return services.encuadre_del_alumno(db, alumno, curso_id)
 
 @router.get("/cursos/{curso_id}/actividades", response_model=list[schemas.ActividadAlumno])
 def actividades_del_curso(curso_id: int, db: Session = Depends(get_db),

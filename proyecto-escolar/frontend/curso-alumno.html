@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es" class="validando-sesion">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Curso · SEPA CUCEI</title>
+  <!-- Fuentes e íconos de Google -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <!-- Tailwind (estilos del diseño) y su configuración de colores -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link href="css/style.css" rel="stylesheet" />
+</head>
+<body class="bg-surface font-body-md text-on-surface antialiased" data-pagina="curso-alumno">
+
+<!-- Encabezado con el usuario y el botón de salir (RF-91) -->
+<header class="fixed top-0 w-full z-40 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+  <div class="h-16 max-w-7xl mx-auto px-gutter flex items-center justify-between gap-space-md">
+    <a href="estudiante.html" class="flex items-center gap-space-md">
+      <span class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center">
+        <span class="material-symbols-outlined text-on-primary text-[20px]">school</span>
+      </span>
+      <span class="flex flex-col">
+        <span class="font-label-lg text-label-lg text-primary leading-tight">SEPA CUCEI</span>
+        <span class="font-caption text-caption text-on-surface-variant leading-none">Universidad de Guadalajara · CUCEI</span>
+      </span>
+    </a>
+    <div class="flex items-center gap-space-sm">
+      <a href="dashboard.html" class="hidden sm:inline font-label-lg text-label-lg text-on-surface hover:text-primary" id="header-nombre" title="Mi perfil"></a>
+      <a href="dashboard.html" class="w-8 h-8 rounded-full bg-primary flex items-center justify-center" title="Mi perfil">
+        <span class="material-symbols-outlined text-on-primary text-[18px]">person</span>
+      </a>
+      <button id="btn-logout" type="button"
+        class="inline-flex items-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg text-secondary bg-surface-container-low hover:bg-surface-container transition-colors disabled:opacity-60">
+        <span class="material-symbols-outlined text-[18px]">logout</span>
+        <span class="hidden sm:inline">Cerrar sesión</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="w-full pt-24 pb-space-2xl min-h-[calc(100vh-6rem)]">
+  <div class="w-full px-gutter">
+    <div class="max-w-7xl mx-auto">
+
+      <nav class="flex items-center gap-space-xs font-label-md text-label-md text-on-surface-variant mb-space-md">
+        <a href="estudiante.html" class="hover:text-primary inline-flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px]">arrow_back</span> Mis cursos
+        </a>
+        <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+        <span class="text-primary" id="miga-curso">Curso</span>
+      </nav>
+
+      <!-- Aviso general (errores del backend) -->
+      <div id="aviso" class="hidden">
+        <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+        <p class="font-body-md text-body-md" data-aviso-texto></p>
+      </div>
+
+      <p id="curso-cargando" class="text-center font-body-md text-body-md text-on-surface-variant py-space-2xl">Cargando el curso...</p>
+
+      <div id="curso-contenido" class="hidden space-y-space-lg">
+        <!-- Ficha del curso con el semáforo general (RF-61, RF-62, RF-72) -->
+        <section class="bg-surface-container-lowest rounded-xl shadow-md overflow-hidden">
+          <div class="h-1.5" id="franja-semaforo"></div>
+          <div class="p-space-lg sm:p-space-xl flex flex-col lg:flex-row lg:items-start lg:justify-between gap-space-lg">
+            <div class="min-w-0">
+              <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold" id="curso-ciclo"></span>
+              <h1 class="font-headline-lg text-headline-lg text-primary tracking-tight mt-1" id="curso-titulo"></h1>
+              <div class="flex flex-wrap gap-x-space-lg gap-y-space-xs mt-space-md font-body-md text-body-md" id="curso-datos"></div>
+            </div>
+            <div class="flex flex-col items-start lg:items-end gap-space-sm shrink-0">
+              <span id="curso-semaforo"></span>
+              <p class="font-helper-sm text-helper-sm text-on-surface-variant lg:text-right max-w-xs" id="curso-semaforo-texto"></p>
+              <!-- RF-72: invitación a buscar asesoría cuando hay riesgo -->
+              <button type="button" id="btn-asesoria" disabled title="El tablero de asesorías estará disponible pronto"
+                class="hidden inline-flex items-center gap-space-xs py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-on-tertiary-container text-on-primary opacity-80 cursor-not-allowed">
+                <span class="material-symbols-outlined text-[20px]">support_agent</span> Buscar asesoría (próximamente)
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Alertas (RF-48, RF-83) -->
+        <div id="alertas" class="space-y-space-sm"></div>
+
+        <!-- Bloques: rendimiento, asistencia y encuadre (RF-62 a RF-68) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-space-lg">
+          <section class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg">
+            <h2 class="font-title-lg text-title-lg text-primary flex items-center gap-space-xs mb-space-md">
+              <span class="material-symbols-outlined">monitoring</span> Calificación
+            </h2>
+            <div id="bloque-calificacion"></div>
+          </section>
+          <section class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg">
+            <h2 class="font-title-lg text-title-lg text-primary flex items-center gap-space-xs mb-space-md">
+              <span class="material-symbols-outlined">event_available</span> Asistencia
+            </h2>
+            <div id="bloque-asistencia"></div>
+          </section>
+          <section class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg">
+            <h2 class="font-title-lg text-title-lg text-primary flex items-center gap-space-xs mb-space-md">
+              <span class="material-symbols-outlined">balance</span> Encuadre de evaluación
+            </h2>
+            <div id="bloque-encuadre"></div>
+          </section>
+        </div>
+
+        <!-- RF-69, RF-70: pendientes · RF-71: historial -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-space-lg">
+          <section class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg">
+            <h2 class="font-title-lg text-title-lg text-primary flex items-center gap-space-xs mb-space-md">
+              <span class="material-symbols-outlined">pending_actions</span> Tareas pendientes
+            </h2>
+            <div id="lista-pendientes" class="space-y-space-sm"></div>
+          </section>
+          <section class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg">
+            <h2 class="font-title-lg text-title-lg text-primary flex items-center gap-space-xs mb-space-md">
+              <span class="material-symbols-outlined">history</span> Historial de entregas
+            </h2>
+            <div id="lista-historial" class="space-y-space-sm"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="w-full bg-surface-container-lowest py-space-xl shadow-[0_-1px_8px_rgba(0,0,0,0.03)]">
+  <div class="max-w-7xl mx-auto px-gutter flex flex-col items-center md:items-start">
+    <p class="font-label-md text-label-md text-on-surface font-semibold">SEPA · Sistema de Evaluación de Progresión Académica</p>
+    <p class="font-caption text-caption text-on-surface-variant">Centro Universitario de Ciencias Exactas e Ingenierías, Universidad de Guadalajara.</p>
+  </div>
+</footer>
+
+<script src="js/app.js"></script>
+<script src="js/curso-alumno.js"></script>
+</body>
+</html>

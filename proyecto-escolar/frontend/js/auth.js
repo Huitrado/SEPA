@@ -56,12 +56,19 @@ async function cargarCatalogos() {
     mostrarErrorApi(error);
   }
 
+  // El ciclo es el de INGRESO (para calcular el rezago, RF-57): el vigente o uno anterior.
   const ciclo = document.getElementById("input-ciclo");
   try {
     const actual = await pedir("/catalogos/ciclo-actual");
-    ciclo.value = actual.nombreOficial;
+    ciclo.innerHTML = "";
+    for (const nombre of ciclosHastaHoy(actual.nombreOficial, 16)) {
+      const opcion = document.createElement("option");
+      opcion.value = nombre;
+      opcion.textContent = nombre === actual.nombreOficial ? `${nombre} (en curso)` : nombre;
+      ciclo.appendChild(opcion);
+    }
   } catch (error) {
-    ciclo.value = "Sin ciclo en curso";
+    ciclo.innerHTML = '<option value="">Sin ciclo en curso</option>';
     // 404 = el administrador no ha registrado un ciclo vigente
     if (error.status === 404) {
       mostrarAviso("No hay un ciclo escolar en curso registrado; los estudiantes no podrán registrarse hasta que un administrador lo dé de alta.");
@@ -69,6 +76,19 @@ async function cargarCatalogos() {
       mostrarErrorApi(error);
     }
   }
+}
+
+// "2026-B" -> ["2026-B", "2026-A", "2025-B", ...] (cantidad ciclos hacia atrás)
+function ciclosHastaHoy(vigente, cantidad) {
+  let [anio, letra] = vigente.split("-");
+  anio = Number(anio);
+  const lista = [];
+  for (let i = 0; i < cantidad; i++) {
+    lista.push(`${anio}-${letra}`);
+    if (letra === "B") letra = "A";
+    else { letra = "B"; anio -= 1; }
+  }
+  return lista;
 }
 
 function elegirRol(rol) {
@@ -294,6 +314,11 @@ function mostrarPerfil(perfil) {
   const texto = (id, valor) => { document.getElementById(id).textContent = valor; };
   const nombreCompleto = `${perfil.nombre} ${perfil.apellidos}`;
 
+  if (perfil.panel === "estudiante") {
+    const enlace = document.getElementById("link-mis-cursos");
+    enlace.classList.remove("hidden");
+    enlace.classList.add("inline-flex");
+  }
   texto("panel-titulo", NOMBRE_PANEL[perfil.panel] || "Panel");
   texto("panel-saludo", `Hola, ${perfil.nombre}`);
   texto("header-nombre", nombreCompleto);

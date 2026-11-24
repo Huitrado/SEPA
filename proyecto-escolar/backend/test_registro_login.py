@@ -5,7 +5,7 @@ import pytest
 
 import config
 import services
-from helpers import (ALUMNO, DOCENTE, alta_alumno, alta_docente, auth, crear_admin, login,
+from helpers import (ALUMNO, ALUMNO_B, DOCENTE, alta_alumno, alta_docente, auth, crear_admin, login,
                      registrar, token)
 
 # ---------------------------------------------------------------- RF-01
@@ -58,13 +58,18 @@ def test_rf02_codigo_y_correo_duplicados(client):
     mismo_correo = {**ALUMNO, "codigo": "111111111"}
     assert registrar(client, mismo_correo).status_code == 409
 
-def test_rf02_el_ciclo_del_estudiante_es_el_que_esta_en_curso(client):
-    ta = crear_admin(client)
+def test_rf01_el_ciclo_es_el_de_ingreso_vigente_o_anterior(client):
     assert client.get("/catalogos/ciclo-actual").json()["nombreOficial"] == "2026-B"
-    client.post("/admin/ciclos", json={"nombreOficial": "2026-A"}, headers=auth(ta))   # ya terminó
-    r = registrar(client, {**ALUMNO, "ciclo": "2026-A"})
-    assert r.status_code == 422 and "2026-B" in str(r.json())
-    assert registrar(client, {**ALUMNO, "ciclo": "2026-b"}).status_code == 201         # sin distinguir mayúsculas
+    # No tiene que existir en el catálogo: es el ciclo en que el alumno ingresó (RF-57)
+    assert registrar(client, {**ALUMNO, "ciclo": "2023-B"}).status_code == 201
+    assert registrar(client, {**ALUMNO_B, "ciclo": "2026-b"}).status_code == 201       # sin distinguir mayúsculas
+    otro = {**ALUMNO, "codigo": "111222333", "correoInstitucional": "carla@alumnos.udg.mx"}
+    r = registrar(client, {**otro, "ciclo": "2027-A"})                                 # futuro
+    assert r.status_code == 422
+    assert r.json()["detail"] == "El ciclo de ingreso no puede ser posterior al ciclo en curso (2026-B)"
+    r = registrar(client, {**otro, "ciclo": "23-B"})
+    assert r.status_code == 422
+    assert r.json()["detail"].startswith("El ciclo de ingreso debe tener el formato AAAA-A o AAAA-B")
 
 def test_rf02_entre_dos_ciclos_se_usa_el_siguiente(client, monkeypatch):
     ta = crear_admin(client)

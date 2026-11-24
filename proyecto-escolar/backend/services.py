@@ -13,7 +13,7 @@ from config import (ASISTENCIA_EXTRAORDINARIO, ASISTENCIA_ORDINARIO, CARPETA_ARC
                     CARRERAS_INICIALES, DESEMPENO_ALERTA, DIAS_SEMANA, DOCENTE_REQUIERE_APROBACION,
                     ESTADOS_ASISTENCIA, ESTADOS_QUE_CUENTAN, EXTENSIONES_PERMITIDAS, ORDEN_SEMAFORO,
                     PRIORIDAD_PANEL, SEMAFORO_AMARILLO, SEMAFORO_CALIFICACION_VERDE, SEMAFORO_VERDE,
-                    TAMANO_MAXIMO_ARCHIVO, UMBRAL_APROBATORIO, rol_por_correo)
+                    TAMANO_MAXIMO_ARCHIVO, UMBRAL_APROBATORIO, fechas_ciclo, rol_por_correo)
 from security import crear_token, hashear, verificar
 
 import json
@@ -159,11 +159,15 @@ def crear_carrera(db: Session, datos: schemas.CarreraCrear) -> models.Carrera:
 def _validar_catalogos(db: Session, datos: schemas.UsuarioCrear) -> None:
     if not db.query(models.Carrera).filter_by(clave=datos.carrera).first():
         raise HTTPException(422, "La carrera seleccionada no pertenece al catálogo oficial")
-    vigente = ciclo_vigente(db)  # el ciclo del estudiante es el que está en curso
+    # El ciclo del estudiante es su ciclo de INGRESO (p. ej. 2023-B): sirve para calcular el rezago
+    # (RF-57). Puede ser el vigente o uno anterior, nunca uno futuro.
+    vigente = ciclo_vigente(db)
     if not vigente:
         raise HTTPException(409, "No hay un ciclo escolar en curso registrado; contacta a un administrador")
-    if datos.ciclo != vigente.nombreOficial:
-        raise HTTPException(422, f"El ciclo en curso es {vigente.nombreOficial}")
+    if not fechas_ciclo(datos.ciclo):
+        raise HTTPException(422, "El ciclo de ingreso debe tener el formato AAAA-A o AAAA-B (por ejemplo 2023-B)")
+    if datos.ciclo > vigente.nombreOficial:  # "2026-A" < "2026-B" < "2027-A": el orden de texto sirve
+        raise HTTPException(422, f"El ciclo de ingreso no puede ser posterior al ciclo en curso ({vigente.nombreOficial})")
 
 # ======================================================================
 # Registro, sesión y perfil (RF-01 a RF-07, RF-89 a RF-92)
@@ -918,12 +922,40 @@ def _actividad_alumno_dict(db: Session, a: models.Actividad, matricula: models.M
     return {**_actividad_dict(db, a, valores), "estadoEntrega": _estado_entrega(a, entrega),
             "entrega": entrega, "puedeCancelar": bool(entrega) and not _vencida(a)}
 
-def cursos_del_alumno(db: Session, usuario: models.Usuario) -> list[models.Curso]:
-    """Cursos con matrícula activa del alumno (incluye archivados para consultar su historial)."""
-    return (db.query(models.Curso)
-            .join(models.Matricula, models.Matricula.curso_id == models.Curso.id)
-            .filter(models.Matricula.estudiante_id == usuario.id, models.Matricula.estado == "activo")
-            .order_by(models.Curso.id).all())
+def _tarjeta_curso(db: Session, curso: models.Curso, matricula: models.Matricula) -> dict:
+    """RF-61: datos de la tarjeta del curso para el alumno: materia, profesor y semáforo general."""
+    profesor = db.get(models.Usuario, curso.docente_id) if curso.docente_id else None
+    ciclo = db.get(models.CicloEscolar, curso.cicloEscolar_id) if curso.cicloEscolar_id else None
+    seguimiento = _indicadores(porcentaje_asistencia(db, matricula.id),
+                               _fila_calificaciones(matricula.id, *_datos_calificaciones(db, curso.id)))
+    return {**schemas.CursoPublico.model_validate(curso).model_dump(),
+            "profesor": f"{profesor.nombre} {profesor.apellidos}" if profesor else None,
+            "ciclo": ciclo.nombreOficial if ciclo else None,
+            "porcentajeAsistencia": seguimiento["porcentajeAsistencia"],
+            "calificacionAcumulada": seguimiento["calificacionAcumulada"],
+            "alertaCalificacion": seguimiento["alertaCalificacion"],
+            "semaforoGeneral": seguimiento["semaforoGeneral"]}
+
+def cursos_del_alumno(db: Session, usuario: models.Usuario) -> list[dict]:
+    """RF-60: solo los cursos del ciclo escolar activo en los que el alumno tiene matrícula activa."""
+    filas = (db.query(models.Curso, models.Matricula)
+             .join(models.Matricula, models.Matricula.curso_id == models.Curso.id)
+             .filter(models.Matricula.estudiante_id == usuario.id, models.Matricula.estado == "activo")
+             .order_by(models.Curso.nombreMateria, models.Curso.id).all())
+    return [_tarjeta_curso(db, c, m) for c, m in filas
+            if (ciclo := db.get(models.CicloEscolar, c.cicloEscolar_id)) and estado_ciclo(ciclo) == "activo"]
+
+def curso_del_alumno(db: Session, usuario: models.Usuario, curso_id: int) -> dict:
+    """La ficha de un curso para el panel consolidado del alumno (RF-62)."""
+    matricula = _matricula_activa(db, usuario, curso_id)
+    return _tarjeta_curso(db, db.get(models.Curso, matricula.curso_id), matricula)
+
+def encuadre_del_alumno(db: Session, usuario: models.Usuario, curso_id: int) -> dict:
+    """RF-63: el alumno ve las categorías del encuadre y sus porcentajes."""
+    matricula = _matricula_activa(db, usuario, curso_id)
+    categorias = (db.query(models.CategoriaEvaluacion).filter_by(curso_id=matricula.curso_id)
+                  .order_by(models.CategoriaEvaluacion.id).all())
+    return {"categorias": categorias, **_resumen_pesos(db, matricula.curso_id)}
 
 def actividades_del_alumno(db: Session, usuario: models.Usuario, curso_id: int) -> list[dict]:
     matricula = _matricula_activa(db, usuario, curso_id)
@@ -1008,6 +1040,7 @@ def calcular_calificacion(items: list[tuple[float, float, float | None, bool]]) 
         elif cero:
             posibles += valor
     return {"calificacionAcumulada": round(ganados, 2), "puntosPosibles": round(posibles, 2),
+            "puntosPerdidos": round(posibles - ganados, 2),  # RF-68: lo que ya no se puede recuperar
             "desempenoProporcional": round(ganados * 100 / posibles, 2) if posibles else None}
 
 def _actividades_de_curso(db: Session, curso_id: int) -> list[models.Actividad]:
@@ -1127,7 +1160,8 @@ def _indicadores(asistencia: float, calificacion: dict) -> dict:
     return {"porcentajeAsistencia": round(asistencia, 2), "estatusNormativo": estatus_normativo(asistencia),
             "semaforoAsistencia": sem_asistencia,
             "calificacionAcumulada": calificacion["calificacionAcumulada"],
-            "puntosPosibles": calificacion["puntosPosibles"], "desempenoProporcional": desempeno,
+            "puntosPosibles": calificacion["puntosPosibles"], "puntosPerdidos": calificacion["puntosPerdidos"],
+            "desempenoProporcional": desempeno,
             "alertaCalificacion": alerta_calificacion(desempeno),
             "semaforoCalificacion": sem_calificacion,
             "semaforoGeneral": semaforo_general(sem_asistencia, sem_calificacion)}

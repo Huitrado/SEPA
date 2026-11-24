@@ -446,6 +446,7 @@ class CeldaCalificacion(BaseModel):
 class ResumenCalificacion(BaseModel):
     calificacionAcumulada: float          # RF-46: puntos ganados sobre 100
     puntosPosibles: float                 # lo que ya se pudo ganar: calificadas + vencidas sin entrega
+    puntosPerdidos: float                 # RF-68: posibles - acumulada
     desempenoProporcional: float | None   # acumulada / posibles × 100; None si aún no hay nada evaluado
 
 class FilaCalificaciones(ResumenCalificacion):
@@ -478,6 +479,7 @@ class IndicadoresSeguimiento(BaseModel):
     semaforoAsistencia: Semaforo
     calificacionAcumulada: float
     puntosPosibles: float
+    puntosPerdidos: float
     desempenoProporcional: float | None
     alertaCalificacion: bool       # RF-48: desempeño proporcional < 60 %
     semaforoCalificacion: Semaforo
@@ -514,3 +516,12 @@ class MateriaCrear(BaseModel):
 class MateriaActualizar(BaseModel):  # solo se cambia lo que se envía
     clave: ClaveMateria | None = None
     nombre: Texto | None = None
+
+# ------------------------------------------------------------------ módulo: panel del estudiante
+class CursoAlumno(CursoPublico):  # RF-60, RF-61: tarjeta del curso en el panel del alumno
+    profesor: str | None
+    ciclo: str | None
+    porcentajeAsistencia: float
+    calificacionAcumulada: float
+    alertaCalificacion: bool
+    semaforoGeneral: Semaforo

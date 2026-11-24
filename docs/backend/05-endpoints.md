@@ -2,7 +2,7 @@
 
 [← Volver al índice](README.md)
 
-Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **59 endpoints** en 6 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
+Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **61 endpoints** en 6 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
 
 ## Cómo leer estas tablas
 
@@ -60,7 +60,7 @@ El **rol se decide por el dominio del correo** (`config.py → DOMINIOS_ROL`):
 
 | Dominio | Rol | Campos extra obligatorios | Estado inicial |
 |---------|-----|---------------------------|----------------|
-| `@alumnos.udg.mx` | estudiante | `codigo` (9 dígitos), `carrera` (clave del catálogo), `ciclo` (el ciclo vigente) | `activo` |
+| `@alumnos.udg.mx` | estudiante | `codigo` (9 dígitos), `carrera` (clave del catálogo), `ciclo` (su ciclo de **ingreso**: el vigente o uno anterior) | `activo` |
 | `@academicos.udg.mx` | docente | `noEmpleado` (3–20 caracteres: letras, números, guiones); `departamento` es opcional | `pendiente`, o `activo` si `DOCENTE_REQUIERE_APROBACION=0` |
 | Cualquier otro | — | Se rechaza con 422 | — |
 
@@ -74,7 +74,7 @@ Campos de `UsuarioCrear` (`schemas.py`):
 | `confirmarContrasena` | Sí | Igual a `contrasena` |
 | `codigo` | Estudiante | 9 dígitos; se acepta como texto o número |
 | `carrera` | Estudiante | Clave alfanumérica de 2–10 caracteres, en mayúsculas; debe existir en `Carrera` |
-| `ciclo` | Estudiante | Se pasa a mayúsculas; debe ser el ciclo vigente (`GET /catalogos/ciclo-actual`) |
+| `ciclo` | Estudiante | Ciclo de **ingreso** a la carrera, `AAAA-A` o `AAAA-B`; se pasa a mayúsculas. Puede ser el vigente (`GET /catalogos/ciclo-actual`) o uno anterior, nunca uno futuro. No tiene que estar en el catálogo de ciclos. Se usa para calcular el rezago (RF-57) |
 | `noEmpleado` | Docente | Ver tabla de arriba; se pasa a mayúsculas |
 | `departamento` | No | Texto libre |
 
@@ -118,7 +118,8 @@ Errores posibles:
 | 409 | `No hay un ciclo escolar en curso registrado; contacta a un administrador` | No hay ciclo activo ni próximo |
 | 409 | `Ya existe un registro con esos datos` | Choque en la base al guardar (respaldo) |
 | 422 | `La carrera seleccionada no pertenece al catálogo oficial` | Carrera inexistente (formato simple, sin `errores[]`) |
-| 422 | `El ciclo en curso es 2026-B` | El ciclo enviado no es el vigente (formato simple) |
+| 422 | `El ciclo de ingreso debe tener el formato AAAA-A o AAAA-B (por ejemplo 2023-B)` | Formato inválido (formato simple) |
+| 422 | `El ciclo de ingreso no puede ser posterior al ciclo en curso (2026-B)` | Ciclo futuro (formato simple) |
 | 422 | `Hay datos inválidos en la solicitud` + `errores[]` | Cualquier falla de validación del esquema |
 
 ### `POST /usuarios/login`
@@ -756,6 +757,7 @@ Cómo se calcula (`services.py → calcular_calificacion`), para cada alumno y c
 
 - **`calificacionAcumulada`** (RF-46): suma de los puntos ganados, **sobre 100**. Es la que se guarda en `Matricula.calificacionAcumuladaActual` (RF-67).
 - **`puntosPosibles`**: cuánto se ha podido ganar hasta hoy.
+- **`puntosPerdidos`** (RF-68): `puntosPosibles - calificacionAcumulada`, lo que ya no se puede recuperar. También viene en el seguimiento.
 - **`desempenoProporcional`**: `calificacionAcumulada / puntosPosibles × 100`, o `null` si aún no hay nada evaluado. Es el valor que usará la alerta de RF-48 contra el 60 %.
 - La acumulada guardada se **recalcula sola** al calificar, al editar el peso de una categoría y al crear, editar o eliminar actividades (`services.py → recalcular_acumuladas`).
 - Los cursos `aprobado_no_aprobado` se califican igual que los numéricos.
@@ -878,7 +880,9 @@ Archivo: `routers/alumnos.py` · Prefijo: `/alumno` (en singular) · **Todos exi
 
 | Método | Ruta | Quién | Recibe | Respuestas | RF |
 |--------|------|-------|--------|------------|----|
-| GET | `/alumno/cursos` | Estudiante | Nada | **200** | Por confirmar |
+| GET | `/alumno/cursos` | Estudiante | Nada | **200** | RF-60, RF-61 |
+| GET | `/alumno/cursos/{curso_id}` | Alumno inscrito | Nada | **200**, 403, 404 | RF-62 |
+| GET | `/alumno/cursos/{curso_id}/encuadre` | Alumno inscrito | Nada | **200**, 403, 404 | RF-63 |
 | GET | `/alumno/cursos/{curso_id}/actividades` | Alumno inscrito | Nada | **200**, 403, 404 | RF-29 a RF-36 |
 | POST | `/alumno/actividades/{actividad_id}/entrega` | Alumno inscrito | `multipart/form-data` con el campo `archivo` | **201**, 403, 404, 409, 413, 415, 422 | RF-37, RF-39, RNF-8 |
 | DELETE | `/alumno/actividades/{actividad_id}/entrega` | Alumno inscrito | Nada | **200**, 403, 404, 409 | RF-38 |
@@ -902,7 +906,27 @@ Entregar **justo** en la fecha y hora límite cuenta como a tiempo.
 
 ### `GET /alumno/cursos`
 
-`services.py → cursos_del_alumno`. Los cursos en los que el alumno tiene matrícula activa, incluidos los archivados. **200**: lista de `CursoPublico` (como `GET /cursos`, **sin** `codigoCurso`).
+`services.py → cursos_del_alumno`. Las tarjetas del panel del alumno (RF-60, RF-61): **solo los cursos del ciclo escolar activo** en los que tiene matrícula activa, ordenados por materia. Cada una trae los datos de `CursoPublico` (**sin** `codigoCurso`) más el profesor y el semáforo. **200** (lista de `CursoAlumno`):
+```json
+[
+  {
+    "id": 1, "nombreMateria": "Bases de datos", "seccion": "D01", "descripcion": "Curso de SQL",
+    "estado": "activo", "tipoEvaluacion": "numerica", "umbralNumerico": 60.0, "cicloEscolar_id": 1,
+    "diasSemana": ["lunes", "miercoles"], "horaInicio": "08:00", "horaFin": "10:00", "docente_id": 2,
+    "profesor": "Luis Pérez", "ciclo": "2026-B",
+    "porcentajeAsistencia": 100.0, "calificacionAcumulada": 18.0,
+    "alertaCalificacion": false, "semaforoGeneral": "verde"
+  }
+]
+```
+
+### `GET /alumno/cursos/{curso_id}`
+
+`services.py → curso_del_alumno`. La misma tarjeta (`CursoAlumno`) para un solo curso; la usa el panel consolidado del curso (RF-62). Sirve también para cursos de otros ciclos.
+
+### `GET /alumno/cursos/{curso_id}/encuadre`
+
+`services.py → encuadre_del_alumno`. RF-63: el alumno ve las categorías del encuadre y sus pesos. **200**: igual que `GET /docente/cursos/{id}/categorias` (`CategoriasCurso`).
 
 ### `GET /alumno/cursos/{curso_id}/actividades`
 
@@ -961,7 +985,7 @@ Entregar **justo** en la fecha y hora límite cuenta como a tiempo.
   "celdas": [ { "actividad_id": 1, "estadoEntrega": "entregada", "entrega_id": 1,
                 "calificacion": { "calificacionObtenida": 9.0, "retroalimentacion": "Bien", "fecha": "2026-10-26T09:30:00" },
                 "cuentaComoCero": false } ],
-  "calificacionAcumulada": 18.0, "puntosPosibles": 20.0, "desempenoProporcional": 90.0
+  "calificacionAcumulada": 18.0, "puntosPosibles": 20.0, "puntosPerdidos": 2.0, "desempenoProporcional": 90.0
 }
 ```
 

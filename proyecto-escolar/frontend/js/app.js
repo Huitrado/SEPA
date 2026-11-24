@@ -11,10 +11,9 @@
 const API_URL = "http://127.0.0.1:8000";
 
 // Página a la que se manda a cada usuario según el "panel" que devuelve el login.
-// El docente ya tiene su propia pantalla; estudiante y administrador siguen en
-// dashboard.html hasta que tengan la suya (solo se cambia aquí).
+// El administrador sigue en dashboard.html hasta que tenga la suya (solo se cambia aquí).
 const PAGINA_POR_PANEL = {
-  estudiante: "dashboard.html",
+  estudiante: "estudiante.html",
   docente: "docente.html",
   administrador: "dashboard.html"
 };

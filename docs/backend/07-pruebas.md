@@ -69,6 +69,8 @@ flowchart TD
     T8 --> H
     T9["test_materias.py<br/>RF-94<br/>+ fixture ta"] --> C
     T9 --> H
+    T10["test_panel_alumno.py<br/>RF-60 a RF-63, RF-68"] --> C
+    T10 --> H
 ```
 
 ### `conftest.py`: la fixture `client`
@@ -263,6 +265,20 @@ Docstring: *"Catálogo de materias que mantiene el administrador (RF-94)"*. La f
 | RF | Qué comprueban |
 |----|----------------|
 | RF-94 | Alta (clave en mayúsculas, aparece en `GET /catalogos/materias`); clave repetida → 409; formatos inválidos → 422; editar nombre y clave sin chocar con otra; eliminar si no se usa; no se elimina si está en un plan, un curso o un historial; un docente, un alumno o alguien sin sesión no pueden |
+
+
+### `test_panel_alumno.py`
+
+Docstring: *"Panel del estudiante (RF-60, RF-61, RF-63, RF-68)"*.
+
+| RF | Qué comprueban |
+|----|----------------|
+| RF-60 / RF-61 | Tarjetas con profesor, ciclo y semáforo; solo cursos del ciclo activo; el semáforo y la alerta cambian al calificar |
+| RF-62 | Ficha de un curso; 403 si no está inscrito, 404 si no existe |
+| RF-63 | El alumno ve el encuadre; otro alumno o un docente reciben 403 |
+| RF-68 | Puntos obtenidos, posibles y perdidos en calificaciones y seguimiento |
+
+En `test_registro_login.py`, `test_rf01_el_ciclo_es_el_de_ingreso_vigente_o_anterior` comprueba que el ciclo de ingreso puede ser el vigente o uno anterior, y no uno futuro ni con mal formato.
 
 ---
 

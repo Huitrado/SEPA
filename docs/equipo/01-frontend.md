@@ -35,6 +35,9 @@ frontend/
 ├── docente.html         Dashboard del docente: sus cursos y "Crear curso"
 ├── curso.html           Detalle de un curso del docente (curso.html?id=N), con pestañas
 ├── actividad.html       Revisar entregas y calificar una actividad (actividad.html?curso=N&actividad=M)
+├── estudiante.html      Panel del estudiante: sus cursos del ciclo activo y "Unirse a un curso"
+├── curso-alumno.html    Panel consolidado de un curso para el alumno (curso-alumno.html?id=N)
+├── entrega.html         Detalle de una actividad y entrega del alumno (entrega.html?curso=N&actividad=M)
 ├── css/
 │   └── style.css        Estilos que Tailwind no trae (campo en rojo, animación)
 └── js/
@@ -47,16 +50,22 @@ frontend/
     ├── curso.js            curso.html: ficha, resumen, pestañas, matrícula y configurar curso
     ├── curso-asistencia.js curso.html: pestaña Asistencia
     ├── curso-evaluacion.js curso.html: pestañas Actividades, Encuadre y Calificaciones
-    └── actividad.js        actividad.html
+    ├── actividad.js        actividad.html
+    ├── estudiante.js       estudiante.html
+    ├── curso-alumno.js     curso-alumno.html
+    └── entrega.js          entrega.html
 ```
 
 | Pantalla | Qué hace | Lógica en |
 |----------|----------|-----------|
-| `registro.html` | Formulario con dos pestañas: **Soy estudiante** (código de 9 dígitos, carrera, ciclo) y **Soy docente** (número de empleado, departamento opcional). | `auth.js → iniciarRegistro`, `enviarRegistro` |
+| `registro.html` | Formulario con dos pestañas: **Soy estudiante** (código de 9 dígitos, carrera y ciclo de ingreso: el vigente o uno anterior) y **Soy docente** (número de empleado, departamento opcional). | `auth.js → iniciarRegistro`, `enviarRegistro` |
 | `login.html` | Pide **código** (de estudiante o número de empleado) y **contraseña**. No se entra con el correo. | `auth.js → iniciarLogin`, `enviarLogin` |
 | `dashboard.html` | Muestra tu perfil (estudiante y administrador). Tiene el botón **Cerrar sesión**. | `auth.js → iniciarPanel`, `mostrarPerfil` |
 | `docente.html` | Cursos activos y archivados del docente, código de cada curso con botón de copiar, ventana **Crear curso** y botón **Abrir curso**. | `docente.js` |
 | `curso.html` | Ficha del curso con su código, resumen (alumnos, asistencia promedio, alumnos en rojo, encuadre) y cinco pestañas: **Matrícula** (seguimiento con semáforo, dar de baja y reactivar), **Asistencia** (cuadrícula, generar la sesión de hoy, pasar y corregir lista), **Actividades** (por categoría; crear, editar, adjuntar archivo, eliminar), **Encuadre** (categorías y barra del 100 %) y **Calificaciones** (cuadrícula con la acumulada). Botón **Configurar curso** para editarlo, archivarlo o reactivarlo. | `curso.js`, `curso-asistencia.js`, `curso-evaluacion.js` |
+| `estudiante.html` | Tarjetas de los cursos del ciclo activo con profesor, horario, asistencia, puntos y semáforo; filtro por color y ventana **Unirse a un curso** con el código. | `estudiante.js` |
+| `curso-alumno.html` | Panel del curso: semáforo general, alertas, calificación acumulada con puntos obtenidos/perdidos, anillo de asistencia con estatus UdeG, encuadre, tareas pendientes (enlazan a la entrega) e historial con retroalimentación. En amarillo o rojo aparece el botón de asesoría (desactivado hasta que exista el tablero). | `curso-alumno.js` |
+| `entrega.html` | Instrucciones de la actividad, archivo del profesor, subir el archivo (arrastrar o elegir), cancelar y volver a subir antes de la fecha límite, y la calificación con retroalimentación. | `entrega.js` |
 | `actividad.html` | Lista de alumnos con su entrega (filtros: por calificar, calificadas, sin entrega) y panel para descargar la entrega, calificar de 0 al máximo y dejar retroalimentación. "Guardar y siguiente" salta al próximo pendiente. | `actividad.js` |
 
 ### Páginas protegidas: `protegerPagina()`
@@ -90,7 +99,7 @@ flowchart LR
     L -- "Ya había sesión abierta" --> D
 ```
 
-- Después del login, el backend responde con un campo `panel` (`estudiante`, `docente` o `administrador`). La tabla `PAGINA_POR_PANEL` en `js/app.js` dice a qué página mandar a cada uno. **Hoy el docente va a `docente.html`; estudiante y administrador, a `dashboard.html`.**
+- Después del login, el backend responde con un campo `panel` (`estudiante`, `docente` o `administrador`). La tabla `PAGINA_POR_PANEL` en `js/app.js` dice a qué página mandar a cada uno. **Hoy el docente va a `docente.html`, el estudiante a `estudiante.html` y el administrador a `dashboard.html`.**
 - Si abres `dashboard.html` sin haber iniciado sesión, te regresa al login.
 
 ---
@@ -127,7 +136,7 @@ Un **endpoint** es una "ventanilla" del backend: un método (GET, POST…) más 
 | Pantalla | Endpoint | Para qué |
 |----------|----------|----------|
 | Registro | `GET /catalogos/carreras` | Llenar la lista de carreras |
-| Registro | `GET /catalogos/ciclo-actual` | Mostrar el ciclo escolar en curso (p. ej. `2026-B`) |
+| Registro | `GET /catalogos/ciclo-actual` | Armar la lista de ciclos de ingreso: el vigente (p. ej. `2026-B`) y los anteriores |
 | Registro | `POST /usuarios/registro` | Crear la cuenta |
 | Login | `POST /usuarios/login` | Entrar; devuelve el token y el `panel` |
 | Login | `GET /usuarios/recuperar-contrasena` | Enlace "¿Olvidaste tu contraseña?": solo muestra instrucciones |
@@ -139,6 +148,9 @@ Un **endpoint** es una "ventanilla" del backend: un método (GET, POST…) más 
 | Curso · Asistencia | `GET .../asistencia`, `POST .../sesiones`, `GET .../sesiones/{id}`, `PUT .../sesiones/{id}/lista` | Cuadrícula y pase de lista |
 | Curso · Encuadre | `GET/POST .../categorias`, `PATCH/DELETE .../categorias/{id}` | Categorías y pesos |
 | Curso · Actividades | `GET/POST .../actividades`, `PATCH/DELETE .../actividades/{id}`, `PUT/DELETE .../actividades/{id}/archivo`, `GET /actividades/{id}/archivo` | Actividades y archivo adjunto |
+| Estudiante | `GET /alumno/cursos`, `POST /inscripcion`, `GET /catalogos/ciclo-actual` | Tarjetas y unirse a un curso |
+| Curso del alumno | `GET /alumno/cursos/{id}`, `.../seguimiento`, `.../calificaciones`, `.../encuadre`, `.../actividades` | Panel consolidado |
+| Entrega | `POST/DELETE /alumno/actividades/{id}/entrega`, `GET /actividades/{id}/archivo`, `GET /entregas/{id}/archivo` | Subir, cancelar y descargar |
 | Curso · Calificaciones y `actividad.html` | `GET .../calificaciones`, `GET .../actividades/{id}/entregas`, `GET /entregas/{id}/archivo`, `PUT .../entregas/{id}/calificacion` | Cuadrícula, revisar y calificar |
 
 Los `...` significan `/docente/cursos/{id}`.
@@ -211,7 +223,8 @@ Si abres el frontend en otro puerto (o haciendo doble clic sobre el `.html`, que
 
 ## 5. Qué falta o está incompleto (dicho tal cual)
 
-- **Estudiante y administrador:** `dashboard.html` solo muestra el perfil y el botón de cerrar sesión. Sus pantallas (panel del estudiante, entregas, administración) están pendientes; el backend ya tiene la mayoría de los endpoints.
+- **Administrador:** `dashboard.html` solo muestra su perfil; sus pantallas están pendientes.
+- **Estudiante:** ya tiene sus pantallas (`estudiante.html`, `curso-alumno.html`, `entrega.html`). `dashboard.html` le sirve como "Mi perfil". Faltan asesorías y normatividad.
 - **Docente:** ya tiene sus pantallas completas (`docente.html`, `curso.html` y `actividad.html`).
 - **Caché del navegador:** si cambias un `.js` y no ves el cambio, recarga con **Ctrl + Shift + R**.
 - **La carpeta `frontend/assets/` está vacía.** Como Git no guarda carpetas vacías, puede que en tu copia ni aparezca.
