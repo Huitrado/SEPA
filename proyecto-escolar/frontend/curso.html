@@ -138,21 +138,17 @@
         <section id="panel-asistencia" data-panel class="hidden">
           <div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md mb-space-md flex flex-col lg:flex-row lg:items-center justify-between gap-space-md">
             <div class="flex flex-wrap items-center gap-space-md font-helper-sm text-helper-sm text-on-surface-variant" id="leyenda-asistencia"></div>
-            <div class="flex flex-col sm:flex-row gap-space-sm">
-              <input id="input-tema" type="text" maxlength="200" placeholder="Tema de hoy (opcional)"
-                class="sm:w-56 bg-surface-container-low text-on-surface px-3.5 py-2 rounded-lg font-body-md text-body-md placeholder:text-outline focus:outline-none" />
-              <button type="button" id="btn-generar-sesion"
-                class="inline-flex items-center justify-center gap-space-xs py-2 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors disabled:opacity-60">
-                <span class="material-symbols-outlined text-[20px]">add_circle</span>
-                <span data-texto-boton>Generar sesión de hoy</span>
-                <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
-              </button>
-            </div>
+            <!-- Abre la lista de hoy; si aún no existe la sesión, la crea (curso-asistencia.js → pasarListaHoy) -->
+            <button type="button" id="btn-lista-hoy"
+              class="inline-flex items-center justify-center gap-space-xs py-2 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors disabled:opacity-60">
+              <span class="material-symbols-outlined text-[20px]">how_to_reg</span>
+              <span>Pasar lista</span>
+            </button>
           </div>
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-space-xs mb-space-sm">
             <p class="font-helper-sm text-helper-sm text-on-surface-variant flex items-center gap-1">
               <span class="material-symbols-outlined text-[16px]">info</span>
-              Solo se puede generar la sesión del día, en un día de clase del curso. Toca una fecha para pasar o corregir la lista.
+              Solo se pasa lista el día de la clase. Toca una fecha para corregir una lista anterior.
             </p>
             <!-- Promedio del grupo (lo llena curso.js → pintarMetricas) -->
             <p class="font-label-md text-label-md text-on-surface-variant shrink-0" id="asistencia-promedio"></p>
@@ -478,12 +474,12 @@
         <legend class="font-label-lg text-label-lg text-on-surface mb-space-xs">Tipo de evaluación</legend>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
           <label class="flex items-start gap-space-sm p-space-md rounded-lg bg-surface-container-low cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-secondary">
-            <input type="radio" name="cfgTipoEvaluacion" value="numerica" class="mt-0.5 accent-[#305ea1]" />
+            <input type="radio" name="cfgTipoEvaluacion" value="numerica" class="mt-0.5 accent-[#0077b6]" />
             <span><span class="block font-label-lg text-label-lg text-on-surface">Calificación numérica</span>
               <span class="block font-helper-sm text-helper-sm text-on-surface-variant">Mínimo aprobatorio fijo: 60</span></span>
           </label>
           <label class="flex items-start gap-space-sm p-space-md rounded-lg bg-surface-container-low cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-secondary">
-            <input type="radio" name="cfgTipoEvaluacion" value="aprobado_no_aprobado" class="mt-0.5 accent-[#305ea1]" />
+            <input type="radio" name="cfgTipoEvaluacion" value="aprobado_no_aprobado" class="mt-0.5 accent-[#0077b6]" />
             <span><span class="block font-label-lg text-label-lg text-on-surface">Aprobado / No aprobado</span>
               <span class="block font-helper-sm text-helper-sm text-on-surface-variant">Sin calificación numérica</span></span>
           </label>

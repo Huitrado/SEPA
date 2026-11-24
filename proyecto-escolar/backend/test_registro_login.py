@@ -222,3 +222,14 @@ def test_rf93_desactivar_cuentas(client):
     assert client.patch(f"/admin/usuarios/{alumno}/estado", json={"estado": "inactivo"},
                         headers=auth(ta)).status_code == 200
     assert login(client, ALUMNO["codigo"], ALUMNO["contrasena"]).status_code == 403
+
+def test_rf93_un_administrador_no_desactiva_a_otro(client):
+    ta = crear_admin(client)
+    r = client.post("/admin/administradores", headers=auth(ta), json={
+        "nombre": "Otra", "apellidos": "Admin", "correoInstitucional": "otra@escuela.mx",
+        "contrasena": "Admin12345", "noEmpleado": "A-002"})
+    assert r.status_code == 201, r.text
+    r = client.patch(f"/admin/usuarios/{r.json()['id']}/estado", json={"estado": "inactivo"}, headers=auth(ta))
+    assert r.status_code == 403
+    assert r.json()["detail"] == "No puedes desactivar a otro administrador"
+    assert login(client, "A-002", "Admin12345").status_code == 200

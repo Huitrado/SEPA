@@ -19,7 +19,7 @@ body {
 /* Contorno suave en los campos al enfocarlos */
 input:focus,
 select:focus {
-  box-shadow: 0 0 0 2px #305ea1;
+  box-shadow: 0 0 0 2px #00aeef;
 }
 
 /* Campo marcado en rojo cuando el backend (o el navegador) rechaza su valor */

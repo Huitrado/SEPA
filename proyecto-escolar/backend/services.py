@@ -427,6 +427,8 @@ def cambiar_estado_usuario(db: Session, admin: models.Usuario, usuario_id: int, 
         raise HTTPException(404, "Usuario no encontrado")
     if usuario.id == admin.id:
         raise HTTPException(409, "No puedes cambiar tu propio estado")  # evita quedarse sin admins
+    if estado == "inactivo" and db.get(models.Administrador, usuario.id):
+        raise HTTPException(403, "No puedes desactivar a otro administrador")
     usuario.estado = estado
     db.commit()
     return _usuario_admin(db, usuario)

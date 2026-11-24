@@ -151,7 +151,9 @@ function filaUsuario(u) {
   accion("Restablecer contraseña", "lock_reset", "suave", () => abrirContrasena(u));
   if (u.id !== miId) {
     if (u.estado === "inactivo") accion("Reactivar cuenta", "check_circle", "secundario", () => cambiarEstado(u, "activo"));
-    else accion(u.estado === "pendiente" ? "Rechazar registro" : "Desactivar cuenta", "block", "peligro", () => cambiarEstado(u, "inactivo"));
+    // Un administrador no puede desactivar a otro administrador (lo rechaza también el backend)
+    else if (!u.roles.includes("administrador"))
+      accion(u.estado === "pendiente" ? "Rechazar registro" : "Desactivar cuenta", "block", "peligro", () => cambiarEstado(u, "inactivo"));
   }
   acciones.appendChild(grupo);
   fila.append(persona, area, roles, estado, acciones);

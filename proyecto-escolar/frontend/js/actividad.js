@@ -226,7 +226,7 @@ function mostrarPanel(matriculaId) {
     caja.append(
       el("p", "font-label-lg text-label-lg text-on-surface", f.estadoEntrega === "vencida" ? "No entregó" : "Aún no entrega"),
       el("p", "font-body-md text-body-md text-on-surface-variant", f.estadoEntrega === "vencida"
-        ? "La fecha límite ya pasó: la actividad cuenta como 0 en su calificación (RF-47). Si entrega tarde, aparecerá aquí con la marca de retraso."
+        ? "La fecha límite ya pasó."
         : `Tiene hasta el ${fechaHora(actividad.fechaHoraLimite)}. Si no entrega, contará como 0.`)
     );
     form.classList.add("hidden");

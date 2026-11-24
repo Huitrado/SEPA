@@ -1,6 +1,6 @@
 // ============================================================
 // curso-asistencia.js: pestaña "Asistencia" de curso.html.
-//   RF-19, RF-27  Generar la sesión de hoy          -> POST .../sesiones
+//   RF-19, RF-27  Pasar lista de hoy (crea la sesión) -> POST .../sesiones
 //   RF-26, RF-28  Cuadrícula alumnos × fechas con desplazamiento horizontal
 //                                                     -> GET .../asistencia
 //   RF-24         Indicador de lista pendiente en cada fecha
@@ -21,7 +21,7 @@ let sesionAbierta = null;       // detalle de la sesión en la ventana de lista
 const listaEditada = new Map(); // matricula_id -> { estado, observaciones }
 
 function iniciarAsistencia() {
-  document.getElementById("btn-generar-sesion").addEventListener("click", generarSesion);
+  document.getElementById("btn-lista-hoy").addEventListener("click", pasarListaHoy);
   document.getElementById("btn-guardar-lista").addEventListener("click", guardarLista);
   document.getElementById("btn-todos-asistencia").addEventListener("click", () => {
     for (const registro of listaEditada.values()) registro.estado = "asistencia";
@@ -63,7 +63,7 @@ function pintarCuadricula() {
   if (!datos.sesiones.length || !datos.alumnos.length) {
     vacia.textContent = !datos.alumnos.length
       ? "No hay alumnos activos en el curso todavía."
-      : "Aún no hay sesiones. En un día de clase, usa \"Generar sesión de hoy\" para pasar lista.";
+      : "Aún no hay listas. En un día de clase, usa \"Pasar lista\".";
     vacia.classList.remove("hidden");
     if (!datos.alumnos.length) return;
   } else {
@@ -129,33 +129,13 @@ function pintarCuadricula() {
   contenedor.scrollLeft = contenedor.scrollWidth;
 }
 
-// ==================== GENERAR SESIÓN (RF-19, RF-27) ====================
-
-async function generarSesion() {
-  const b = document.getElementById("btn-generar-sesion");
-  const tema = document.getElementById("input-tema").value.trim();
-  ocultarAviso();
-  botonCargando(b, true);
-  try {
-    const sesion = await pedir(rutaCurso("/sesiones"), { metodo: "POST", datos: tema ? { tema } : undefined, conToken: true });
-    document.getElementById("input-tema").value = "";
-    await cargarAsistencia();
-    mostrarLista(sesion);
-  } catch (error) {
-    // 409: hoy no hay clase, ya existe la sesión, curso archivado o ciclo no vigente
-    avisarError(error);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  } finally {
-    botonCargando(b, false);
-  }
-}
-
-// Botón "Pasar lista" de la ficha: abre directo la lista de hoy (la crea si aún no existe).
-// Si hoy no hay clase, se queda en la pestaña Asistencia con el motivo.
+// ==================== PASAR LISTA DE HOY (RF-19, RF-27) ====================
+// Botones "Pasar lista" (ficha del curso y pestaña Asistencia): abren la lista de hoy y, si aún
+// no existe la sesión, la crean con el horario del curso. Si hoy no hay clase, muestra el motivo.
 async function pasarListaHoy() {
   mostrarPestana("asistencia");
-  const b = document.getElementById("btn-pasar-lista");
-  b.disabled = true;
+  const botones = ["btn-pasar-lista", "btn-lista-hoy"].map(id => document.getElementById(id));
+  botones.forEach(b => { b.disabled = true; });
   try {
     if (!C.asistencia) await cargarAsistencia();
     const d = new Date();
@@ -172,7 +152,7 @@ async function pasarListaHoy() {
     avisarError(error);
     window.scrollTo({ top: 0, behavior: "smooth" });  // el aviso está arriba
   } finally {
-    b.disabled = false;
+    botones.forEach(b => { b.disabled = false; });
   }
 }
 

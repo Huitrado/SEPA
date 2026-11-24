@@ -170,7 +170,7 @@ Una fixture puede **depender de otra**: `escenario` pide `client`. Las pruebas q
 | RF-07 | `test_rf07_mensaje_de_recuperacion_manual`, `test_rf07_el_administrador_restablece_la_contrasena` | Mensaje de recuperación; el admin restablece la contraseña y valida RF-03 |
 | Dominios y roles | `test_correos_fuera_de_dominio_se_rechazan` (4), `test_mayusculas_en_el_correo_no_crean_cuentas_distintas`, `test_faltan_datos_segun_el_rol`, `test_docente_por_dominio_y_aprobacion` | Solo dominios exactos; correo sin distinguir mayúsculas; docente sin `noEmpleado` → 422; docente queda pendiente hasta que el admin lo aprueba |
 | RF-90 | `test_rf90_cada_rol_va_a_su_panel` | `panel` correcto para admin, docente y estudiante |
-| RF-93 | `test_rf93_solo_el_administrador_gestiona_usuarios`, `test_rf93_admin_solo_crea_docentes_con_correo_academico`, `test_rf93_desactivar_cuentas` | Solo el admin lista usuarios; docentes con correo académico; desactivar cuentas y no poder desactivarse a sí mismo |
+| RF-93 | `test_rf93_solo_el_administrador_gestiona_usuarios`, `test_rf93_admin_solo_crea_docentes_con_correo_academico`, `test_rf93_desactivar_cuentas`, `test_rf93_un_administrador_no_desactiva_a_otro` | Solo el admin lista usuarios; docentes con correo académico; desactivar cuentas, no poder desactivarse a sí mismo ni a otro administrador (403) |
 
 ### `test_gestion_academica.py`
 

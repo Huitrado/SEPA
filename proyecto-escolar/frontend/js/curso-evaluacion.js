@@ -9,7 +9,7 @@
 // ============================================================
 
 // Colores de las categorías en la barra del encuadre (tomados del diseño)
-const COLORES_CATEGORIA = ["#0f2c59", "#305ea1", "#de7b0e", "#8ab4fd", "#6e3900", "#7c94c8", "#465e8e", "#ffb77d"];
+const COLORES_CATEGORIA = ["#1a1a1a", "#00aeef", "#6b7075", "#0077b6", "#9fdcf3", "#3a3d40", "#b8bec3", "#00557f"];
 
 let actividadEditada = null;   // null = crear; si no, la actividad que se edita
 let categoriaEditada = null;

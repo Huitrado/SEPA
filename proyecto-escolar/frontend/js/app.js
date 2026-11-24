@@ -253,7 +253,7 @@ function pintarBarraEstudiante() {
   abajo.setAttribute("aria-label", "Secciones del estudiante");
   for (const [clave, href, nombreIcono, texto] of ENLACES_ESTUDIANTE) {
     const activo = clave === actual;
-    const arriba = el("a", `inline-flex items-center gap-1 font-label-md text-label-md px-space-sm py-space-sm rounded-lg transition-colors ${activo ? "bg-surface-container-high text-primary" : "text-on-surface-variant hover:text-primary"}`);
+    const arriba = el("a", `inline-flex items-center gap-1 font-label-md text-label-md px-space-sm py-space-sm rounded-lg transition-colors ${activo ? "bg-secondary-container text-on-secondary-container" : "text-on-surface-variant hover:text-primary"}`);
     arriba.href = href;
     arriba.append(icono(nombreIcono), el("span", "", texto));
     const movil = el("a", `flex flex-col items-center justify-center gap-0.5 py-2 font-caption text-caption ${activo ? "text-primary font-semibold" : "text-on-surface-variant"}`);

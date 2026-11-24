@@ -64,7 +64,7 @@ function pintar(celda) {
   const a = actividad;
   document.title = `${a.titulo} · SEPA CUCEI`;
   document.getElementById("miga-actividad").textContent = a.titulo;
-  document.getElementById("act-categoria").textContent = `${a.categoria} · vale ${numero(a.valorEnCurso)} % del curso`;
+  document.getElementById("act-categoria").textContent = a.categoria;
   document.getElementById("act-titulo").textContent = a.titulo;
   document.getElementById("act-descripcion").textContent = a.descripcion || "Sin instrucciones adicionales.";
   const datos = document.getElementById("act-datos");

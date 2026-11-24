@@ -378,12 +378,32 @@ async function mostrarTrayectoria() {
   }
   document.getElementById("perfil-semestre").textContent = riesgo.semestreActual ? `${riesgo.semestreActual}.º semestre` : "—";
   document.getElementById("perfil-plan").textContent = riesgo.plan || "Sin plan asignado";
+  pintarHistorialMaterias(historial, "todos");
+  document.getElementById("perfil-trayectoria").classList.remove("hidden");
+}
+
+// Historial de materias con filtro por ciclo escolar (llega ordenado del ciclo más reciente al más antiguo)
+function pintarHistorialMaterias(historial, ciclo) {
+  const filtros = document.getElementById("filtros-ciclo");
   const lista = document.getElementById("perfil-historial");
+  filtros.innerHTML = "";
   lista.innerHTML = "";
   if (!historial.length) {
     lista.appendChild(el("p", "font-body-md text-body-md text-on-surface-variant", "Aún no tienes ciclos cerrados en SEPA."));
+    return;
   }
-  for (const h of historial) {
+  const ciclos = [...new Set(historial.map(h => h.periodo))];
+  if (ciclos.length > 1) {
+    for (const clave of ["todos", ...ciclos]) {
+      const cuantas = clave === "todos" ? historial.length : historial.filter(h => h.periodo === clave).length;
+      const b = el("button", `px-space-md py-1.5 rounded-lg font-label-md text-label-md transition-colors ${clave === ciclo ? "bg-primary-container text-on-primary" : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"}`,
+        `${clave === "todos" ? "Todos" : clave} (${cuantas})`);
+      b.type = "button";
+      b.addEventListener("click", () => pintarHistorialMaterias(historial, clave));
+      filtros.appendChild(b);
+    }
+  }
+  for (const h of historial.filter(h => ciclo === "todos" || h.periodo === ciclo)) {
     const fila = el("div", "flex items-center justify-between gap-space-sm p-space-sm rounded-lg bg-surface-container-low");
     const textos = el("div", "min-w-0");
     textos.append(el("p", "font-label-lg text-label-lg text-on-surface truncate", h.materia), el("p", "font-caption text-caption text-on-surface-variant", h.periodo));
@@ -393,6 +413,5 @@ async function mostrarTrayectoria() {
     fila.append(textos, nota);
     lista.appendChild(fila);
   }
-  document.getElementById("perfil-trayectoria").classList.remove("hidden");
 }
 // cerrarSesion() ahora vive en app.js para que la usen todas las páginas.

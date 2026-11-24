@@ -67,12 +67,12 @@ frontend/
 |----------|----------|-----------|
 | `registro.html` | Formulario con dos pestañas: **Soy estudiante** (código de 9 dígitos, carrera y ciclo de ingreso: el vigente o uno anterior) y **Soy docente** (número de empleado, departamento opcional). | `auth.js → iniciarRegistro`, `enviarRegistro` |
 | `login.html` | Pide **código** (de estudiante o número de empleado) y **contraseña**. No se entra con el correo. | `auth.js → iniciarLogin`, `enviarLogin` |
-| `dashboard.html` | "Mi perfil" de estudiante y administrador. Al estudiante le muestra además la insignia de **riesgo por historial** (RF-55), su semestre según el ingreso, su plan de estudios y su historial en SEPA. | `auth.js → iniciarPanel`, `mostrarPerfil`, `mostrarTrayectoria` |
+| `dashboard.html` | "Mi perfil" de estudiante y administrador. Al estudiante le muestra además la insignia de **riesgo por historial** (RF-55), su semestre según el ingreso, su plan de estudios y su historial en SEPA, con filtro por ciclo escolar (Todos o un ciclo; solo aparece si hay más de un ciclo). | `auth.js → iniciarPanel`, `mostrarPerfil`, `mostrarTrayectoria`, `pintarHistorialMaterias` |
 | `docente.html` | Cursos activos y archivados del docente. Cada tarjeta muestra solo materia, sección, ciclo y **Abrir curso** (el horario y el código están dentro del curso). Ventana **Crear curso**. | `docente.js` |
-| `curso.html` | Ficha del curso con su código y cinco pestañas (sin recuadros de resumen: cada dato está en su pestaña, y el promedio de asistencia del grupo aparece en **Asistencia**): **Matrícula** (seguimiento con semáforo, dar de baja y reactivar), **Asistencia** (cuadrícula, generar la sesión de hoy, pasar y corregir lista), **Actividades** (por categoría; crear, editar, adjuntar archivo, eliminar), **Encuadre** (categorías y barra del 100 %) y **Calificaciones** (cuadrícula con la acumulada). Botón **Pasar lista**: abre directo la lista de hoy (la genera si no existe; si hoy no hay clase, dice por qué). Botón **Configurar curso** para editarlo, archivarlo o reactivarlo. | `curso.js`, `curso-asistencia.js`, `curso-evaluacion.js` |
+| `curso.html` | Ficha del curso con su código y cinco pestañas (sin recuadros de resumen: cada dato está en su pestaña, y el promedio de asistencia del grupo aparece en **Asistencia**): **Matrícula** (seguimiento con semáforo, dar de baja y reactivar), **Asistencia** (cuadrícula, botón **Pasar lista** para la clase de hoy y corregir listas anteriores tocando su fecha), **Actividades** (por categoría; crear, editar, adjuntar archivo, eliminar), **Encuadre** (categorías y barra del 100 %) y **Calificaciones** (cuadrícula con la acumulada). Botón **Pasar lista**: abre directo la lista de hoy (la genera si no existe; si hoy no hay clase, dice por qué). Botón **Configurar curso** para editarlo, archivarlo o reactivarlo. | `curso.js`, `curso-asistencia.js`, `curso-evaluacion.js` |
 | `estudiante.html` | Tarjetas de los cursos del ciclo activo con **solo** materia, profesor y semáforo (el resto está dentro del curso); filtro por color y ventana **Unirse a un curso** con el código. | `estudiante.js` |
-| `curso-alumno.html` | Panel del curso, en este orden: semáforo general, alertas, **tareas pendientes** (enlazan a la entrega) e historial de entregas, y debajo calificación acumulada con puntos obtenidos/perdidos, anillo de asistencia con estatus UdeG y encuadre. Sin calificaciones o sin listas guardadas muestra "Aún sin calificaciones" o "Sin clases registradas" en lugar de cifras. En amarillo o rojo aparece el botón "Buscar asesoría para esta materia", que abre el tablero ya filtrado (RF-72). | `curso-alumno.js` |
-| `entrega.html` | Instrucciones de la actividad, archivo del profesor, subir el archivo (arrastrar o elegir), cancelar y volver a subir antes de la fecha límite, y la calificación con retroalimentación. | `entrega.js` |
+| `curso-alumno.html` | Panel del curso, en este orden: semáforo general, alertas, **tareas pendientes** (enlazan a la entrega) e historial de entregas con filtro **Todas · Por calificar · Calificadas**, y debajo calificación acumulada con puntos obtenidos/perdidos, anillo de asistencia con estatus UdeG y encuadre. Sin calificaciones o sin listas guardadas muestra "Aún sin calificaciones" o "Sin clases registradas" en lugar de cifras. En amarillo o rojo aparece el botón "Buscar asesoría para esta materia", que abre el tablero ya filtrado (RF-72). | `curso-alumno.js` |
+| `entrega.html` | Instrucciones de la actividad (arriba solo la categoría, sin el porcentaje que vale), archivo del profesor, subir el archivo (arrastrar o elegir), cancelar y volver a subir antes de la fecha límite, y la calificación con retroalimentación. | `entrega.js` |
 | `admin.html` | Cuatro secciones: **Inicio** (conteos y docentes por aprobar), **Usuarios y roles** (buscar y filtrar; registrar docente o administrador; editar datos; rol de asesor; restablecer contraseña; aprobar, desactivar y reactivar), **Ciclos escolares** (lista con estado y alta con fechas oficiales) y **Carreras y materias** (catálogos) y **Planes de estudio** (materias por semestre, base del rezago). En Inicio, el botón **Ejecutar análisis** relanza el análisis de riesgo. | `admin.js`, `admin-catalogos.js` |
 | `asesorias.html` | Tarjetas de las asesorías disponibles con filtros por materia, modalidad y texto, y ventana de detalle con el lugar o enlace. Si el alumno es asesor, ve el acceso a "Mis publicaciones". | `asesorias.js` |
 | `mis-asesorias.html` | Solo para asesores: formulario para publicar o editar (materia del catálogo, horario, modalidad, lugar o enlace, temas) y lista de sus publicaciones con ocultar/volver a publicar y eliminar. | `mis-asesorias.js` |
@@ -247,6 +247,16 @@ allow_origins=["http://localhost:5500", "http://127.0.0.1:5500"],
 Si abres el frontend en otro puerto (o haciendo doble clic sobre el `.html`, que da una dirección `file:///...`), verás en la consola del navegador (F12) un error que menciona **CORS** y nada funcionará.
 
 > Si Live Server elige otro puerto porque el 5500 está ocupado, cierra lo que lo esté usando, o fija el puerto en VS Code: Configuración → busca `liveServer.settings.port` → `5500`.
+
+### Sin VS Code: `servidor.py`
+
+También se puede servir desde una terminal, en la carpeta `frontend`:
+
+```powershell
+..\backend\venv\Scripts\python.exe servidor.py
+```
+
+y abrir `http://127.0.0.1:5500/login.html`. Usen este en lugar de `python -m http.server`: ese no le dice al navegador que no guarde los archivos, así que al editar un `.js` el navegador sigue usando el viejo hasta borrar la caché. `servidor.py` manda `Cache-Control: no-store` y basta con recargar.
 
 ---
 

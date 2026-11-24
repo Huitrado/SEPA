@@ -117,6 +117,7 @@ function pintarFicha() {
   const archivado = c.estado === "archivado";
   document.getElementById("btn-crear-actividad").classList.toggle("hidden", archivado);
   document.getElementById("btn-pasar-lista").classList.toggle("hidden", archivado);
+  document.getElementById("btn-lista-hoy").classList.toggle("hidden", archivado);
 }
 
 // Lo que antes era el resumen de la ficha ya vive en su pestaña: los conteos por color y las bajas

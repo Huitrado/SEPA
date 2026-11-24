@@ -1177,7 +1177,7 @@ El correo **debe** terminar en `@academicos.udg.mx` (`schemas.py → DocenteCrea
 
 ### `PATCH /admin/usuarios/{usuario_id}/estado`
 
-`services.py → cambiar_estado_usuario`. Sirve para **aprobar** un docente pendiente (`"activo"`) o **desactivar** cualquier cuenta (`"inactivo"`). No se puede poner `"pendiente"`.
+`services.py → cambiar_estado_usuario`. Sirve para **aprobar** un docente pendiente (`"activo"`) o **desactivar** una cuenta de estudiante o docente (`"inactivo"`); un administrador no puede desactivar a otro. No se puede poner `"pendiente"`.
 
 ```json
 { "estado": "activo" }
@@ -1187,6 +1187,7 @@ El correo **debe** terminar en `@academicos.udg.mx` (`schemas.py → DocenteCrea
 | Código | `detail` |
 |--------|----------|
 | 404 | `Usuario no encontrado` |
+| 403 | `No puedes desactivar a otro administrador` |
 | 409 | `No puedes cambiar tu propio estado` (evita que el sistema se quede sin administradores) |
 
 ### `PATCH /admin/usuarios/{usuario_id}/contrasena`

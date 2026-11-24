@@ -12,7 +12,7 @@
 document.addEventListener("DOMContentLoaded", iniciarCursoAlumno);
 
 const ID_CURSO = Number(new URLSearchParams(location.search).get("id"));
-const COLORES_ENCUADRE = ["#0f2c59", "#305ea1", "#de7b0e", "#8ab4fd", "#6e3900", "#7c94c8", "#465e8e", "#ffb77d"];
+const COLORES_ENCUADRE = ["#1a1a1a", "#00aeef", "#6b7075", "#0077b6", "#9fdcf3", "#3a3d40", "#b8bec3", "#00557f"];
 
 const TEXTO_SEMAFORO = {
   verde: "Vas bien en asistencia y calificación.",
@@ -162,7 +162,7 @@ function pintarAsistencia(seg) {
   }
   const color = { verde: "#1b6e3a", amarillo: "#de7b0e", rojo: "#ba1a1a" }[seg.semaforoAsistencia];
   const anillo = el("div", "relative w-36 h-36 mx-auto rounded-full flex items-center justify-center");
-  anillo.style.background = `conic-gradient(${color} ${seg.porcentajeAsistencia}%, #e5eeff 0)`;
+  anillo.style.background = `conic-gradient(${color} ${seg.porcentajeAsistencia}%, #e8ebed 0)`;
   const centro = el("div", "w-28 h-28 rounded-full bg-surface-container-lowest flex flex-col items-center justify-center");
   centro.append(el("span", "text-[28px] font-bold text-primary leading-none", `${numero(seg.porcentajeAsistencia, 1)}%`),
     el("span", "font-caption text-caption text-on-surface-variant mt-1", "asistencia"));
@@ -244,19 +244,49 @@ function pintarPendientes(actividades) {
   }
 }
 
-// RF-71: tareas entregadas o vencidas, con nota y retroalimentación
+// RF-71: tareas entregadas o vencidas, con nota y retroalimentación.
+// Filtro: todas, por calificar (entregadas sin nota) o calificadas.
+let filtroHistorial = "todas";
+
 function pintarHistorial(actividades, calificaciones) {
   const lista = document.getElementById("lista-historial");
+  const filtros = document.getElementById("filtros-historial");
+  lista.innerHTML = "";
+  filtros.innerHTML = "";
   const celdas = new Map(calificaciones.celdas.map(c => [c.actividad_id, c]));
+  const calificacionDe = a => celdas.get(a.id)?.calificacion;
   const pasadas = actividades.filter(a => a.entrega || a.estadoEntrega === "vencida")
     .sort((x, y) => y.fechaHoraLimite.localeCompare(x.fechaHoraLimite));
   if (!pasadas.length) {
     lista.appendChild(el("p", "text-on-surface-variant", "Aún no tienes entregas."));
     return;
   }
-  for (const a of pasadas) {
-    const celda = celdas.get(a.id);
-    const calif = celda?.calificacion;
+
+  const grupos = {
+    todas: pasadas,
+    porCalificar: pasadas.filter(a => a.entrega && !calificacionDe(a)),
+    calificadas: pasadas.filter(a => calificacionDe(a))
+  };
+  const opciones = [["todas", "Todas"], ["porCalificar", "Por calificar"], ["calificadas", "Calificadas"]];
+  for (const [clave, texto] of opciones) {
+    const b = el("button", `px-space-md py-1.5 rounded-lg font-label-md text-label-md transition-colors ${clave === filtroHistorial ? "bg-primary-container text-on-primary" : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"}`,
+      `${texto} (${grupos[clave].length})`);
+    b.type = "button";
+    b.addEventListener("click", () => {
+      filtroHistorial = clave;
+      pintarHistorial(actividades, calificaciones);
+    });
+    filtros.appendChild(b);
+  }
+
+  const visibles = grupos[filtroHistorial];
+  if (!visibles.length) {
+    lista.appendChild(el("p", "text-on-surface-variant",
+      filtroHistorial === "porCalificar" ? "No tienes entregas esperando calificación." : "Aún no tienes entregas calificadas."));
+    return;
+  }
+  for (const a of visibles) {
+    const calif = calificacionDe(a);
     const item = el("a", "block p-space-md rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors");
     item.href = `entrega.html?curso=${ID_CURSO}&actividad=${a.id}`;
     const cabeza = el("div", "flex items-start justify-between gap-space-sm");
