@@ -1,6 +1,6 @@
 // ============================================================
 // curso.js: detalle de un curso del docente (curso.html?id=N).
-//   Ficha del curso, resumen y pestañas. Cada pestaña vive en su archivo:
+//   Ficha del curso y pestañas. Cada pestaña vive en su archivo:
 //     Matrícula y seguimiento (aquí)        -> GET .../alumnos, GET .../seguimiento
 //                                              PATCH .../alumnos/{matricula}/estado (RF-16)
 //     Asistencia (curso-asistencia.js)      -> RF-19 a RF-28
@@ -119,31 +119,14 @@ function pintarFicha() {
   document.getElementById("btn-pasar-lista").classList.toggle("hidden", archivado);
 }
 
+// Lo que antes era el resumen de la ficha ya vive en su pestaña: los conteos por color y las bajas
+// en los filtros de Matrícula, la suma del encuadre en Encuadre. Aquí solo queda el promedio de
+// asistencia del grupo, que se muestra en la pestaña Asistencia.
 function pintarMetricas() {
-  const contenedor = document.getElementById("curso-metricas");
-  contenedor.innerHTML = "";
-  const activos = C.alumnos.filter(a => a.estado === "activo").length;
   const seg = C.seguimiento?.alumnos || [];
   const promedio = seg.length ? seg.reduce((s, a) => s + a.porcentajeAsistencia, 0) / seg.length : null;
-  const resumen = C.seguimiento?.resumen || { verde: 0, amarillo: 0, rojo: 0 };
-  const pesos = C.categorias;
-
-  const tarjeta = (nombreIcono, valor, texto, clasesValor = "text-primary") => {
-    const t = el("div", "p-space-md rounded-xl bg-surface-container-low flex items-center gap-space-md");
-    const caja = el("span", "w-11 h-11 rounded-lg bg-surface-container-lowest flex items-center justify-center text-secondary shrink-0");
-    caja.appendChild(icono(nombreIcono, "text-[22px]"));
-    const textos = el("div", "min-w-0");
-    textos.append(el("p", `font-headline-md text-headline-md ${clasesValor}`, valor), el("p", "font-helper-sm text-helper-sm text-on-surface-variant", texto));
-    t.append(caja, textos);
-    return t;
-  };
-  contenedor.append(
-    tarjeta("groups", String(activos), "alumnos activos"),
-    tarjeta("event_available", promedio === null ? "—" : `${numero(promedio, 1)} %`, "asistencia promedio"),
-    tarjeta("warning", String(resumen.rojo), `en rojo · ${resumen.amarillo} en amarillo`, resumen.rojo ? "text-semaforo-rojo" : "text-primary"),
-    tarjeta("balance", pesos ? `${numero(pesos.sumaPesos)} %` : "—", pesos?.pesosCompletos ? "encuadre completo" : "encuadre incompleto",
-      pesos && !pesos.pesosCompletos ? "text-on-tertiary-container" : "text-primary")
-  );
+  document.getElementById("asistencia-promedio").textContent =
+    promedio === null ? "" : `Promedio del grupo: ${numero(promedio, 1)} %`;
 }
 
 // ==================== PESTAÑAS ====================

@@ -95,9 +95,6 @@
               </button>
             </div>
           </div>
-
-          <!-- Resumen rápido -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md mt-space-lg" id="curso-metricas"></div>
         </section>
 
         <!-- Pestañas del curso -->
@@ -152,10 +149,14 @@
               </button>
             </div>
           </div>
-          <p class="font-helper-sm text-helper-sm text-on-surface-variant mb-space-sm flex items-center gap-1">
-            <span class="material-symbols-outlined text-[16px]">info</span>
-            Solo se puede generar la sesión del día, en un día de clase del curso. Toca una fecha para pasar o corregir la lista.
-          </p>
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-space-xs mb-space-sm">
+            <p class="font-helper-sm text-helper-sm text-on-surface-variant flex items-center gap-1">
+              <span class="material-symbols-outlined text-[16px]">info</span>
+              Solo se puede generar la sesión del día, en un día de clase del curso. Toca una fecha para pasar o corregir la lista.
+            </p>
+            <!-- Promedio del grupo (lo llena curso.js → pintarMetricas) -->
+            <p class="font-label-md text-label-md text-on-surface-variant shrink-0" id="asistencia-promedio"></p>
+          </div>
           <div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
             <!-- RF-28: desplazamiento horizontal con las columnas del alumno fijas -->
             <div class="overflow-x-auto" id="contenedor-asistencia">
