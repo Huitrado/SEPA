@@ -30,8 +30,8 @@ Todo se define en **`models.py`**. Cada clase que hereda de `Base` es una **tabl
 
 | Estado | Tablas |
 |--------|--------|
-| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `Entrega`, `Calificacion`, `MallaCurricular`, `Materia`, `MallaMateria` |
-| **Sin uso todavía** | `HistorialAcademico`, `PublicacionAsesoria`, `BibliotecaNormatividad`, `RegistroRiesgo` |
+| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `Entrega`, `Calificacion`, `PublicacionAsesoria`, `MallaCurricular`, `Materia`, `MallaMateria` |
+| **Sin uso todavía** | `HistorialAcademico`, `BibliotecaNormatividad`, `RegistroRiesgo` |
 
 ---
 
@@ -230,10 +230,10 @@ erDiagram
         int id PK
         string materia
         string horario
-        string modalidad
-        string lugarOMedio
+        string modalidad "presencial | virtual"
+        string lugarOMedio "salón o enlace"
         string topico
-        string estado
+        string estado "activa | inactiva"
         int estudiante_id FK
     }
     BibliotecaNormatividad {

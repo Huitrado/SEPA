@@ -540,3 +540,35 @@ class CursoAlumno(CursoPublico):  # RF-60, RF-61: tarjeta del curso en el panel 
     calificacionAcumulada: float
     alertaCalificacion: bool
     semaforoGeneral: Semaforo
+
+# ------------------------------------------------------------------ módulo: asesorías (RF-73 a RF-80)
+Modalidad = Literal["presencial", "virtual"]
+TextoAsesoria = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+
+class PublicacionCrear(BaseModel):  # RF-74 obligatorios · RF-75 tópico libre
+    materia: Texto                  # nombre de una materia del catálogo
+    horario: TextoAsesoria          # p. ej. "Lunes y miércoles de 16:00 a 18:00"
+    modalidad: Modalidad
+    lugarOMedio: TextoAsesoria      # salón o enlace de la videollamada
+    topico: DescripcionLarga | None = None
+
+class PublicacionActualizar(BaseModel):  # RF-76, RF-77: solo se cambia lo que se envía
+    materia: Texto | None = None
+    horario: TextoAsesoria | None = None
+    modalidad: Modalidad | None = None
+    lugarOMedio: TextoAsesoria | None = None
+    topico: DescripcionLarga | None = None
+    estado: Literal["activa", "inactiva"] | None = None
+
+class PublicacionSalida(BaseModel):
+    id: int
+    materia: str
+    horario: str
+    modalidad: str
+    lugarOMedio: str
+    topico: str | None
+    estado: str
+    asesor: str            # nombre del asesor
+    carreraAsesor: str | None
+    correoAsesor: str      # para contactarlo
+    esMia: bool

@@ -66,3 +66,12 @@ def requiere_estudiante(usuario: models.Usuario = Depends(usuario_actual),
     if not db.get(models.Estudiante, usuario.id):
         raise HTTPException(403, "Se requiere rol de estudiante")
     return usuario
+
+def requiere_asesor(usuario: models.Usuario = Depends(requiere_estudiante),
+                    db: Session = Depends(get_db)) -> models.Usuario:
+    """RF-73, RF-92: un estudiante al que el administrador asignó el rol de asesor."""
+    tiene = (db.query(models.Rol).join(models.usuario_rol, models.usuario_rol.c.rol_id == models.Rol.id)
+             .filter(models.usuario_rol.c.usuario_id == usuario.id, models.Rol.nombre == "asesor").first())
+    if not tiene:
+        raise HTTPException(403, "Se requiere rol de asesor")
+    return usuario

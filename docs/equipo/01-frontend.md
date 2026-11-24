@@ -39,6 +39,8 @@ frontend/
 ├── curso-alumno.html    Panel consolidado de un curso para el alumno (curso-alumno.html?id=N)
 ├── entrega.html         Detalle de una actividad y entrega del alumno (entrega.html?curso=N&actividad=M)
 ├── admin.html           Panel del administrador: inicio, usuarios y roles, ciclos, carreras y materias
+├── asesorias.html       Tablero de asesorías para los estudiantes (acepta ?materia=...)
+├── mis-asesorias.html   Publicaciones del asesor: crear, editar, ocultar y eliminar
 ├── css/
 │   └── style.css        Estilos que Tailwind no trae (campo en rojo, animación)
 └── js/
@@ -56,7 +58,9 @@ frontend/
     ├── curso-alumno.js     curso-alumno.html
     ├── entrega.js          entrega.html
     ├── admin.js            admin.html: secciones, inicio y usuarios
-    └── admin-catalogos.js  admin.html: ciclos, carreras y materias
+    ├── admin-catalogos.js  admin.html: ciclos, carreras y materias
+    ├── asesorias.js        asesorias.html
+    └── mis-asesorias.js    mis-asesorias.html
 ```
 
 | Pantalla | Qué hace | Lógica en |
@@ -67,9 +71,11 @@ frontend/
 | `docente.html` | Cursos activos y archivados del docente, código de cada curso con botón de copiar, ventana **Crear curso** y botón **Abrir curso**. | `docente.js` |
 | `curso.html` | Ficha del curso con su código, resumen (alumnos, asistencia promedio, alumnos en rojo, encuadre) y cinco pestañas: **Matrícula** (seguimiento con semáforo, dar de baja y reactivar), **Asistencia** (cuadrícula, generar la sesión de hoy, pasar y corregir lista), **Actividades** (por categoría; crear, editar, adjuntar archivo, eliminar), **Encuadre** (categorías y barra del 100 %) y **Calificaciones** (cuadrícula con la acumulada). Botón **Configurar curso** para editarlo, archivarlo o reactivarlo. | `curso.js`, `curso-asistencia.js`, `curso-evaluacion.js` |
 | `estudiante.html` | Tarjetas de los cursos del ciclo activo con profesor, horario, asistencia, puntos y semáforo; filtro por color y ventana **Unirse a un curso** con el código. | `estudiante.js` |
-| `curso-alumno.html` | Panel del curso: semáforo general, alertas, calificación acumulada con puntos obtenidos/perdidos, anillo de asistencia con estatus UdeG, encuadre, tareas pendientes (enlazan a la entrega) e historial con retroalimentación. En amarillo o rojo aparece el botón de asesoría (desactivado hasta que exista el tablero). | `curso-alumno.js` |
+| `curso-alumno.html` | Panel del curso: semáforo general, alertas, calificación acumulada con puntos obtenidos/perdidos, anillo de asistencia con estatus UdeG, encuadre, tareas pendientes (enlazan a la entrega) e historial con retroalimentación. En amarillo o rojo aparece el botón "Buscar asesoría para esta materia", que abre el tablero ya filtrado (RF-72). | `curso-alumno.js` |
 | `entrega.html` | Instrucciones de la actividad, archivo del profesor, subir el archivo (arrastrar o elegir), cancelar y volver a subir antes de la fecha límite, y la calificación con retroalimentación. | `entrega.js` |
 | `admin.html` | Cuatro secciones: **Inicio** (conteos y docentes por aprobar), **Usuarios y roles** (buscar y filtrar; registrar docente o administrador; editar datos; rol de asesor; restablecer contraseña; aprobar, desactivar y reactivar), **Ciclos escolares** (lista con estado y alta con fechas oficiales) y **Carreras y materias** (catálogos). | `admin.js`, `admin-catalogos.js` |
+| `asesorias.html` | Tarjetas de las asesorías disponibles con filtros por materia, modalidad y texto, y ventana de detalle con el lugar o enlace. Si el alumno es asesor, ve el acceso a "Mis publicaciones". | `asesorias.js` |
+| `mis-asesorias.html` | Solo para asesores: formulario para publicar o editar (materia del catálogo, horario, modalidad, lugar o enlace, temas) y lista de sus publicaciones con ocultar/volver a publicar y eliminar. | `mis-asesorias.js` |
 | `actividad.html` | Lista de alumnos con su entrega (filtros: por calificar, calificadas, sin entrega) y panel para descargar la entrega, calificar de 0 al máximo y dejar retroalimentación. "Guardar y siguiente" salta al próximo pendiente. | `actividad.js` |
 
 ### Páginas protegidas: `protegerPagina()`
@@ -155,6 +161,7 @@ Un **endpoint** es una "ventanilla" del backend: un método (GET, POST…) más 
 | Estudiante | `GET /alumno/cursos`, `POST /inscripcion`, `GET /catalogos/ciclo-actual` | Tarjetas y unirse a un curso |
 | Curso del alumno | `GET /alumno/cursos/{id}`, `.../seguimiento`, `.../calificaciones`, `.../encuadre`, `.../actividades` | Panel consolidado |
 | Administración | `GET /admin/usuarios`, `POST /admin/docentes`, `POST /admin/administradores`, `PATCH /admin/usuarios/{id}` (y `/estado`, `/asesor`, `/contrasena`), `GET /catalogos/ciclos`, `POST /admin/ciclos`, `GET /catalogos/carreras`, `POST /admin/carreras`, `GET /catalogos/materias`, `POST/PATCH/DELETE /admin/materias` | Panel del administrador |
+| Asesorías | `GET /asesorias`, `GET /asesorias/mias`, `POST /asesorias`, `PATCH/DELETE /asesorias/{id}`, `GET /catalogos/materias` | Tablero y publicaciones del asesor |
 | Entrega | `POST/DELETE /alumno/actividades/{id}/entrega`, `GET /actividades/{id}/archivo`, `GET /entregas/{id}/archivo` | Subir, cancelar y descargar |
 | Curso · Calificaciones y `actividad.html` | `GET .../calificaciones`, `GET .../actividades/{id}/entregas`, `GET /entregas/{id}/archivo`, `PUT .../entregas/{id}/calificacion` | Cuadrícula, revisar y calificar |
 
@@ -229,7 +236,7 @@ Si abres el frontend en otro puerto (o haciendo doble clic sobre el `.html`, que
 ## 5. Qué falta o está incompleto (dicho tal cual)
 
 - **Administrador:** ya tiene `admin.html`; `dashboard.html` le sirve como "Mi perfil". Falta administrar los planes de estudio (llegará con el módulo de rezago).
-- **Estudiante:** ya tiene sus pantallas (`estudiante.html`, `curso-alumno.html`, `entrega.html`). `dashboard.html` le sirve como "Mi perfil". Faltan asesorías y normatividad.
+- **Estudiante:** ya tiene sus pantallas (`estudiante.html`, `curso-alumno.html`, `entrega.html`). `dashboard.html` le sirve como "Mi perfil". Ya tiene el tablero de asesorías; si es asesor, también sus publicaciones. Falta normatividad.
 - **Docente:** ya tiene sus pantallas completas (`docente.html`, `curso.html` y `actividad.html`).
 - **Caché del navegador:** si cambias un `.js` y no ves el cambio, recarga con **Ctrl + Shift + R**.
 - **La carpeta `frontend/assets/` está vacía.** Como Git no guarda carpetas vacías, puede que en tu copia ni aparezca.

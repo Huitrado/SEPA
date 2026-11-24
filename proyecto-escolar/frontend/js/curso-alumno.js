@@ -70,8 +70,11 @@ function pintarFicha(c, seg) {
   document.getElementById("franja-semaforo").className = `h-1.5 ${SEMAFORO[color].punto}`;
   document.getElementById("curso-semaforo").appendChild(chipSemaforo(color, `Semáforo: ${SEMAFORO[color].texto}`));
   document.getElementById("curso-semaforo-texto").textContent = TEXTO_SEMAFORO[color];
-  // RF-72: en amarillo o rojo se invita a buscar asesoría (el tablero aún no existe)
-  document.getElementById("btn-asesoria").classList.toggle("hidden", color === "verde");
+  // RF-72: en amarillo o rojo se invita a buscar asesoría de esta materia
+  const asesoria = document.getElementById("btn-asesoria");
+  asesoria.href = `asesorias.html?materia=${encodeURIComponent(c.nombreMateria)}`;
+  asesoria.classList.toggle("hidden", color === "verde");
+  asesoria.classList.toggle("inline-flex", color !== "verde");
 }
 
 function tarjetaAlerta(nombreIcono, titulo, texto, clases) {

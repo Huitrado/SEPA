@@ -192,6 +192,7 @@ flowchart LR
     C --> D1["requiere_admin<br/>hay fila en Administrador"]
     C --> D2["requiere_docente<br/>hay fila en Docente"]
     C --> D3["requiere_estudiante<br/>hay fila en Estudiante"]
+    D3 --> D4["requiere_asesor<br/>además tiene el rol asesor"]
 ```
 
 | Dependencia | Qué revisa | Si falla |
@@ -203,6 +204,7 @@ flowchart LR
 | `requiere_admin` | Que exista una fila en `Administrador` con ese `id` | 403 `"Se requiere rol de administrador"` |
 | `requiere_docente` | Que exista una fila en `Docente` con ese `id` | 403 `"Se requiere rol de docente"` |
 | `requiere_estudiante` | Que exista una fila en `Estudiante` con ese `id` (rutas `/alumno/...`) | 403 `"Se requiere rol de estudiante"` |
+| `requiere_asesor` | Que sea estudiante y tenga el rol `asesor` en `UsuarioRol` (publicar asesorías) | 403 `"Se requiere rol de asesor"` |
 
 Así se usan en un router (`routers/admin.py`):
 

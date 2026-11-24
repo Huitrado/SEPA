@@ -2,7 +2,7 @@
 
 [← Volver al índice](README.md)
 
-Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **63 endpoints** en 6 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
+Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **69 endpoints** en 7 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
 
 ## Cómo leer estas tablas
 
@@ -1000,6 +1000,46 @@ Entregar **justo** en la fecha y hora límite cuenta como a tiempo.
   "alertaCalificacion": true, "semaforoCalificacion": "rojo", "semaforoGeneral": "rojo"
 }
 ```
+
+---
+
+## Router `asesorias`: asesorías entre estudiantes (RF-73 a RF-80, RF-92)
+
+Archivo: `routers/asesorias.py` · Prefijo: `/asesorias`. El tablero lo ven los **estudiantes** (`requiere_estudiante`); publicar y administrar es solo para estudiantes con rol de **asesor** (`security.py → requiere_asesor`, 403 `Se requiere rol de asesor`). El rol lo asigna el administrador con `PATCH /admin/usuarios/{id}/asesor` (RF-73).
+
+| Método | Ruta | Quién | Recibe | Respuestas | RF |
+|--------|------|-------|--------|------------|----|
+| GET | `/asesorias` | Estudiante | Query opcional `materia`, `modalidad` (`presencial` o `virtual`) y `q` | **200**, 422 | RF-78, RF-79 |
+| GET | `/asesorias/{publicacion_id}` | Estudiante | Nada | **200**, 404 | RF-80 |
+| GET | `/asesorias/mias` | Asesor | Nada | **200** | RF-92 |
+| POST | `/asesorias` | Asesor | JSON `PublicacionCrear` | **201**, 422 | RF-74, RF-75 |
+| PATCH | `/asesorias/{publicacion_id}` | Asesor autor | JSON `PublicacionActualizar` (todo opcional) | **200**, 403, 404, 422 | RF-76, RF-77 |
+| DELETE | `/asesorias/{publicacion_id}` | Asesor autor | Nada | **200**, 403, 404 | RF-77 |
+
+Respuesta de una publicación (`PublicacionSalida`):
+```json
+{
+  "id": 1, "materia": "Estructura de Datos", "horario": "Lunes y miércoles de 16:00 a 18:00",
+  "modalidad": "presencial", "lugarOMedio": "Módulo X, salón 12", "topico": "Árboles AVL",
+  "estado": "activa", "asesor": "Carla Navarro Gil", "carreraAsesor": "INFO",
+  "correoAsesor": "carla@alumnos.udg.mx", "esMia": false
+}
+```
+
+Reglas:
+- **RF-74:** `materia`, `horario`, `modalidad` y `lugarOMedio` son obligatorios. La materia debe estar en el catálogo (`GET /catalogos/materias`); se acepta sin distinguir mayúsculas y se guarda con el nombre oficial. `horario` y `lugarOMedio` son texto libre de hasta 200 caracteres (un salón o el enlace de la videollamada).
+- **RF-75:** `topico` es opcional, hasta 2000 caracteres.
+- **RF-78:** el tablero muestra solo publicaciones `activa` de asesores que **siguen** teniendo el rol y una cuenta activa. Si el administrador le quita el rol a alguien, sus anuncios desaparecen del tablero.
+- **RF-79:** `materia` filtra por nombre exacto (sin distinguir mayúsculas), `modalidad` por tipo y `q` busca en el tópico, el horario, el lugar y el nombre del asesor.
+- **RF-80:** el detalle de una publicación inactiva solo lo ve su autor (404 para los demás). No hay inscripción: el alumno se presenta o se conecta por su cuenta.
+- **RF-77:** `PATCH` con `{"estado": "inactiva"}` la **oculta** sin borrarla y `{"estado": "activa"}` la vuelve a publicar. `DELETE` la elimina.
+
+| Código | `detail` |
+|--------|----------|
+| 403 | `Se requiere rol de asesor` |
+| 403 | `Esta publicación no es tuya` |
+| 404 | `Asesoría no encontrada` |
+| 422 | `La materia no está en el catálogo oficial` |
 
 ---
 

@@ -1246,3 +1246,95 @@ def seguimiento_del_alumno(db: Session, usuario: models.Usuario, curso_id: int) 
     datos = _datos_calificaciones(db, matricula.curso_id)
     return {"curso_id": matricula.curso_id,
             **_indicadores(porcentaje_asistencia(db, matricula.id), _fila_calificaciones(matricula.id, *datos))}
+
+# ======================================================================
+# Asesorías entre estudiantes (RF-73 a RF-80, RF-92)
+# ======================================================================
+def _publicacion_dict(db: Session, p: models.PublicacionAsesoria, usuario: models.Usuario) -> dict:
+    autor = db.get(models.Usuario, p.estudiante_id)
+    estudiante = db.get(models.Estudiante, p.estudiante_id)
+    return {"id": p.id, "materia": p.materia, "horario": p.horario, "modalidad": p.modalidad,
+            "lugarOMedio": p.lugarOMedio, "topico": p.topico, "estado": p.estado,
+            "asesor": f"{autor.nombre} {autor.apellidos}", "carreraAsesor": estudiante.carrera if estudiante else None,
+            "correoAsesor": autor.correoInstitucional, "esMia": p.estudiante_id == usuario.id}
+
+def _materia_del_catalogo(db: Session, nombre: str) -> str:
+    """La materia de la asesoría sale del catálogo oficial (RF-94), sin distinguir mayúsculas."""
+    materia = db.query(models.Materia).filter(func.lower(models.Materia.nombre) == nombre.lower()).first()
+    if not materia:
+        raise HTTPException(422, "La materia no está en el catálogo oficial")
+    return materia.nombre
+
+def _asesores_vigentes(db: Session):
+    """Ids de estudiantes activos que hoy tienen el rol de asesor (si se lo quitan, sus anuncios se ocultan)."""
+    return (db.query(models.usuario_rol.c.usuario_id)
+            .join(models.Rol, models.Rol.id == models.usuario_rol.c.rol_id)
+            .join(models.Usuario, models.Usuario.id == models.usuario_rol.c.usuario_id)
+            .filter(models.Rol.nombre == "asesor", models.Usuario.estado == "activo"))
+
+def tablero_asesorias(db: Session, usuario: models.Usuario, materia: str | None = None,
+                      modalidad: str | None = None, texto: str | None = None) -> list[dict]:
+    """RF-78, RF-79: publicaciones activas de asesores vigentes, con filtros opcionales.
+    "texto" busca en el tópico, el horario, el lugar y el nombre del asesor."""
+    q = (db.query(models.PublicacionAsesoria)
+         .filter(models.PublicacionAsesoria.estado == "activa",
+                 models.PublicacionAsesoria.estudiante_id.in_(_asesores_vigentes(db))))
+    if materia:
+        q = q.filter(func.lower(models.PublicacionAsesoria.materia) == materia.lower())
+    if modalidad:
+        q = q.filter(models.PublicacionAsesoria.modalidad == modalidad)
+    publicaciones = [_publicacion_dict(db, p, usuario)
+                     for p in q.order_by(models.PublicacionAsesoria.materia, models.PublicacionAsesoria.id).all()]
+    if texto:
+        t = texto.lower()
+        publicaciones = [p for p in publicaciones
+                         if t in f"{p['topico'] or ''} {p['horario']} {p['lugarOMedio']} {p['asesor']}".lower()]
+    return publicaciones
+
+def ver_asesoria(db: Session, usuario: models.Usuario, publicacion_id: int) -> dict:
+    """RF-80: detalle completo con el lugar o enlace. Solo las activas, salvo para su autor."""
+    p = db.get(models.PublicacionAsesoria, publicacion_id)
+    if not p or (p.estudiante_id != usuario.id and p.estado != "activa"):
+        raise HTTPException(404, "Asesoría no encontrada")
+    return _publicacion_dict(db, p, usuario)
+
+def mis_asesorias(db: Session, asesor: models.Usuario) -> list[dict]:
+    """RF-92: las publicaciones del asesor, activas e inactivas."""
+    q = (db.query(models.PublicacionAsesoria).filter_by(estudiante_id=asesor.id)
+         .order_by(models.PublicacionAsesoria.estado, models.PublicacionAsesoria.id.desc()))
+    return [_publicacion_dict(db, p, asesor) for p in q.all()]
+
+def crearPublicacion(db: Session, asesor: models.Usuario, datos: schemas.PublicacionCrear) -> dict:
+    """RF-74, RF-75: la publicación aparece de inmediato en el tablero."""
+    p = models.PublicacionAsesoria(materia=_materia_del_catalogo(db, datos.materia), horario=datos.horario,
+                                   modalidad=datos.modalidad, lugarOMedio=datos.lugarOMedio,
+                                   topico=datos.topico, estado="activa", estudiante_id=asesor.id)
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return _publicacion_dict(db, p, asesor)
+
+def _publicacion_propia(db: Session, asesor: models.Usuario, publicacion_id: int) -> models.PublicacionAsesoria:
+    p = db.get(models.PublicacionAsesoria, publicacion_id)
+    if not p:
+        raise HTTPException(404, "Asesoría no encontrada")
+    if p.estudiante_id != asesor.id:
+        raise HTTPException(403, "Esta publicación no es tuya")
+    return p
+
+def modificarPublicacion(db: Session, asesor: models.Usuario, publicacion_id: int,
+                         datos: schemas.PublicacionActualizar) -> dict:
+    """RF-76: cambiar horario, lugar, etc. RF-77: estado "inactiva" la retira del tablero."""
+    p = _publicacion_propia(db, asesor, publicacion_id)
+    cambios = {k: v for k, v in datos.model_dump(exclude_unset=True).items() if v is not None}
+    if "materia" in cambios:
+        cambios["materia"] = _materia_del_catalogo(db, cambios["materia"])
+    for campo, valor in cambios.items():
+        setattr(p, campo, valor)
+    db.commit()
+    return _publicacion_dict(db, p, asesor)
+
+def desactivarPublicacion(db: Session, asesor: models.Usuario, publicacion_id: int) -> None:
+    """RF-77: eliminar la publicación (para ocultarla sin borrarla, se pone en "inactiva")."""
+    db.delete(_publicacion_propia(db, asesor, publicacion_id))
+    db.commit()

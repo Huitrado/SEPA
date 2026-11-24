@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es" class="validando-sesion">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mis publicaciones de asesor · SEPA CUCEI</title>
+  <!-- Fuentes e íconos de Google -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <!-- Tailwind (estilos del diseño) y su configuración de colores -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link href="css/style.css" rel="stylesheet" />
+</head>
+<body class="bg-surface font-body-md text-on-surface antialiased" data-pagina="mis-asesorias">
+
+<!-- Encabezado con el usuario y el botón de salir (RF-91) -->
+<header class="fixed top-0 w-full z-40 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+  <div class="h-16 max-w-7xl mx-auto px-gutter flex items-center justify-between gap-space-md">
+    <a href="estudiante.html" class="flex items-center gap-space-md">
+      <span class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center">
+        <span class="material-symbols-outlined text-on-primary text-[20px]">school</span>
+      </span>
+      <span class="hidden sm:flex flex-col">
+        <span class="font-label-lg text-label-lg text-primary leading-tight">SEPA CUCEI</span>
+        <span class="font-caption text-caption text-on-surface-variant leading-none">Universidad de Guadalajara · CUCEI</span>
+      </span>
+    </a>
+    <div class="flex items-center gap-space-sm">
+      <a href="estudiante.html" class="inline-flex items-center gap-1 font-label-md text-label-md px-space-sm py-space-sm rounded-lg text-on-surface-variant hover:text-primary">
+        <span class="material-symbols-outlined text-[18px]">menu_book</span><span class="hidden sm:inline">Mis cursos</span>
+      </a>
+      <a href="asesorias.html" class="inline-flex items-center gap-1 font-label-md text-label-md px-space-sm py-space-sm rounded-lg text-on-surface-variant hover:text-primary">
+        <span class="material-symbols-outlined text-[18px]">support_agent</span><span class="hidden sm:inline">Tablero</span>
+      </a>
+      <a href="dashboard.html" class="hidden md:inline font-label-lg text-label-lg text-on-surface hover:text-primary" id="header-nombre" title="Mi perfil"></a>
+      <button id="btn-logout" type="button"
+        class="inline-flex items-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg text-secondary bg-surface-container-low hover:bg-surface-container transition-colors disabled:opacity-60">
+        <span class="material-symbols-outlined text-[18px]">logout</span>
+        <span class="hidden sm:inline">Cerrar sesión</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="w-full pt-24 pb-space-2xl min-h-[calc(100vh-6rem)]">
+  <div class="w-full px-gutter">
+    <div class="max-w-7xl mx-auto">
+      <div class="mb-space-lg">
+        <span class="font-label-md text-label-md uppercase tracking-wider text-on-tertiary-container font-semibold">Asesor</span>
+        <h1 class="font-headline-lg text-headline-lg text-primary tracking-tight mt-1">Mis publicaciones de asesoría</h1>
+        <p class="font-body-md text-body-md text-on-surface-variant mt-1">Lo que publiques aparece en el tablero de asesorías para todos los estudiantes.</p>
+      </div>
+
+      <!-- Aviso general (errores del backend) -->
+      <div id="aviso" class="hidden">
+        <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+        <p class="font-body-md text-body-md" data-aviso-texto></p>
+      </div>
+
+      <div class="grid grid-cols-1 xl:grid-cols-12 gap-space-lg">
+        <!-- RF-74, RF-75, RF-76: crear o editar -->
+        <form id="form-publicacion" novalidate class="xl:col-span-5 bg-surface-container-lowest rounded-xl shadow-md p-space-lg h-fit space-y-space-md">
+          <div class="flex items-center justify-between gap-space-sm">
+            <h2 class="font-title-lg text-title-lg text-primary" id="form-titulo">Nueva publicación</h2>
+            <button type="button" id="btn-cancelar-edicion" class="hidden font-label-md text-label-md text-secondary hover:underline">Cancelar edición</button>
+          </div>
+          <div id="aviso-publicacion" class="hidden">
+            <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+            <p class="font-body-md text-body-md" data-aviso-texto></p>
+          </div>
+          <div class="flex flex-col space-y-space-xs">
+            <label for="input-materia" class="font-label-lg text-label-lg">Materia</label>
+            <input id="input-materia" name="materia" type="text" list="lista-materias" autocomplete="off" placeholder="Escribe para buscar en el catálogo"
+              class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline focus:outline-none" />
+            <datalist id="lista-materias"></datalist>
+            <span id="err-materia" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span></span>
+          </div>
+          <div class="flex flex-col space-y-space-xs">
+            <label for="input-horario" class="font-label-lg text-label-lg">Horario</label>
+            <input id="input-horario" name="horario" type="text" maxlength="200" placeholder="Lunes y miércoles de 16:00 a 18:00"
+              class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline focus:outline-none" />
+            <span id="err-horario" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span></span>
+          </div>
+          <fieldset class="flex flex-col space-y-space-xs">
+            <legend class="font-label-lg text-label-lg mb-space-xs">Modalidad</legend>
+            <div class="grid grid-cols-2 gap-space-sm">
+              <label class="flex items-center gap-space-sm p-space-sm rounded-lg bg-surface-container-low cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-secondary">
+                <input type="radio" name="modalidad" value="presencial" class="accent-[#305ea1]" checked /> <span class="font-label-lg text-label-lg">Presencial</span>
+              </label>
+              <label class="flex items-center gap-space-sm p-space-sm rounded-lg bg-surface-container-low cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-secondary">
+                <input type="radio" name="modalidad" value="virtual" class="accent-[#305ea1]" /> <span class="font-label-lg text-label-lg">Virtual</span>
+              </label>
+            </div>
+          </fieldset>
+          <div class="flex flex-col space-y-space-xs">
+            <label for="input-lugar" class="font-label-lg text-label-lg" id="label-lugar">Lugar</label>
+            <input id="input-lugar" name="lugarOMedio" type="text" maxlength="200" placeholder="Módulo X, salón 12"
+              class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline focus:outline-none" />
+            <span id="err-lugarOMedio" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span></span>
+          </div>
+          <div class="flex flex-col space-y-space-xs">
+            <label for="input-topico" class="font-label-lg text-label-lg">Temas a tratar (opcional)</label>
+            <textarea id="input-topico" name="topico" rows="3" maxlength="2000" placeholder="Árboles AVL, recorridos, ejercicios del parcial..."
+              class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline resize-y focus:outline-none"></textarea>
+          </div>
+          <button type="submit" id="btn-publicar"
+            class="w-full py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
+            <span data-texto-boton>Publicar en el tablero</span>
+            <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+          </button>
+        </form>
+
+        <!-- RF-76, RF-77: mis publicaciones -->
+        <section class="xl:col-span-7 space-y-space-md">
+          <p id="cargando" class="text-center text-on-surface-variant py-space-xl">Cargando tus publicaciones...</p>
+          <p id="vacio" class="hidden bg-surface-container-lowest rounded-xl shadow-sm p-space-lg text-on-surface-variant">Aún no tienes publicaciones. Crea la primera con el formulario.</p>
+          <div id="lista" class="space-y-space-md"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="w-full bg-surface-container-lowest py-space-xl shadow-[0_-1px_8px_rgba(0,0,0,0.03)]">
+  <div class="max-w-7xl mx-auto px-gutter flex flex-col items-center md:items-start">
+    <p class="font-label-md text-label-md text-on-surface font-semibold">SEPA · Sistema de Evaluación de Progresión Académica</p>
+    <p class="font-caption text-caption text-on-surface-variant">Centro Universitario de Ciencias Exactas e Ingenierías, Universidad de Guadalajara.</p>
+  </div>
+</footer>
+
+<!-- Ventana de confirmación -->
+<div id="modal-confirmar" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-gutter bg-primary/40 backdrop-blur-sm">
+  <div class="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer">
+    <h2 class="font-title-lg text-title-lg text-primary" data-confirmar-titulo></h2>
+    <p class="font-body-md text-body-md text-on-surface-variant mt-space-sm" data-confirmar-texto></p>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm mt-space-lg">
+      <button type="button" data-confirmar-cancelar class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button type="button" data-confirmar-aceptar class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors"></button>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/mis-asesorias.js"></script>
+</body>
+</html>

@@ -73,6 +73,8 @@ flowchart TD
     T10 --> H
     T11["test_admin_usuarios.py<br/>RF-73, RF-92, RF-93"] --> C
     T11 --> H
+    T12["test_asesorias.py<br/>RF-73 a RF-80, RF-92"] --> C
+    T12 --> H
 ```
 
 ### `conftest.py`: la fixture `client`
@@ -292,6 +294,19 @@ Docstring: *"Gestión de usuarios del administrador (RF-73, RF-92, RF-93)"*.
 | RF-93 | La lista trae código, carrera, ciclo y departamento; editar datos de alumnos y docentes sin cambiar su código de acceso; correo repetido o de otro dominio, carrera inexistente y campos que no corresponden al rol |
 | RF-73 | Asignar y quitar el rol de asesor sin duplicarlo; filtrar por `rol=asesor`; solo estudiantes |
 | RF-92 | El asesor entra a su panel de estudiante con ambos roles |
+
+
+### `test_asesorias.py`
+
+Docstring: *"Módulo de asesorías entre estudiantes (RF-73 a RF-80, RF-92)"*. La fixture `gente` crea dos materias en el catálogo, hace asesora a Ana y deja a Beto como estudiante regular.
+
+| RF | Qué comprueban |
+|----|----------------|
+| RF-74, RF-75 | Publicar y aparecer en el tablero; tópico opcional; campos obligatorios; materia del catálogo |
+| RF-78, RF-80 | El tablero y el detalle con lugar, tópico y correo del asesor |
+| RF-73, RF-92 | Solo los asesores publican y ven `/mias`; un docente no ve el tablero; al quitar el rol, sus anuncios se ocultan |
+| RF-76, RF-77 | Editar; ocultar (sale del tablero y solo su autora la ve) y volver a publicar; eliminar; otro asesor no puede tocar lo ajeno |
+| RF-79 | Filtros por materia, modalidad y texto (tópico u horario) |
 
 ---
 
