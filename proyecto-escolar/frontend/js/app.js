@@ -32,6 +32,7 @@ function guardarSesion(datosLogin) {
     roles: datosLogin.roles
   };
   sessionStorage.setItem(CLAVE_SESION, JSON.stringify(sesion));
+  marcarActividad();  // RNF-02: la sesión nueva empieza activa
 }
 
 function leerSesion() {
@@ -44,6 +45,7 @@ function leerSesion() {
 
 function borrarSesion() {
   sessionStorage.removeItem(CLAVE_SESION);
+  sessionStorage.removeItem(CLAVE_ACTIVIDAD);
 }
 
 // Manda al login. "motivo" es un texto que el login mostrará al abrir.
@@ -111,8 +113,11 @@ async function pedir(ruta, { metodo = "GET", datos, conToken = false } = {}) {
   const error = new ErrorApi(respuesta.status, cuerpo?.detail || `Error ${respuesta.status}`, cuerpo?.errores);
 
   // 401 en una petición con token = la sesión expiró o se cerró: volver al login.
+  // Si el backend la cerró por inactividad (RNF-02), se muestra su mensaje.
   if (respuesta.status === 401 && conToken) {
-    irALogin("Tu sesión expiró o ya no es válida. Inicia sesión de nuevo.");
+    irALogin(/inactividad/i.test(error.detail)
+      ? MENSAJE_INACTIVIDAD
+      : "Tu sesión expiró o ya no es válida. Inicia sesión de nuevo.");
   }
   throw error;
 }
@@ -215,6 +220,7 @@ function botonCargando(boton, cargando) {
 // Devuelve el perfil (o null si se redirigió a otra página).
 async function protegerPagina(panelesPermitidos) {
   document.getElementById("btn-logout")?.addEventListener("click", cerrarSesion);
+  vigilarInactividad();
   window.addEventListener("pageshow", evento => {
     if (evento.persisted) validarSesionDePagina(panelesPermitidos);
   });
@@ -250,6 +256,51 @@ async function validarSesionDePagina(panelesPermitidos) {
     }
     return null;
   }
+}
+
+// ---------------- Cierre por inactividad (RNF-02) ----------------
+// Mismo tiempo que config.py -> MINUTOS_INACTIVIDAD. El backend también lo revisa:
+// aunque esta página se quede abierta sin moverse, el token deja de servir.
+// Aquí además se cierra la sesión y se manda al login sin esperar a otra petición.
+const MINUTOS_INACTIVIDAD = 30;
+const MENSAJE_INACTIVIDAD = "Tu sesión se cerró por inactividad. Inicia sesión de nuevo.";
+const CLAVE_ACTIVIDAD = "sepa_ultima_actividad";
+
+function marcarActividad() {
+  try { sessionStorage.setItem(CLAVE_ACTIVIDAD, String(Date.now())); } catch { /* sin almacenamiento */ }
+}
+
+function vigilarInactividad() {
+  // Al recargar o cambiar de página se conserva la última actividad de esta pestaña.
+  if (!sessionStorage.getItem(CLAVE_ACTIVIDAD)) marcarActividad();
+  let ultimoAviso = 0;
+  const alMoverse = () => {          // como mucho una escritura cada 5 s
+    const t = Date.now();
+    if (t - ultimoAviso > 5000) { ultimoAviso = t; marcarActividad(); }
+  };
+  for (const evento of ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "wheel"]) {
+    window.addEventListener(evento, alMoverse, { passive: true });
+  }
+  const revisar = async () => {
+    const ultima = Number(sessionStorage.getItem(CLAVE_ACTIVIDAD)) || Date.now();
+    if (Date.now() - ultima < MINUTOS_INACTIVIDAD * 60 * 1000) return;
+    clearInterval(reloj);
+    const sesion = leerSesion();
+    if (sesion) {
+      // Se avisa al backend para invalidar el token; si ya no servía, da igual.
+      try {
+        await fetch(API_URL + "/usuarios/logout", {
+          method: "POST", headers: { Authorization: `Bearer ${sesion.token}` }
+        });
+      } catch { /* sin conexión: el backend lo cerrará solo */ }
+    }
+    sessionStorage.removeItem(CLAVE_ACTIVIDAD);
+    irALogin(MENSAJE_INACTIVIDAD);
+  };
+  const reloj = setInterval(revisar, 30 * 1000);
+  // Si la pestaña estuvo en segundo plano (el navegador frena los relojes), revisar al volver.
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) revisar(); });
+  revisar();
 }
 
 async function cerrarSesion() {

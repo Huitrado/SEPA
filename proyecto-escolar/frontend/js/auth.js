@@ -280,6 +280,7 @@ async function enviarLogin(evento) {
     window.location.href = PAGINA_POR_PANEL[respuesta.panel] || "dashboard.html";
   } catch (error) {
     // 401: código o contraseña incorrectos · 403: cuenta pendiente o desactivada
+    // 429: bloqueada 15 min tras 5 intentos fallidos (RNF-03); el mensaje dice cuánto falta
     mostrarErrorApi(error);
     botonCargando(boton, false);
   }

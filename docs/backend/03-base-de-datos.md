@@ -30,7 +30,7 @@ Todo se define en **`models.py`**. Cada clase que hereda de `Base` es una **tabl
 
 | Estado | Tablas |
 |--------|--------|
-| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `Entrega`, `Calificacion`, `PublicacionAsesoria`, `HistorialAcademico` y `RegistroRiesgo` (riesgo académico), `MallaCurricular`, `Materia`, `MallaMateria` |
+| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionActiva` e `IntentoLogin` (RNF-02, RNF-03), `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `Entrega`, `Calificacion`, `PublicacionAsesoria`, `HistorialAcademico` y `RegistroRiesgo` (riesgo académico), `MallaCurricular`, `Materia`, `MallaMateria` |
 | **Sin uso todavía** | `BibliotecaNormatividad` |
 
 ---
@@ -142,6 +142,17 @@ erDiagram
     TokenRevocado {
         string jti PK
         string expira
+    }
+    SesionActiva {
+        string jti PK
+        int usuario_id FK
+        string ultimaActividad
+        string expira
+    }
+    IntentoLogin {
+        string codigo PK
+        int intentosFallidos
+        string bloqueadoHasta
     }
 ```
 
@@ -375,6 +386,27 @@ Se llenan **una sola vez** desde `planes.json` (`services.py → _sembrar_planes
 | `expira` | String | Cuándo habría vencido el token (ISO, en UTC) |
 
 Explicación completa en [04-seguridad.md](04-seguridad.md#5-cómo-funciona-el-logout).
+
+### `SesionActiva`: última actividad de cada sesión (RNF-02)
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `jti` | String, PK | El mismo `jti` del token |
+| `usuario_id` | Integer, FK → `Usuario.id` | Dueño de la sesión |
+| `ultimaActividad` | String | Última petición con ese token (ISO, en UTC) |
+| `expira` | String | El `exp` del token (ISO, en UTC); sirve para limpiar las vencidas |
+
+Se crea en el login y se borra en el logout o al cerrarse por inactividad. Un token sin fila aquí ya no sirve. Explicación en [04-seguridad.md](04-seguridad.md#7-cierre-por-inactividad-rnf-02).
+
+### `IntentoLogin`: intentos fallidos por código (RNF-03)
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `codigo` | String, PK | Código de acceso en mayúsculas, **exista o no** en el sistema |
+| `intentosFallidos` | Integer | Fallos consecutivos desde el último acceso correcto o el último bloqueo |
+| `bloqueadoHasta` | String, nulo | Fin del bloqueo (ISO, en UTC) |
+
+Se borra la fila al entrar con la contraseña correcta. Explicación en [04-seguridad.md](04-seguridad.md#8-bloqueo-por-intentos-fallidos-rnf-03).
 
 ---
 

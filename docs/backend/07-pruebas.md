@@ -77,6 +77,8 @@ flowchart TD
     T12 --> H
     T13["test_riesgo.py<br/>RF-53 a RF-59, RF-84"] --> C
     T13 --> H
+    T14["test_seguridad.py<br/>RNF-02, RNF-03<br/>+ fixture reloj"] --> C
+    T14 --> H
 ```
 
 ### `conftest.py`: la fixture `client`
@@ -323,6 +325,15 @@ Docstring: *"Historial académico y riesgo (RF-53 a RF-59, RF-84)"*. La fixture 
 | RF-56 a RF-59 | Alumno y curso ligados al plan; rezago crítico con su detalle; desfase menor; materia fuera del plan |
 | RF-84 | Reprobada antes: la alerta aparece solo cuando el semáforo actual es rojo; el docente ve las mismas banderas |
 | Administrador | Lanzar el análisis (202); ver, agregar, mover y quitar materias de un plan |
+
+### `test_seguridad.py`
+
+Docstring: *"Seguridad de la sesión: cierre por inactividad (RNF-02) y bloqueo por intentos fallidos (RNF-03)"*. La fixture `reloj` reemplaza `security.ahora_utc()` por una hora que cada prueba mueve. Parte de la hora **real** (no de una fecha fija) porque PyJWT compara el `exp` del token con el reloj del sistema.
+
+| RNF | Qué comprueban |
+|-----|----------------|
+| RNF-02 | Más de 30 min sin peticiones → 401 por inactividad; cada petición renueva el plazo (30 min exactos todavía sirve); es por sesión; el logout y el login limpian `SesionActiva` |
+| RNF-03 | El 5.º fallo da 429 y bloquea 15 min aun con la contraseña correcta; los minutos que faltan; termina a los 15 min y cuenta de cero; un acceso correcto reinicia el conteo; es por cuenta; misma respuesta si el código no existe; sin distinguir mayúsculas |
 
 ---
 

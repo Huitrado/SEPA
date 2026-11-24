@@ -30,7 +30,7 @@ Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sa
 
 **Errores comunes a todos los endpoints protegidos** (no se repiten en cada fila):
 
-- **401**: falta el token, es inválido o expiró, la sesión se cerró, o el usuario ya no está activo.
+- **401**: falta el token, es inválido o expiró, la sesión se cerró, pasaron más de 30 minutos sin peticiones (RNF-02: `"Tu sesión se cerró por inactividad; inicia sesión de nuevo"`), o el usuario ya no está activo.
 - **403**: el usuario no tiene el rol requerido. Ver también la nota de [04-seguridad.md](04-seguridad.md#3-el-encabezado-authorization) sobre 401/403 cuando falta el encabezado.
 - **422**: el JSON o los parámetros no pasan la validación (formato en [06-errores.md](06-errores.md)).
 
@@ -45,7 +45,7 @@ Archivo: `routers/usuarios.py` · Prefijo: `/usuarios`
 | Método | Ruta | Quién | Recibe | Respuestas | RF |
 |--------|------|-------|--------|------------|----|
 | POST | `/usuarios/registro` | Público | JSON `UsuarioCrear` | **201**, 409, 422 | RF-01, RF-02, RF-03 |
-| POST | `/usuarios/login` | Público | JSON `{codigo, contrasena}` | **200**, 401, 403, 422 | RF-04, RF-90 |
+| POST | `/usuarios/login` | Público | JSON `{codigo, contrasena}` | **200**, 401, 403, 422, 429 | RF-04, RF-90, RNF-03 |
 | POST | `/usuarios/logout` | Token válido* | Nada (solo el token) | **200**, 401 | RF-06, RF-91 |
 | GET | `/usuarios/yo` | Sesión | Nada | **200**, 401 | RF-05, RF-90 |
 | GET | `/usuarios/recuperar-contrasena` | Público | Nada | **200** | RF-07 |
@@ -148,6 +148,7 @@ Petición:
 | 401 | `Código o contraseña incorrectos` (el mismo mensaje si el código no existe o si la contraseña está mal) |
 | 403 | `Tu cuenta está pendiente de aprobación por un administrador` |
 | 403 | `Tu cuenta está desactivada` |
+| 429 | `Demasiados intentos fallidos. El inicio de sesión de esta cuenta está bloqueado; intenta de nuevo en N minutos` (RNF-03: al 5.º fallo consecutivo y durante los 15 minutos siguientes, aunque la contraseña sea correcta) |
 
 ### `POST /usuarios/logout`
 

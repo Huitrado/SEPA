@@ -73,9 +73,11 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "clave-de-desarrollo-solo-local")
 ALGORITMO = "HS256"
 HORAS_SESION = 8
 
-def crear_token(usuario_id: int) -> str:
-    exp = datetime.now(timezone.utc) + timedelta(hours=HORAS_SESION)
-    return jwt.encode({"sub": str(usuario_id), "exp": exp, "jti": uuid.uuid4().hex}, SECRET_KEY, ALGORITMO)
+def crear_token(usuario_id: int, jti: str, exp: datetime) -> str:
+    return jwt.encode({"sub": str(usuario_id), "exp": exp, "jti": jti}, SECRET_KEY, ALGORITMO)
+
+def abrir_sesion(db, usuario_id):   # la llama services.py → iniciarSesion
+    # genera jti y exp (ahora + 8 h), guarda la fila SesionActiva (RNF-02) y devuelve el token
 ```
 
 | Campo | Significado | Valor |
@@ -147,7 +149,7 @@ sequenceDiagram
 
 ### Duración
 
-`HORAS_SESION = 8`. Pasadas 8 horas, PyJWT rechaza el token al decodificarlo y la API responde **401** `"Sesión inválida o expirada"`. No existe un endpoint para renovar el token: hay que volver a iniciar sesión.
+`HORAS_SESION = 8` es el máximo absoluto; antes de eso la sesión se cierra si pasa 30 minutos sin uso (ver [sección 7](#7-cierre-por-inactividad-rnf-02)). Pasadas 8 horas, PyJWT rechaza el token al decodificarlo y la API responde **401** `"Sesión inválida o expirada"`. No existe un endpoint para renovar el token: hay que volver a iniciar sesión.
 
 ---
 
@@ -198,7 +200,8 @@ flowchart LR
 | Dependencia | Qué revisa | Si falla |
 |-------------|-----------|----------|
 | `datos_token` | Que la firma sea válida y no haya expirado (`jwt.decode`) | 401 `"Sesión inválida o expirada"` |
-| | Que tenga `jti` y que no esté en `TokenRevocado` | 401 `"La sesión ya no es válida; inicia sesión de nuevo"` |
+| | Que tenga `jti`, que exista en `SesionActiva` y que no esté en `TokenRevocado` | 401 `"La sesión ya no es válida; inicia sesión de nuevo"` |
+| | Que no lleve más de 30 min sin peticiones (RNF-02); si no, actualiza `ultimaActividad` | 401 `"Tu sesión se cerró por inactividad; inicia sesión de nuevo"` |
 | `usuario_actual` | Que `sub` sea un número | 401 `"Sesión inválida"` |
 | | Que el usuario exista y su `estado` sea `activo` | 401 `"Usuario no válido"` |
 | `requiere_admin` | Que exista una fila en `Administrador` con ese `id` | 403 `"Se requiere rol de administrador"` |
@@ -285,7 +288,40 @@ No existe un "olvidé mi contraseña" automático:
 
 ---
 
-## 7. Por qué `SECRET_KEY` se lee de una variable de entorno
+## 7. Cierre por inactividad (RNF-02)
+
+**Regla:** si una sesión pasa **más de 30 minutos** (`config.py → MINUTOS_INACTIVIDAD`) sin ninguna petición al backend, se invalida y el usuario vuelve al login. Justo 30 minutos todavía cuenta como activa.
+
+**En el backend** (`security.py → datos_token`):
+
+1. Al iniciar sesión, `abrir_sesion` guarda una fila en `SesionActiva` con el `jti` y la hora (UTC). De paso borra las filas de tokens ya vencidos.
+2. En cada petición con token, si `ahora - ultimaActividad > 30 min`, borra la fila y responde **401** `"Tu sesión se cerró por inactividad; inicia sesión de nuevo"`. Si no, actualiza `ultimaActividad`.
+3. Sin fila, el token ya no sirve aunque su `exp` no haya llegado. El logout también borra la fila.
+
+**En el frontend** (`app.js → vigilarInactividad`, lo activa `protegerPagina`): guarda en `sessionStorage` la hora del último movimiento del ratón, tecla, scroll o toque. Cada 30 s (y al volver a la pestaña) revisa: si pasaron 30 min, llama a `POST /usuarios/logout` y manda al login con *"Tu sesión se cerró por inactividad"*. Así la pantalla no se queda abierta con datos a la vista aunque nadie haga peticiones. Si el backend contesta antes con el 401 de inactividad, `pedir()` muestra el mismo aviso.
+
+> Nota: al desplegar este cambio, los tokens emitidos antes no tienen fila en `SesionActiva`, así que todos deben volver a iniciar sesión una vez.
+
+`security.py → ahora_utc()` existe aparte para que las pruebas (`test_seguridad.py`) simulen el paso del tiempo.
+
+## 8. Bloqueo por intentos fallidos (RNF-03)
+
+**Regla:** **5 intentos fallidos consecutivos** (`config.py → INTENTOS_MAXIMOS`) bloquean el inicio de sesión de ese código **15 minutos** (`MINUTOS_BLOQUEO`). Lo aplica `services.py → iniciarSesion` con la tabla `IntentoLogin`:
+
+| Situación | Respuesta |
+|-----------|-----------|
+| Fallos 1 a 4 | **401** `"Código o contraseña incorrectos"` (se suma 1) |
+| 5.º fallo | **429** `"Demasiados intentos fallidos. El inicio de sesión de esta cuenta está bloqueado; intenta de nuevo en 15 minutos"` |
+| Cualquier intento durante el bloqueo, **aunque la contraseña sea correcta** | **429** con los minutos que faltan (redondeados hacia arriba) |
+| Pasados los 15 minutos | Se cuenta de cero |
+| Acceso correcto antes del 5.º fallo | Se borra el conteo (los fallos ya no son consecutivos) |
+
+- **Se cuenta por código, exista o no.** Si solo se contaran los códigos registrados, un atacante sabría cuáles existen porque solo esos se bloquean. Así la respuesta es idéntica en ambos casos (`test_rnf03_no_revela_si_el_codigo_existe`).
+- El código se guarda en mayúsculas, igual que se busca: `d-001` y `D-001` comparten conteo.
+- Durante el bloqueo se responde **antes** de bcrypt, sin verificar la contraseña.
+- No hay endpoint para desbloquear antes de tiempo; si hiciera falta, se borra la fila de `IntentoLogin`.
+
+## 9. Por qué `SECRET_KEY` se lee de una variable de entorno
 
 ```python
 SECRET_KEY = os.environ.get("SECRET_KEY", "clave-de-desarrollo-solo-local")

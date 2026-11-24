@@ -86,6 +86,7 @@ Toda página que requiere sesión empieza con `<html class="validando-sesion">` 
 2. Si el rol no corresponde a la página, manda al usuario a la suya (RF-90).
 3. Llena `#header-nombre` y activa `#btn-logout` (RF-91).
 4. Al volver con el botón "atrás" desde la caché del navegador, valida otra vez (RF-06).
+5. Vigila la inactividad (RNF-02, `vigilarInactividad`): tras 30 min sin mover el ratón ni teclear, cierra la sesión y manda al login.
 
 Solo cuando todo está bien quita `validando-sesion` y la página se muestra.
 
@@ -184,7 +185,7 @@ La lista completa de endpoints del backend está en [docs/backend/05-endpoints.m
    Esto pasa cuando se llama `pedir(ruta, { conToken: true })`.
 4. Al cerrar sesión, el backend "anula" ese token y el frontend lo borra (`app.js → borrarSesion`).
 
-El token dura **8 horas**. Más detalle en [docs/backend/04-seguridad.md](../backend/04-seguridad.md).
+El token dura **8 horas** como máximo, pero se cierra antes si pasan **30 minutos sin actividad** (RNF-02). Más detalle en [docs/backend/04-seguridad.md](../backend/04-seguridad.md).
 
 ### 3.5 Cómo se muestran los errores
 
@@ -196,6 +197,7 @@ Cuando algo sale mal, el backend responde con un **código de estado** (un núme
 |--------|-------------|-------------------|
 | sin conexión | El backend está apagado | Aviso: "No se pudo conectar con el servidor…" |
 | **401** | No sabemos quién eres | En el login: "Código o contraseña incorrectos". En el panel: te manda al login con "Tu sesión expiró…" |
+| **429** | Demasiados intentos de login (RNF-03) | Aviso: "Demasiados intentos fallidos… intenta de nuevo en N minutos" |
 | **403** | Sabemos quién eres, pero no puedes | Aviso con el motivo, p. ej. "Tu cuenta está pendiente de aprobación…" |
 | **409** | Choque con algo que ya existe | Aviso, p. ej. "El correo institucional ya está registrado" |
 | **422** | Datos inválidos | Cada campo se marca **en rojo** con su mensaje (`app.js → marcarCampo`) |

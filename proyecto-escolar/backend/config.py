@@ -96,3 +96,9 @@ ORDEN_SEMAFORO = ("verde", "amarillo", "rojo")
 CICLOS_HISTORIAL = 2
 # RF-58: rezago crítico = cursa una materia que debió acreditar N o más semestres atrás
 REZAGO_CRITICO = 3
+
+# RNF-02: la sesión se invalida tras este tiempo sin peticiones del usuario
+MINUTOS_INACTIVIDAD = 30
+# RNF-03: tras este número de intentos fallidos consecutivos, el código queda bloqueado un tiempo
+INTENTOS_MAXIMOS = 5
+MINUTOS_BLOQUEO = 15

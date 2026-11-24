@@ -1,6 +1,6 @@
 """Lógica de negocio. Los routers solo reciben, delegan aquí y responden."""
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import func, or_
@@ -15,7 +15,9 @@ from config import (ASISTENCIA_EXTRAORDINARIO, ASISTENCIA_ORDINARIO, CARPETA_ARC
                     PRIORIDAD_PANEL, SEMAFORO_AMARILLO, SEMAFORO_CALIFICACION_VERDE, SEMAFORO_VERDE,
                     TAMANO_MAXIMO_ARCHIVO, UMBRAL_APROBATORIO, CICLOS_HISTORIAL, REZAGO_CRITICO,
                     dominio_de, fechas_ciclo, rol_por_correo)
-from security import crear_token, hashear, verificar
+import security
+from config import INTENTOS_MAXIMOS, MINUTOS_BLOQUEO
+from security import abrir_sesion, hashear, verificar
 
 import json
 from pathlib import Path
@@ -243,19 +245,46 @@ def _ids_por_codigo(db: Session, codigo: str) -> set[int]:
     )
     return {fila[0] for q in consultas for fila in q}
 
+def _mensaje_bloqueo(hasta: datetime, ahora: datetime) -> str:
+    minutos = max(1, -(-int((hasta - ahora).total_seconds()) // 60))  # redondeo hacia arriba
+    return (f"Demasiados intentos fallidos. El inicio de sesión de esta cuenta está bloqueado; "
+            f"intenta de nuevo en {minutos} minuto{'s' if minutos != 1 else ''}")
+
 def iniciarSesion(db: Session, cred: schemas.UsuarioLogin) -> dict:
+    # RNF-03: el control va por código, exista o no, para no delatar qué códigos están registrados
+    ahora = security.ahora_utc()
+    intento = db.get(models.IntentoLogin, cred.codigo)
+    if intento and intento.bloqueadoHasta:
+        hasta = datetime.fromisoformat(intento.bloqueadoHasta)
+        if ahora < hasta:
+            raise HTTPException(429, _mensaje_bloqueo(hasta, ahora))
+        intento.intentosFallidos, intento.bloqueadoHasta = 0, None  # el bloqueo ya terminó: cuenta de cero
+
     usuarios = [db.get(models.Usuario, i) for i in _ids_por_codigo(db, cred.codigo)]
     if not usuarios:
         verificar(cred.contrasena, _HASH_FALSO)
     u = next((x for x in usuarios if x and verificar(cred.contrasena, x.contrasena)), None)
     if not u:  # mismo mensaje para código inexistente y contraseña errónea
+        if not intento:
+            intento = models.IntentoLogin(codigo=cred.codigo, intentosFallidos=0)
+            db.add(intento)
+        intento.intentosFallidos += 1
+        if intento.intentosFallidos >= INTENTOS_MAXIMOS:
+            hasta = ahora + timedelta(minutes=MINUTOS_BLOQUEO)
+            intento.bloqueadoHasta = hasta.isoformat()
+            db.commit()
+            raise HTTPException(429, _mensaje_bloqueo(hasta, ahora))
+        db.commit()
         raise HTTPException(401, "Código o contraseña incorrectos")
+    if intento:  # con la contraseña correcta, los fallos anteriores dejan de contar
+        db.delete(intento)
+        db.commit()
     if u.estado == "pendiente":  # solo se revela con la contraseña correcta
         raise HTTPException(403, "Tu cuenta está pendiente de aprobación por un administrador")
     if u.estado != "activo":
         raise HTTPException(403, "Tu cuenta está desactivada")
     roles = _roles_de(db, u.id)
-    return {"access_token": crear_token(u.id), "token_type": "bearer", "roles": roles,
+    return {"access_token": abrir_sesion(db, u.id), "token_type": "bearer", "roles": roles,
             "panel": _panel_de(roles), "nombre": f"{u.nombre} {u.apellidos}"}
 
 def cerrarSesion(db: Session, payload: dict) -> None:
@@ -264,6 +293,7 @@ def cerrarSesion(db: Session, payload: dict) -> None:
     if not db.get(models.TokenRevocado, jti):
         expira = datetime.fromtimestamp(payload["exp"], timezone.utc).isoformat()
         db.add(models.TokenRevocado(jti=jti, expira=expira))
+    db.query(models.SesionActiva).filter(models.SesionActiva.jti == jti).delete()
     # limpieza: un token expirado ya es inválido por sí solo
     db.query(models.TokenRevocado).filter(
         models.TokenRevocado.expira < datetime.now(timezone.utc).isoformat()).delete()

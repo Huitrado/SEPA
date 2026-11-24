@@ -190,6 +190,21 @@ class TokenRevocado(Base):
     jti = Column(String, primary_key=True)
     expira = Column(String, nullable=False)
 
+class SesionActiva(Base):
+    """RNF-02: última petición de cada sesión, para cerrarla por inactividad."""
+    __tablename__ = "SesionActiva"
+    jti = Column(String, primary_key=True)
+    usuario_id = Column(Integer, ForeignKey("Usuario.id"), nullable=False)
+    ultimaActividad = Column(String, nullable=False)  # ISO 8601 en UTC
+    expira = Column(String, nullable=False)           # ISO 8601 en UTC, igual que el "exp" del token
+
+class IntentoLogin(Base):
+    """RNF-03: intentos fallidos consecutivos por código de acceso (exista o no)."""
+    __tablename__ = "IntentoLogin"
+    codigo = Column(String, primary_key=True)          # en mayúsculas, como se busca al iniciar sesión
+    intentosFallidos = Column(Integer, nullable=False, default=0)
+    bloqueadoHasta = Column(String)                    # ISO 8601 en UTC; None si no está bloqueado
+
 class Materia(Base):
     __tablename__ = "Materia"
     id = Column(Integer, primary_key=True, autoincrement=True)
