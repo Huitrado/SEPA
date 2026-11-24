@@ -38,6 +38,7 @@ frontend/
 ├── estudiante.html      Panel del estudiante: sus cursos del ciclo activo y "Unirse a un curso"
 ├── curso-alumno.html    Panel consolidado de un curso para el alumno (curso-alumno.html?id=N)
 ├── entrega.html         Detalle de una actividad y entrega del alumno (entrega.html?curso=N&actividad=M)
+├── admin.html           Panel del administrador: inicio, usuarios y roles, ciclos, carreras y materias
 ├── css/
 │   └── style.css        Estilos que Tailwind no trae (campo en rojo, animación)
 └── js/
@@ -53,7 +54,9 @@ frontend/
     ├── actividad.js        actividad.html
     ├── estudiante.js       estudiante.html
     ├── curso-alumno.js     curso-alumno.html
-    └── entrega.js          entrega.html
+    ├── entrega.js          entrega.html
+    ├── admin.js            admin.html: secciones, inicio y usuarios
+    └── admin-catalogos.js  admin.html: ciclos, carreras y materias
 ```
 
 | Pantalla | Qué hace | Lógica en |
@@ -66,6 +69,7 @@ frontend/
 | `estudiante.html` | Tarjetas de los cursos del ciclo activo con profesor, horario, asistencia, puntos y semáforo; filtro por color y ventana **Unirse a un curso** con el código. | `estudiante.js` |
 | `curso-alumno.html` | Panel del curso: semáforo general, alertas, calificación acumulada con puntos obtenidos/perdidos, anillo de asistencia con estatus UdeG, encuadre, tareas pendientes (enlazan a la entrega) e historial con retroalimentación. En amarillo o rojo aparece el botón de asesoría (desactivado hasta que exista el tablero). | `curso-alumno.js` |
 | `entrega.html` | Instrucciones de la actividad, archivo del profesor, subir el archivo (arrastrar o elegir), cancelar y volver a subir antes de la fecha límite, y la calificación con retroalimentación. | `entrega.js` |
+| `admin.html` | Cuatro secciones: **Inicio** (conteos y docentes por aprobar), **Usuarios y roles** (buscar y filtrar; registrar docente o administrador; editar datos; rol de asesor; restablecer contraseña; aprobar, desactivar y reactivar), **Ciclos escolares** (lista con estado y alta con fechas oficiales) y **Carreras y materias** (catálogos). | `admin.js`, `admin-catalogos.js` |
 | `actividad.html` | Lista de alumnos con su entrega (filtros: por calificar, calificadas, sin entrega) y panel para descargar la entrega, calificar de 0 al máximo y dejar retroalimentación. "Guardar y siguiente" salta al próximo pendiente. | `actividad.js` |
 
 ### Páginas protegidas: `protegerPagina()`
@@ -99,7 +103,7 @@ flowchart LR
     L -- "Ya había sesión abierta" --> D
 ```
 
-- Después del login, el backend responde con un campo `panel` (`estudiante`, `docente` o `administrador`). La tabla `PAGINA_POR_PANEL` en `js/app.js` dice a qué página mandar a cada uno. **Hoy el docente va a `docente.html`, el estudiante a `estudiante.html` y el administrador a `dashboard.html`.**
+- Después del login, el backend responde con un campo `panel` (`estudiante`, `docente` o `administrador`). La tabla `PAGINA_POR_PANEL` en `js/app.js` dice a qué página mandar a cada uno. **El docente va a `docente.html`, el estudiante a `estudiante.html` y el administrador a `admin.html`.**
 - Si abres `dashboard.html` sin haber iniciado sesión, te regresa al login.
 
 ---
@@ -150,6 +154,7 @@ Un **endpoint** es una "ventanilla" del backend: un método (GET, POST…) más 
 | Curso · Actividades | `GET/POST .../actividades`, `PATCH/DELETE .../actividades/{id}`, `PUT/DELETE .../actividades/{id}/archivo`, `GET /actividades/{id}/archivo` | Actividades y archivo adjunto |
 | Estudiante | `GET /alumno/cursos`, `POST /inscripcion`, `GET /catalogos/ciclo-actual` | Tarjetas y unirse a un curso |
 | Curso del alumno | `GET /alumno/cursos/{id}`, `.../seguimiento`, `.../calificaciones`, `.../encuadre`, `.../actividades` | Panel consolidado |
+| Administración | `GET /admin/usuarios`, `POST /admin/docentes`, `POST /admin/administradores`, `PATCH /admin/usuarios/{id}` (y `/estado`, `/asesor`, `/contrasena`), `GET /catalogos/ciclos`, `POST /admin/ciclos`, `GET /catalogos/carreras`, `POST /admin/carreras`, `GET /catalogos/materias`, `POST/PATCH/DELETE /admin/materias` | Panel del administrador |
 | Entrega | `POST/DELETE /alumno/actividades/{id}/entrega`, `GET /actividades/{id}/archivo`, `GET /entregas/{id}/archivo` | Subir, cancelar y descargar |
 | Curso · Calificaciones y `actividad.html` | `GET .../calificaciones`, `GET .../actividades/{id}/entregas`, `GET /entregas/{id}/archivo`, `PUT .../entregas/{id}/calificacion` | Cuadrícula, revisar y calificar |
 
@@ -223,7 +228,7 @@ Si abres el frontend en otro puerto (o haciendo doble clic sobre el `.html`, que
 
 ## 5. Qué falta o está incompleto (dicho tal cual)
 
-- **Administrador:** `dashboard.html` solo muestra su perfil; sus pantallas están pendientes.
+- **Administrador:** ya tiene `admin.html`; `dashboard.html` le sirve como "Mi perfil". Falta administrar los planes de estudio (llegará con el módulo de rezago).
 - **Estudiante:** ya tiene sus pantallas (`estudiante.html`, `curso-alumno.html`, `entrega.html`). `dashboard.html` le sirve como "Mi perfil". Faltan asesorías y normatividad.
 - **Docente:** ya tiene sus pantallas completas (`docente.html`, `curso.html` y `actividad.html`).
 - **Caché del navegador:** si cambias un `.js` y no ves el cambio, recarga con **Ctrl + Shift + R**.

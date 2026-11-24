@@ -314,8 +314,12 @@ function mostrarPerfil(perfil) {
   const texto = (id, valor) => { document.getElementById(id).textContent = valor; };
   const nombreCompleto = `${perfil.nombre} ${perfil.apellidos}`;
 
-  if (perfil.panel === "estudiante") {
+  // Regreso al panel propio: "Mis cursos" (estudiante) o "Administración"
+  const regreso = { estudiante: "Mis cursos", administrador: "Administración" }[perfil.panel];
+  if (regreso) {
     const enlace = document.getElementById("link-mis-cursos");
+    enlace.href = PAGINA_POR_PANEL[perfil.panel];
+    enlace.querySelector("span:last-child").textContent = regreso;
     enlace.classList.remove("hidden");
     enlace.classList.add("inline-flex");
   }

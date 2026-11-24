@@ -22,7 +22,7 @@ def crear_administrador(datos: schemas.AdminCrear, db: Session = Depends(get_db)
     return services.crear_administrador(db, datos)
 
 @router.get("/usuarios", response_model=list[schemas.UsuarioAdminSalida])
-def listar_usuarios(rol: Literal["estudiante", "docente", "administrador"] | None = None,
+def listar_usuarios(rol: Literal["estudiante", "docente", "administrador", "asesor"] | None = None,
                     estado: Literal["activo", "inactivo", "pendiente"] | None = None,
                     db: Session = Depends(get_db), _: models.Usuario = Depends(requiere_admin)):
     return services.listar_usuarios(db, rol, estado)
@@ -32,6 +32,16 @@ def cambiar_estado_usuario(usuario_id: int, datos: schemas.EstadoUsuario,
                            db: Session = Depends(get_db),
                            admin: models.Usuario = Depends(requiere_admin)):
     return services.cambiar_estado_usuario(db, admin, usuario_id, datos.estado)
+
+@router.patch("/usuarios/{usuario_id}", response_model=schemas.UsuarioAdminSalida)
+def editar_usuario(usuario_id: int, datos: schemas.UsuarioAdminActualizar, db: Session = Depends(get_db),
+                   _: models.Usuario = Depends(requiere_admin)):
+    return services.actualizar_usuario(db, usuario_id, datos)
+
+@router.patch("/usuarios/{usuario_id}/asesor", response_model=schemas.UsuarioAdminSalida)
+def cambiar_rol_asesor(usuario_id: int, datos: schemas.RolAsesor, db: Session = Depends(get_db),
+                       _: models.Usuario = Depends(requiere_admin)):
+    return services.cambiar_rol_asesor(db, usuario_id, datos.asesor)
 
 @router.patch("/usuarios/{usuario_id}/contrasena")
 def restablecer_contrasena(usuario_id: int, datos: schemas.NuevaContrasena,

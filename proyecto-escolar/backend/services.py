@@ -13,7 +13,7 @@ from config import (ASISTENCIA_EXTRAORDINARIO, ASISTENCIA_ORDINARIO, CARPETA_ARC
                     CARRERAS_INICIALES, DESEMPENO_ALERTA, DIAS_SEMANA, DOCENTE_REQUIERE_APROBACION,
                     ESTADOS_ASISTENCIA, ESTADOS_QUE_CUENTAN, EXTENSIONES_PERMITIDAS, ORDEN_SEMAFORO,
                     PRIORIDAD_PANEL, SEMAFORO_AMARILLO, SEMAFORO_CALIFICACION_VERDE, SEMAFORO_VERDE,
-                    TAMANO_MAXIMO_ARCHIVO, UMBRAL_APROBATORIO, fechas_ciclo, rol_por_correo)
+                    TAMANO_MAXIMO_ARCHIVO, UMBRAL_APROBATORIO, dominio_de, fechas_ciclo, rol_por_correo)
 from security import crear_token, hashear, verificar
 
 import json
@@ -276,9 +276,75 @@ def perfil_de(db: Session, usuario: models.Usuario) -> dict:
 # Administración (RF-08, RF-93)
 # ======================================================================
 def _usuario_admin(db: Session, u: models.Usuario) -> dict:
+    estudiante = db.get(models.Estudiante, u.id)
+    docente = db.get(models.Docente, u.id)
     return {"id": u.id, "nombre": u.nombre, "apellidos": u.apellidos,
             "correoInstitucional": u.correoInstitucional, "estado": u.estado,
-            "roles": _roles_de(db, u.id)}
+            "roles": _roles_de(db, u.id), "codigo": _codigo_de(db, u.id),
+            "carrera": estudiante.carrera if estudiante else None,
+            "ciclo": estudiante.ciclo if estudiante else None,
+            "departamento": docente.departamento if docente else None,
+            "fechaRegistro": u.fechaRegistro}
+
+def _obtener_rol(db: Session, nombre: str) -> models.Rol:
+    rol = db.query(models.Rol).filter_by(nombre=nombre).first()
+    if not rol:
+        rol = models.Rol(nombre=nombre)
+        db.add(rol)
+        db.flush()
+    return rol
+
+def _usuario(db: Session, usuario_id: int) -> models.Usuario:
+    usuario = db.get(models.Usuario, usuario_id)
+    if not usuario:
+        raise HTTPException(404, "Usuario no encontrado")
+    return usuario
+
+def actualizar_usuario(db: Session, usuario_id: int, datos: schemas.UsuarioAdminActualizar) -> dict:
+    """RF-93: el administrador corrige los datos de una cuenta. Los códigos de acceso no cambian."""
+    usuario = _usuario(db, usuario_id)
+    estudiante = db.get(models.Estudiante, usuario.id)
+    docente = db.get(models.Docente, usuario.id)
+    cambios = {k: v for k, v in datos.model_dump(exclude_unset=True).items() if v is not None}
+    if "carrera" in cambios:
+        if not estudiante:
+            raise HTTPException(422, "Solo los estudiantes tienen carrera")
+        if not db.query(models.Carrera).filter_by(clave=cambios["carrera"]).first():
+            raise HTTPException(422, "La carrera seleccionada no pertenece al catálogo oficial")
+        estudiante.carrera = cambios.pop("carrera")
+    if "departamento" in cambios:
+        if not docente:
+            raise HTTPException(422, "Solo los docentes tienen departamento")
+        docente.departamento = cambios.pop("departamento")
+    correo = cambios.get("correoInstitucional")
+    if correo and correo != usuario.correoInstitucional:
+        otro = db.query(models.Usuario).filter_by(correoInstitucional=correo).first()
+        if otro:
+            raise HTTPException(409, "El correo institucional ya está registrado")
+        # El dominio decide el rol: un estudiante sigue en @alumnos y un docente en @academicos
+        for perfil, rol in ((estudiante, "estudiante"), (docente, "docente")):
+            if perfil and rol_por_correo(correo) != rol:
+                raise HTTPException(422, f"El correo de un {rol} debe terminar en @{dominio_de(rol)}")
+    for campo, valor in cambios.items():
+        setattr(usuario, campo, valor)
+    db.commit()
+    return _usuario_admin(db, usuario)
+
+def cambiar_rol_asesor(db: Session, usuario_id: int, asesor: bool) -> dict:
+    """RF-73: el administrador asigna (o quita) el rol de asesor a un estudiante.
+    RF-92: un estudiante con rol de asesor sigue entrando a su panel de estudiante."""
+    usuario = _usuario(db, usuario_id)
+    if not db.get(models.Estudiante, usuario.id):
+        raise HTTPException(409, "Solo los estudiantes pueden tener el rol de asesor")
+    rol = _obtener_rol(db, "asesor")
+    tiene = "asesor" in _roles_de(db, usuario.id)
+    if asesor and not tiene:
+        db.execute(models.usuario_rol.insert().values(usuario_id=usuario.id, rol_id=rol.id))
+    elif not asesor and tiene:
+        db.execute(models.usuario_rol.delete().where(models.usuario_rol.c.usuario_id == usuario.id,
+                                                     models.usuario_rol.c.rol_id == rol.id))
+    db.commit()
+    return _usuario_admin(db, usuario)
 
 def _crear_personal(db: Session, datos, rol_nombre: str, perfil, extra: dict) -> models.Usuario:
     """Crea Usuario + perfil (Docente/Administrador) + rol, todo en una transacción."""

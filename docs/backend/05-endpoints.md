@@ -2,7 +2,7 @@
 
 [← Volver al índice](README.md)
 
-Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **61 endpoints** en 6 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
+Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **63 endpoints** en 6 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
 
 ## Cómo leer estas tablas
 
@@ -1011,7 +1011,9 @@ Archivo: `routers/admin.py` · Prefijo: `/admin` · **Todos exigen Admin** (`req
 |--------|------|-------|--------|------------|----|
 | POST | `/admin/docentes` | Admin | JSON `DocenteCrear` | **201**, 409, 422 | RF-93 |
 | POST | `/admin/administradores` | Admin | JSON `AdminCrear` | **201**, 409, 422 | RF-93 |
-| GET | `/admin/usuarios` | Admin | Query opcional `rol` (`estudiante`, `docente`, `administrador`) y `estado` (`activo`, `inactivo`, `pendiente`) | **200**, 422 | RF-93 |
+| GET | `/admin/usuarios` | Admin | Query opcional `rol` (`estudiante`, `asesor`, `docente`, `administrador`) y `estado` (`activo`, `inactivo`, `pendiente`) | **200**, 422 | RF-93 |
+| PATCH | `/admin/usuarios/{usuario_id}` | Admin | JSON `UsuarioAdminActualizar` (todo opcional) | **200**, 404, 409, 422 | RF-93 |
+| PATCH | `/admin/usuarios/{usuario_id}/asesor` | Admin | JSON `{asesor: true/false}` | **200**, 404, 409, 422 | RF-73, RF-92 |
 | PATCH | `/admin/usuarios/{usuario_id}/estado` | Admin | JSON `{estado}` = `activo` o `inactivo` | **200**, 404, 409, 422 | RF-93 |
 | PATCH | `/admin/usuarios/{usuario_id}/contrasena` | Admin | JSON `{nueva_contrasena}` | **200**, 404, 422 | RF-07 |
 | POST | `/admin/carreras` | Admin | JSON `{clave, nombre}` | **201**, 409, 422 | RF-02 |
@@ -1052,10 +1054,40 @@ El correo **debe** terminar en `@academicos.udg.mx` (`schemas.py → DocenteCrea
   {
     "id": 2, "nombre": "Luis", "apellidos": "Pérez",
     "correoInstitucional": "luis@academicos.udg.mx",
-    "estado": "pendiente", "roles": ["docente"]
+    "estado": "pendiente", "roles": ["docente"],
+    "codigo": "D-001", "carrera": null, "ciclo": null, "departamento": "Sistemas",
+    "fechaRegistro": "2026-10-25T14:03:00"
   }
 ]
 ```
+`codigo` es el código de estudiante o el número de empleado. `carrera` y `ciclo` (de ingreso) solo vienen en estudiantes; `departamento`, solo en docentes.
+
+### `PATCH /admin/usuarios/{usuario_id}`
+
+`services.py → actualizar_usuario`. RF-93: el administrador corrige los datos de una cuenta. Solo se cambian los campos que envíes; un campo en `null` se ignora. **El código de acceso no se puede cambiar.**
+
+| Campo | Para quién | Reglas |
+|-------|-----------|--------|
+| `nombre`, `apellidos` | Todos | Mismas reglas que en el registro |
+| `correoInstitucional` | Todos | Único. Un estudiante debe seguir en `@alumnos.udg.mx` y un docente en `@academicos.udg.mx` |
+| `carrera` | Estudiante | Clave del catálogo |
+| `departamento` | Docente | Texto libre, hasta 100 caracteres |
+
+**200**: el usuario con el formato de `GET /admin/usuarios`.
+
+| Código | `detail` |
+|--------|----------|
+| 404 | `Usuario no encontrado` |
+| 409 | `El correo institucional ya está registrado` |
+| 422 | `El correo de un estudiante debe terminar en @alumnos.udg.mx` (o `de un docente ... @academicos.udg.mx`) |
+| 422 | `La carrera seleccionada no pertenece al catálogo oficial` |
+| 422 | `Solo los estudiantes tienen carrera` · `Solo los docentes tienen departamento` |
+
+### `PATCH /admin/usuarios/{usuario_id}/asesor`
+
+`services.py → cambiar_rol_asesor`. RF-73: asigna (`{"asesor": true}`) o quita (`{"asesor": false}`) el rol **asesor** a un estudiante. El rol se guarda en `Rol`/`UsuarioRol`; repetir la petición no lo duplica. RF-92: un estudiante con rol de asesor sigue entrando a su panel de estudiante (el login responde `"panel": "estudiante"` y `"roles": ["estudiante", "asesor"]`). **200**: el usuario con el formato de `GET /admin/usuarios`.
+
+**409**: `Solo los estudiantes pueden tener el rol de asesor`.
 
 ### `PATCH /admin/usuarios/{usuario_id}/estado`
 

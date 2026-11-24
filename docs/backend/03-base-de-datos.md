@@ -64,7 +64,7 @@ erDiagram
     }
     Rol {
         int id PK
-        string nombre UK "estudiante | docente | administrador"
+        string nombre UK "estudiante | docente | administrador | asesor"
     }
     UsuarioRol {
         int usuario_id PK, FK
@@ -267,7 +267,7 @@ En la columna "Obligatorio", "No" significa que el campo puede quedar vacío (NU
 
 ### `Rol` y `UsuarioRol`: roles de cada usuario
 
-`Rol` guarda los nombres de rol: `estudiante`, `docente` y `administrador`. Cada uno se crea **la primera vez que se necesita**, dentro de `registrarse` o `_crear_personal`.
+`Rol` guarda los nombres de rol: `estudiante`, `docente`, `administrador` y `asesor`. Cada uno se crea **la primera vez que se necesita**, dentro de `registrarse`, `_crear_personal` o `cambiar_rol_asesor`. El rol `asesor` (RF-73) se suma al de `estudiante`: no tiene tabla de perfil propia.
 
 `UsuarioRol` es una **tabla de asociación muchos a muchos**: una tabla intermedia que solo guarda pares (`usuario_id`, `rol_id`), de modo que un usuario podría tener varios roles. Está declarada con `Table(...)`, no como clase. La llave primaria es la pareja completa, así que no se puede repetir el mismo rol para el mismo usuario.
 

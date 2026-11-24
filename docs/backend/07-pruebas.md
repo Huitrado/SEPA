@@ -71,6 +71,8 @@ flowchart TD
     T9 --> H
     T10["test_panel_alumno.py<br/>RF-60 a RF-63, RF-68"] --> C
     T10 --> H
+    T11["test_admin_usuarios.py<br/>RF-73, RF-92, RF-93"] --> C
+    T11 --> H
 ```
 
 ### `conftest.py`: la fixture `client`
@@ -279,6 +281,17 @@ Docstring: *"Panel del estudiante (RF-60, RF-61, RF-63, RF-68)"*.
 | RF-68 | Puntos obtenidos, posibles y perdidos en calificaciones y seguimiento |
 
 En `test_registro_login.py`, `test_rf01_el_ciclo_es_el_de_ingreso_vigente_o_anterior` comprueba que el ciclo de ingreso puede ser el vigente o uno anterior, y no uno futuro ni con mal formato.
+
+
+### `test_admin_usuarios.py`
+
+Docstring: *"Gestión de usuarios del administrador (RF-73, RF-92, RF-93)"*.
+
+| RF | Qué comprueban |
+|----|----------------|
+| RF-93 | La lista trae código, carrera, ciclo y departamento; editar datos de alumnos y docentes sin cambiar su código de acceso; correo repetido o de otro dominio, carrera inexistente y campos que no corresponden al rol |
+| RF-73 | Asignar y quitar el rol de asesor sin duplicarlo; filtrar por `rol=asesor`; solo estudiantes |
+| RF-92 | El asesor entra a su panel de estudiante con ambos roles |
 
 ---
 

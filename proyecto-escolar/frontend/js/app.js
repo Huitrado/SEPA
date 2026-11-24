@@ -10,12 +10,12 @@
 // solo se modifica esta línea.
 const API_URL = "http://127.0.0.1:8000";
 
-// Página a la que se manda a cada usuario según el "panel" que devuelve el login.
-// El administrador sigue en dashboard.html hasta que tenga la suya (solo se cambia aquí).
+// Página a la que se manda a cada usuario según el "panel" que devuelve el login (RF-90).
+// dashboard.html queda como "Mi perfil" para estudiante y administrador.
 const PAGINA_POR_PANEL = {
   estudiante: "estudiante.html",
   docente: "docente.html",
-  administrador: "dashboard.html"
+  administrador: "admin.html"
 };
 
 // ---------------- Sesión ----------------

@@ -133,6 +133,21 @@ class AdminCrear(PersonalCrear):
 class UsuarioAdminSalida(UsuarioSalida):
     estado: str
     roles: list[str]
+    codigo: str | None          # código de estudiante o número de empleado
+    carrera: str | None         # solo estudiantes
+    ciclo: str | None           # solo estudiantes: ciclo de ingreso
+    departamento: str | None    # solo docentes
+    fechaRegistro: str
+
+class UsuarioAdminActualizar(BaseModel):  # RF-93: solo se cambia lo que se envía
+    nombre: Nombre | None = None
+    apellidos: Nombre | None = None
+    correoInstitucional: CorreoNormalizado | None = None
+    carrera: Clave | None = None
+    departamento: Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)] | None = None
+
+class RolAsesor(BaseModel):  # RF-73
+    asesor: bool
 
 class EstadoUsuario(BaseModel):
     estado: Literal["activo", "inactivo"]
