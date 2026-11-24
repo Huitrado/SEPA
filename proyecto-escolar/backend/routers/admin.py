@@ -1,6 +1,6 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 
 import models
@@ -83,3 +83,25 @@ def editar_materia(materia_id: int, datos: schemas.MateriaActualizar, db: Sessio
 def eliminar_materia(materia_id: int, db: Session = Depends(get_db), _: models.Usuario = Depends(requiere_admin)):
     services.eliminar_materia(db, materia_id)
     return {"mensaje": "Materia eliminada correctamente"}
+
+
+# ------------------------------------------------------------------ riesgo académico y planes de estudio
+@router.post("/riesgo/recalcular", status_code=202)
+def recalcular_riesgo(tareas: BackgroundTasks, _: models.Usuario = Depends(requiere_admin)):
+    """RF-53: pasa al historial los ciclos cerrados y analiza el riesgo, en segundo plano (RNF-05)."""
+    tareas.add_task(services.analizar_riesgo_en_segundo_plano)
+    return {"mensaje": "El análisis de riesgo académico se está ejecutando en segundo plano"}
+
+@router.get("/mallas", response_model=list[schemas.MallaSalida])
+def listar_mallas(db: Session = Depends(get_db), _: models.Usuario = Depends(requiere_admin)):
+    return services.listar_mallas(db)
+
+@router.put("/mallas/{malla_id}/materias", status_code=204)
+def asignar_materia(malla_id: int, datos: schemas.MateriaEnMalla, db: Session = Depends(get_db),
+                    _: models.Usuario = Depends(requiere_admin)):
+    services.asignar_materia_a_malla(db, malla_id, datos)
+
+@router.delete("/mallas/{malla_id}/materias/{materia_id}", status_code=204)
+def quitar_materia(malla_id: int, materia_id: int, db: Session = Depends(get_db),
+                   _: models.Usuario = Depends(requiere_admin)):
+    services.quitar_materia_de_malla(db, malla_id, materia_id)

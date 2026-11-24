@@ -1,3 +1,4 @@
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -16,6 +17,8 @@ models.Base.metadata.create_all(bind=engine)
 async def lifespan(_):
     with SessionLocal() as db:
         services.sembrar_catalogos(db)  # carreras iniciales si el catálogo está vacío
+    # RF-53, RNF-05: el análisis de historial y riesgo corre en otro hilo; el servidor arranca sin esperarlo
+    threading.Thread(target=services.analizar_riesgo_en_segundo_plano, daemon=True).start()
     yield
 
 app = FastAPI(title="API SEPA", lifespan=lifespan)

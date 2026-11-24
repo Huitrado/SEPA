@@ -19,7 +19,12 @@ let ciclos = [];
 let materias = [];
 let materiaEditada = null;
 
+let mallas = [];
+
 function iniciarCatalogos() {
+  document.getElementById("select-malla").addEventListener("change", pintarMalla);
+  document.getElementById("form-malla").addEventListener("submit", guardarEnMalla);
+  document.getElementById("btn-recalcular").addEventListener("click", recalcularRiesgo);
   document.getElementById("form-ciclo").addEventListener("submit", registrarCiclo);
   document.getElementById("input-ciclo-nombre").addEventListener("input", previsualizarCiclo);
   document.getElementById("form-carrera").addEventListener("submit", registrarCarrera);
@@ -29,7 +34,97 @@ function iniciarCatalogos() {
 }
 
 async function cargarCatalogos() {
-  await Promise.all([cargarCiclos(), cargarCarreras(), cargarMaterias()]);
+  await Promise.all([cargarCiclos(), cargarCarreras(), cargarMaterias(), cargarMallas()]);
+  pintarMalla();  // la lista para agregar materias necesita el catálogo ya cargado
+}
+
+// ==================== PLANES DE ESTUDIO (RF-56) Y ANÁLISIS DE RIESGO (RF-53) ====================
+
+async function cargarMallas() {
+  try {
+    mallas = await pedir("/admin/mallas", { conToken: true });
+  } catch (error) {
+    if (error.status !== 401) mostrarErrorApi(error);
+  }
+  const select = document.getElementById("select-malla");
+  const elegido = select.value;
+  select.innerHTML = "";
+  mallas.forEach(m => select.appendChild(new Option(`${m.carrera} · ${m.nombrePlan} (generación ${m.generacion})`, m.id)));
+  if (elegido) select.value = elegido;
+  pintarMalla();
+}
+
+function pintarMalla() {
+  const contenedor = document.getElementById("malla-semestres");
+  contenedor.innerHTML = "";
+  const malla = mallas.find(m => m.id === Number(document.getElementById("select-malla").value));
+  if (!malla) {
+    contenedor.appendChild(el("p", "text-on-surface-variant", "No hay planes de estudio cargados."));
+    return;
+  }
+  const semestres = [...new Set(malla.materias.map(m => m.semestreBase))].sort((a, b) => a - b);
+  for (const s of semestres) {
+    const caja = el("div", "bg-surface-container-lowest rounded-xl shadow-sm p-space-md");
+    caja.appendChild(el("h3", "font-label-lg text-label-lg text-primary mb-space-sm uppercase tracking-wider", `Semestre ${s}`));
+    for (const m of malla.materias.filter(x => x.semestreBase === s)) {
+      const fila = el("div", "flex items-center justify-between gap-space-sm py-1.5 border-t border-surface-container first-of-type:border-0");
+      const textos = el("div", "min-w-0");
+      textos.append(el("p", "font-body-md text-body-md text-on-surface truncate", m.nombre), el("p", "font-caption text-caption text-on-surface-variant font-mono", m.clave));
+      const quitar = boton("", "close", "peligro");
+      quitar.title = `Quitar ${m.nombre} del plan`;
+      quitar.addEventListener("click", () => quitarDeMalla(malla, m));
+      fila.append(textos, quitar);
+      caja.appendChild(fila);
+    }
+    contenedor.appendChild(caja);
+  }
+  const lista = document.getElementById("lista-malla-materias");
+  lista.innerHTML = "";
+  materias.forEach(m => {
+    const opcion = el("option");
+    opcion.value = `${m.clave} · ${m.nombre}`;
+    lista.appendChild(opcion);
+  });
+}
+
+async function guardarEnMalla(evento) {
+  evento.preventDefault();
+  const malla = Number(document.getElementById("select-malla").value);
+  const texto = document.getElementById("input-malla-materia").value.trim();
+  const materia = materias.find(m => `${m.clave} · ${m.nombre}` === texto || m.clave === texto.toUpperCase() || m.nombre.toLowerCase() === texto.toLowerCase());
+  const semestreBase = Number(document.getElementById("input-malla-semestre").value);
+  if (!materia) return mostrarAviso("Elige una materia del catálogo.", "error");
+  try {
+    await pedir(`/admin/mallas/${malla}/materias`, { metodo: "PUT", datos: { materia_id: materia.id, semestreBase }, conToken: true });
+    document.getElementById("input-malla-materia").value = "";
+    ocultarAviso();
+    await cargarMallas();
+  } catch (error) {
+    if (error.status !== 401) mostrarErrorApi(error);
+  }
+}
+
+async function quitarDeMalla(malla, m) {
+  if (!await confirmar(`¿Quitar ${m.nombre} del plan?`, "Dejará de contar para el rezago de los alumnos de este plan. La materia sigue en el catálogo.", "Quitar")) return;
+  try {
+    await pedir(`/admin/mallas/${malla.id}/materias/${m.materia_id}`, { metodo: "DELETE", conToken: true });
+    await cargarMallas();
+  } catch (error) {
+    if (error.status !== 401) mostrarErrorApi(error);
+  }
+}
+
+async function recalcularRiesgo() {
+  const b = document.getElementById("btn-recalcular");
+  b.disabled = true;
+  try {
+    const r = await pedir("/admin/riesgo/recalcular", { metodo: "POST", conToken: true });
+    mostrarAviso(r.mensaje, "info");
+  } catch (error) {
+    if (error.status !== 401) mostrarErrorApi(error);
+  } finally {
+    b.disabled = false;
+  }
 }
 
 // ==================== CICLOS (RF-08) ====================

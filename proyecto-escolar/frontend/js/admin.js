@@ -14,7 +14,8 @@ const SECCIONES = [
   ["inicio", "Inicio", "dashboard"],
   ["usuarios", "Usuarios y roles", "manage_accounts"],
   ["ciclos", "Ciclos escolares", "event"],
-  ["catalogos", "Carreras y materias", "menu_book"]
+  ["catalogos", "Carreras y materias", "menu_book"],
+  ["planes", "Planes de estudio", "account_tree"]
 ];
 
 const ETIQUETA_ROL = {

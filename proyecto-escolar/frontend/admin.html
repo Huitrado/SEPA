@@ -68,6 +68,47 @@
           </div>
           <div id="inicio-pendientes"></div>
         </div>
+        <!-- RF-53: análisis de historial y riesgo en segundo plano -->
+        <div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg flex flex-col md:flex-row md:items-center justify-between gap-space-md">
+          <div>
+            <h2 class="font-title-lg text-title-lg text-primary flex items-center gap-space-xs">
+              <span class="material-symbols-outlined">monitoring</span> Análisis de riesgo académico
+            </h2>
+            <p class="font-body-md text-body-md text-on-surface-variant mt-1">Pasa al historial los cursos de ciclos terminados y recalcula el riesgo por historial y el rezago de cada alumno. Se hace solo al arrancar el servidor; úsalo si cambiaste un plan de estudios o al iniciar un ciclo.</p>
+          </div>
+          <button type="button" id="btn-recalcular"
+            class="shrink-0 inline-flex items-center justify-center gap-space-xs py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-surface-container-high text-primary hover:bg-surface-container transition-colors">
+            <span class="material-symbols-outlined text-[20px]">refresh</span> Ejecutar análisis
+          </button>
+        </div>
+      </section>
+
+      <!-- ============ PLANES DE ESTUDIO (RF-56) ============ -->
+      <section id="panel-planes" data-panel class="hidden space-y-space-md">
+        <div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md flex flex-col md:flex-row md:items-end gap-space-md">
+          <div class="flex flex-col space-y-space-xs md:w-80">
+            <label for="select-malla" class="font-label-lg text-label-lg text-on-surface">Plan de estudios</label>
+            <select id="select-malla" class="w-full px-3 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none"></select>
+          </div>
+          <form id="form-malla" novalidate class="flex-1 grid grid-cols-1 sm:grid-cols-[1fr_120px_auto] gap-space-sm items-end">
+            <div class="flex flex-col space-y-space-xs">
+              <label for="input-malla-materia" class="font-label-lg text-label-lg text-on-surface">Agregar o mover materia</label>
+              <input id="input-malla-materia" type="text" list="lista-malla-materias" autocomplete="off" placeholder="Escribe la clave o el nombre"
+                class="w-full px-3.5 py-2.5 rounded-lg bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none" />
+              <datalist id="lista-malla-materias"></datalist>
+            </div>
+            <div class="flex flex-col space-y-space-xs">
+              <label for="input-malla-semestre" class="font-label-lg text-label-lg text-on-surface">Semestre</label>
+              <input id="input-malla-semestre" type="number" min="1" max="12" value="1"
+                class="w-full px-3.5 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" />
+            </div>
+            <button type="submit" class="inline-flex items-center justify-center gap-space-xs py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors">
+              <span class="material-symbols-outlined text-[20px]">add</span> Guardar
+            </button>
+          </form>
+        </div>
+        <p class="font-helper-sm text-helper-sm text-on-surface-variant">El semestre base de cada materia se usa para calcular el rezago de los alumnos (RF-57, RF-58).</p>
+        <div id="malla-semestres" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-md"></div>
       </section>
 
       <!-- ============ USUARIOS (pantalla 2 · RF-07, RF-73, RF-93) ============ -->

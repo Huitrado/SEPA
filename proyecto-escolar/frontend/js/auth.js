@@ -342,5 +342,50 @@ function mostrarPerfil(perfil) {
 
   document.getElementById("panel-cargando").classList.add("hidden");
   document.getElementById("panel-contenido").classList.remove("hidden");
+  if (perfil.panel === "estudiante") mostrarTrayectoria();
+}
+
+// RF-53 historial, RF-55 insignia de riesgo por historial, RF-57 semestre según el ingreso
+async function mostrarTrayectoria() {
+  let riesgo, historial;
+  try {
+    [riesgo, historial] = await Promise.all([
+      pedir("/alumno/riesgo", { conToken: true }),
+      pedir("/alumno/historial", { conToken: true })
+    ]);
+  } catch (error) {
+    if (error.status !== 401) mostrarErrorApi(error);
+    return;
+  }
+  if (riesgo.riesgoPorHistorial) {
+    const caja = document.getElementById("perfil-riesgo");
+    caja.className = "p-space-lg rounded-xl bg-semaforo-rojo-fondo text-semaforo-rojo flex items-start gap-space-md";
+    const textos = el("div");
+    textos.append(
+      el("p", "font-title-lg text-title-lg", "Riesgo por historial"),
+      el("p", "font-body-md text-body-md mt-1",
+        `Reprobaste al menos una materia en cada uno de tus dos ciclos anteriores (${riesgo.ciclosConReprobadas.join(" y ")}). ` +
+        "Te recomendamos hablar con tu coordinación y buscar asesoría desde el inicio del semestre.")
+    );
+    caja.append(icono("workspace_premium", "text-[32px] icono-relleno"), textos);
+  }
+  document.getElementById("perfil-semestre").textContent = riesgo.semestreActual ? `${riesgo.semestreActual}.º semestre` : "—";
+  document.getElementById("perfil-plan").textContent = riesgo.plan || "Sin plan asignado";
+  const lista = document.getElementById("perfil-historial");
+  lista.innerHTML = "";
+  if (!historial.length) {
+    lista.appendChild(el("p", "font-body-md text-body-md text-on-surface-variant", "Aún no tienes ciclos cerrados en SEPA."));
+  }
+  for (const h of historial) {
+    const fila = el("div", "flex items-center justify-between gap-space-sm p-space-sm rounded-lg bg-surface-container-low");
+    const textos = el("div", "min-w-0");
+    textos.append(el("p", "font-label-lg text-label-lg text-on-surface truncate", h.materia), el("p", "font-caption text-caption text-on-surface-variant", h.periodo));
+    const aprobada = h.resultado === "aprobada";
+    const nota = el("span", `shrink-0 px-2.5 py-0.5 rounded-full font-label-md text-label-md ${aprobada ? "bg-semaforo-verde-fondo text-semaforo-verde" : "bg-semaforo-rojo-fondo text-semaforo-rojo"}`,
+      `${numero(h.calificacion)} · ${aprobada ? "Aprobada" : "Reprobada"}`);
+    fila.append(textos, nota);
+    lista.appendChild(fila);
+  }
+  document.getElementById("perfil-trayectoria").classList.remove("hidden");
 }
 // cerrarSesion() ahora vive en app.js para que la usen todas las páginas.

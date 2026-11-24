@@ -49,3 +49,14 @@ def mis_calificaciones(curso_id: int, db: Session = Depends(get_db),
 def mi_seguimiento(curso_id: int, db: Session = Depends(get_db),
                    alumno: models.Usuario = Depends(requiere_estudiante)):
     return services.seguimiento_del_alumno(db, alumno, curso_id)
+
+
+@router.get("/historial", response_model=list[schemas.HistorialSalida])
+def mi_historial(db: Session = Depends(get_db), alumno: models.Usuario = Depends(requiere_estudiante)):
+    """RF-53: materias de ciclos ya cerrados en SEPA."""
+    return services.historial_del_alumno(db, alumno)
+
+@router.get("/riesgo", response_model=schemas.RiesgoAlumno)
+def mi_riesgo(db: Session = Depends(get_db), alumno: models.Usuario = Depends(requiere_estudiante)):
+    """RF-54 a RF-59 y RF-84."""
+    return services.riesgo_del_alumno(db, alumno)

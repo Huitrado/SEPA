@@ -268,9 +268,18 @@ function filaAlumno(a, seg) {
         seg.desempenoProporcional === null ? "Sin evaluaciones aún" : `${numero(seg.desempenoProporcional, 1)} % de lo evaluado`)
     );
     celdaRiesgo.appendChild(chipSemaforo(seg.semaforoGeneral));
-    if (seg.alertaCalificacion) {
+    // Banderas: RF-48 calificación, RF-84 artículos 33 a 35, RF-58/59 rezago crítico, RF-54 historial
+    const banderas = [
+      [seg.alertaCalificacion, "notification_important", "Alerta por calificación", null],
+      [seg.alertaArticulos, "gavel", "Riesgo art. 33-35", "Ya reprobó esta materia y hoy está en rojo"],
+      [seg.rezagoCritico, "history_toggle_off", "Rezago crítico", seg.detalleRezago],
+      [seg.riesgoPorHistorial, "workspace_premium", "Riesgo por historial", "Reprobó en sus dos ciclos anteriores"]
+    ];
+    for (const [activa, nombreIcono, texto, detalle] of banderas) {
+      if (!activa) continue;
       const alerta = el("p", "font-helper-sm text-helper-sm text-error mt-1 flex items-center gap-1");
-      alerta.append(icono("notification_important", "text-[14px]"), el("span", "", "Alerta por calificación"));
+      if (detalle) alerta.title = detalle;
+      alerta.append(icono(nombreIcono, "text-[14px]"), el("span", "", texto));
       celdaRiesgo.appendChild(alerta);
     }
   } else {

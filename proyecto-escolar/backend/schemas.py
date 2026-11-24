@@ -506,6 +506,11 @@ class SeguimientoAlumno(IndicadoresSeguimiento):
     codigoEstudiante: str
     nombre: str
     apellidos: str
+    riesgoPorHistorial: bool = False     # RF-54
+    rezagoCritico: bool = False          # RF-58
+    detalleRezago: str | None = None     # RF-59
+    reprobadaAntes: bool = False         # ya reprobó esta materia en SEPA
+    alertaArticulos: bool = False        # RF-84: la reprobó antes y hoy está en rojo
 
 class ConteoSemaforo(BaseModel):
     verde: int
@@ -572,3 +577,40 @@ class PublicacionSalida(BaseModel):
     carreraAsesor: str | None
     correoAsesor: str      # para contactarlo
     esMia: bool
+
+# ------------------------------------------------------------------ módulo: historial y riesgo académico
+class HistorialSalida(BaseModel):  # RF-53: una materia cursada en SEPA en un ciclo ya cerrado
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    periodo: str
+    materia: str
+    calificacion: float
+    resultado: Literal["aprobada", "reprobada"]
+
+class RiesgoCurso(BaseModel):  # RF-56 a RF-59 y RF-84 para un curso del ciclo actual
+    curso_id: int
+    materia: str
+    semestreBase: int | None          # semestre de la materia en el plan del alumno (None si no está en el plan)
+    desfase: int | None               # semestre del alumno - semestre base
+    rezagoCritico: bool               # RF-58: desfase >= 3
+    detalleRezago: str | None         # RF-59
+    reprobadaAntes: bool              # ya la reprobó en un ciclo anterior
+    alertaArticulos: bool             # RF-84: la reprobó antes y hoy está en rojo
+
+class RiesgoAlumno(BaseModel):
+    semestreActual: int | None        # RF-57: según su ciclo de ingreso
+    plan: str | None                  # nombre del plan de estudios con que se compara (RF-56)
+    riesgoPorHistorial: bool          # RF-54
+    ciclosConReprobadas: list[str]    # los ciclos que activaron la bandera
+    cursos: list[RiesgoCurso]
+
+class MallaSalida(BaseModel):  # plan de estudios para el administrador
+    id: int
+    carrera: str
+    generacion: str
+    nombrePlan: str
+    materias: list[dict]  # [{materia_id, clave, nombre, semestreBase}]
+
+class MateriaEnMalla(BaseModel):
+    materia_id: int
+    semestreBase: Annotated[int, Field(ge=1, le=12)]

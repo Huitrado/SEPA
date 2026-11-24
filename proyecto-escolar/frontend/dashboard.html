@@ -90,11 +90,25 @@
           </dl>
         </div>
 
-        <div class="p-space-md rounded-xl bg-surface-container-low flex items-start gap-space-sm">
-          <span class="material-symbols-outlined text-secondary text-[22px]">construction</span>
-          <p class="font-body-md text-body-md text-on-surface-variant">
-            Las demás secciones del panel (cursos, inscripciones, administración) todavía no tienen diseño.
-          </p>
+        <!-- Solo estudiantes (las llena auth.js): RF-55 insignia, RF-57 semestre y plan, RF-53 historial -->
+        <div id="perfil-riesgo" class="hidden"></div>
+        <div id="perfil-trayectoria" class="hidden bg-surface-container-lowest rounded-xl shadow-md p-space-lg md:p-space-xl">
+          <div class="flex items-center gap-space-xs pb-space-md">
+            <span class="material-symbols-outlined text-primary text-[20px]">timeline</span>
+            <h2 class="font-title-lg text-title-lg text-primary">Mi trayectoria en SEPA</h2>
+          </div>
+          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-space-md font-body-md text-body-md mb-space-lg">
+            <div>
+              <dt class="font-label-md text-label-md text-on-surface-variant">Semestre según tu ingreso</dt>
+              <dd class="text-on-surface font-semibold mt-0.5" id="perfil-semestre"></dd>
+            </div>
+            <div>
+              <dt class="font-label-md text-label-md text-on-surface-variant">Plan de estudios</dt>
+              <dd class="text-on-surface font-semibold mt-0.5" id="perfil-plan"></dd>
+            </div>
+          </dl>
+          <h3 class="font-label-lg text-label-lg text-on-surface mb-space-sm">Historial de materias cursadas en SEPA</h3>
+          <div id="perfil-historial" class="space-y-space-xs"></div>
         </div>
       </div>
     </div>

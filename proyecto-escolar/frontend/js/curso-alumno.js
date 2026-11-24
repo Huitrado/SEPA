@@ -27,21 +27,23 @@ async function iniciarCursoAlumno() {
   const ruta = resto => `/alumno/cursos/${ID_CURSO}${resto}`;
   let datos;
   try {
-    const [curso, seguimiento, calificaciones, encuadre, actividades] = await Promise.all([
+    const [curso, seguimiento, calificaciones, encuadre, actividades, riesgo] = await Promise.all([
       pedir(ruta(""), { conToken: true }),
       pedir(ruta("/seguimiento"), { conToken: true }),
       pedir(ruta("/calificaciones"), { conToken: true }),
       pedir(ruta("/encuadre"), { conToken: true }),
-      pedir(ruta("/actividades"), { conToken: true })
+      pedir(ruta("/actividades"), { conToken: true }),
+      pedir("/alumno/riesgo", { conToken: true })
     ]);
-    datos = { curso, seguimiento, calificaciones, encuadre, actividades };
+    datos = { curso, seguimiento, calificaciones, encuadre, actividades,
+              riesgo: riesgo.cursos.find(c => c.curso_id === ID_CURSO) };
   } catch (error) {
     document.getElementById("curso-cargando").classList.add("hidden");
     if (error.status !== 401) mostrarErrorApi(error);
     return;
   }
   pintarFicha(datos.curso, datos.seguimiento);
-  pintarAlertas(datos.seguimiento);
+  pintarAlertas(datos.seguimiento, datos.riesgo);
   pintarCalificacion(datos.seguimiento);
   pintarAsistencia(datos.seguimiento);
   pintarEncuadre(datos.encuadre, datos.actividades);
@@ -85,8 +87,19 @@ function tarjetaAlerta(nombreIcono, titulo, texto, clases) {
   return t;
 }
 
-function pintarAlertas(seg) {
+function pintarAlertas(seg, riesgo) {
   const contenedor = document.getElementById("alertas");
+  // RF-84: ya reprobó esta materia y hoy está en rojo (riesgo de artículos 33, 34 y 35)
+  if (riesgo?.alertaArticulos) {
+    contenedor.appendChild(tarjetaAlerta("gavel", "Riesgo de permanencia (artículos 33, 34 y 35)",
+      "Ya reprobaste esta materia en un ciclo anterior y hoy vas en rojo. Reprobarla otra vez puede afectar tu permanencia en la carrera. Habla con tu coordinación y con tu profesor cuanto antes.",
+      "bg-semaforo-rojo-fondo text-semaforo-rojo"));
+  }
+  // RF-58, RF-59: rezago crítico con el detalle de la materia y el semestre
+  if (riesgo?.rezagoCritico) {
+    contenedor.appendChild(tarjetaAlerta("history_toggle_off", "Rezago crítico", riesgo.detalleRezago,
+      "bg-semaforo-rojo-fondo text-semaforo-rojo"));
+  }
   if (seg.alertaCalificacion) {
     contenedor.appendChild(tarjetaAlerta("notification_important", "Alerta por calificación",
       `Llevas ${numero(seg.desempenoProporcional, 1)} % de los puntos que se han evaluado hasta hoy; el mínimo aprobatorio es 60 %. Habla con tu profesor y busca asesoría.`,

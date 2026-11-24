@@ -75,6 +75,8 @@ flowchart TD
     T11 --> H
     T12["test_asesorias.py<br/>RF-73 a RF-80, RF-92"] --> C
     T12 --> H
+    T13["test_riesgo.py<br/>RF-53 a RF-59, RF-84"] --> C
+    T13 --> H
 ```
 
 ### `conftest.py`: la fixture `client`
@@ -307,6 +309,20 @@ Docstring: *"Módulo de asesorías entre estudiantes (RF-73 a RF-80, RF-92)"*. L
 | RF-73, RF-92 | Solo los asesores publican y ven `/mias`; un docente no ve el tablero; al quitar el rol, sus anuncios se ocultan |
 | RF-76, RF-77 | Editar; ocultar (sale del tablero y solo su autora la ve) y volver a publicar; eliminar; otro asesor no puede tocar lo ajeno |
 | RF-79 | Filtros por materia, modalidad y texto (tópico u horario) |
+
+
+### `test_riesgo.py`
+
+Docstring: *"Historial académico y riesgo (RF-53 a RF-59, RF-84)"*. La fixture `plan` crea un plan INFO con Programación (1.er semestre) y Bases de datos (3.er semestre). `_curso_pasado` arma directamente en la base un curso de un ciclo ya cerrado con una actividad calificada, porque la API no permite crear cursos en ciclos cerrados.
+
+| RF | Qué comprueban |
+|----|----------------|
+| Reglas | Semestre cronológico, ciclos anteriores y resultado final (≥ 60 y sin "Sin Derecho") |
+| RF-53 | Los ciclos cerrados pasan al historial una sola vez; Sin Derecho reprueba; ni el ciclo vigente ni los alumnos de baja pasan; el análisis guarda `RegistroRiesgo` sin duplicar |
+| RF-54 | Reprobadas en los dos ciclos anteriores activan la bandera; en uno solo, no |
+| RF-56 a RF-59 | Alumno y curso ligados al plan; rezago crítico con su detalle; desfase menor; materia fuera del plan |
+| RF-84 | Reprobada antes: la alerta aparece solo cuando el semáforo actual es rojo; el docente ve las mismas banderas |
+| Administrador | Lanzar el análisis (202); ver, agregar, mover y quitar materias de un plan |
 
 ---
 

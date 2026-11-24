@@ -2,7 +2,7 @@
 
 [← Volver al índice](README.md)
 
-Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **69 endpoints** en 7 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
+Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **75 endpoints** en 7 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
 
 ## Cómo leer estas tablas
 
@@ -872,6 +872,8 @@ Las funciones están en `services.py` para reutilizarlas: `alerta_calificacion`,
 ```
 `resumen` cuenta cuántos alumnos hay en cada color del semáforo general.
 
+Cada alumno trae además las banderas del módulo de riesgo (ver "Historial y riesgo académico"): `riesgoPorHistorial` (RF-54), `rezagoCritico` y `detalleRezago` (RF-58, RF-59), `reprobadaAntes` y `alertaArticulos` (RF-84).
+
 ---
 
 ## Router `alumnos`: lo que hace el alumno en sus cursos
@@ -888,6 +890,8 @@ Archivo: `routers/alumnos.py` · Prefijo: `/alumno` (en singular) · **Todos exi
 | DELETE | `/alumno/actividades/{actividad_id}/entrega` | Alumno inscrito | Nada | **200**, 403, 404, 409 | RF-38 |
 | GET | `/alumno/cursos/{curso_id}/calificaciones` | Alumno inscrito | Nada | **200**, 403, 404 | RF-46, RF-47 |
 | GET | `/alumno/cursos/{curso_id}/seguimiento` | Alumno inscrito | Nada | **200**, 403, 404 | RF-48, RF-49, RF-61 |
+| GET | `/alumno/historial` | Estudiante | Nada | **200** | RF-53 |
+| GET | `/alumno/riesgo` | Estudiante | Nada | **200** | RF-54 a RF-59, RF-84 |
 
 Errores de inscripción (`services.py → _matricula_activa`): **404** `Curso no encontrado` · **404** `Actividad no encontrada` · **403** `No estás inscrito en este curso` (tampoco si su matrícula está dada de baja).
 
@@ -1001,6 +1005,43 @@ Entregar **justo** en la fecha y hora límite cuenta como a tiempo.
 }
 ```
 
+### Historial y riesgo académico (RF-53 a RF-59, RF-84)
+
+**El historial se forma solo con cursos de SEPA**, desde que el alumno se registró (RF-53): no se carga historial previo.
+
+- **Cierre de ciclo** (`services.py → cerrar_ciclos_terminados`): cuando un ciclo termina (pasa su fecha de término), cada curso de ese ciclo pasa al historial de sus alumnos **activos** con su calificación acumulada final. Es **aprobada** si la acumulada es ≥ 60 y su estatus de asistencia no es Sin Derecho; si no, **reprobada** (`resultado_final`). Los cursos Aprobado/No aprobado usan la misma regla. No se duplica.
+- **Análisis en segundo plano** (`analizar_riesgo_ciclo`, RF-53, RNF-05): cierra los ciclos terminados y guarda en `RegistroRiesgo` el análisis de cada matrícula activa del ciclo vigente. Corre en **otro hilo al arrancar el servidor** y cuando el administrador lo pide (`POST /admin/riesgo/recalcular`); nunca durante el login.
+- **Riesgo por historial** (RF-54, `riesgo_por_historial`): reprobó al menos una materia en **cada uno** de los 2 ciclos inmediatamente anteriores al vigente (`config.py → CICLOS_HISTORIAL`).
+- **Semestre cronológico** (RF-57, `semestre_cronologico`): ciclos desde su **ciclo de ingreso** hasta el vigente. Ingresó en 2023-B y hoy es 2026-B → 7.º.
+- **Rezago** (RF-56 a RF-59, `rezago_de_matricula`): se busca la materia del curso en el **plan de estudios del alumno** (`Estudiante.mallaCurricular_id`, o el plan de su carrera y generación). Desfase = semestre del alumno − semestre base de la materia. Si es ≥ 3 (`config.py → REZAGO_CRITICO`) hay **rezago crítico**. Si la materia no está en su plan (por ejemplo, una materia de otra carrera u optativa), no se calcula.
+- **Artículos 33, 34 y 35** (RF-84): `alertaArticulos` es verdadero si el alumno **ya reprobó esa materia** en un ciclo anterior y **hoy su semáforo general es rojo**.
+
+#### `GET /alumno/historial`
+
+`services.py → historial_del_alumno`. **200** (lista de `HistorialSalida`, del ciclo más reciente al más antiguo):
+```json
+[ { "id": 3, "periodo": "2026-A", "materia": "Estructura de Datos (INFO)", "calificacion": 30.0, "resultado": "reprobada" } ]
+```
+
+#### `GET /alumno/riesgo`
+
+`services.py → riesgo_del_alumno`. RF-55: el perfil muestra la insignia si `riesgoPorHistorial` es verdadero. **200** (`RiesgoAlumno`):
+```json
+{
+  "semestreActual": 7, "plan": "Mapa Curricular INFO (rev. enero 2023)",
+  "riesgoPorHistorial": true, "ciclosConReprobadas": ["2026-A", "2025-B"],
+  "cursos": [
+    {
+      "curso_id": 1, "materia": "Estructura de Datos (INFO)", "semestreBase": 4, "desfase": 3,
+      "rezagoCritico": true,
+      "detalleRezago": "Estructura de Datos (INFO) corresponde al 4.º semestre de tu plan y vas en 7.º: 3 semestres de desfase.",
+      "reprobadaAntes": true, "alertaArticulos": true
+    }
+  ]
+}
+```
+`cursos` son los del ciclo vigente con matrícula activa.
+
 ---
 
 ## Router `asesorias`: asesorías entre estudiantes (RF-73 a RF-80, RF-92)
@@ -1054,6 +1095,10 @@ Archivo: `routers/admin.py` · Prefijo: `/admin` · **Todos exigen Admin** (`req
 | GET | `/admin/usuarios` | Admin | Query opcional `rol` (`estudiante`, `asesor`, `docente`, `administrador`) y `estado` (`activo`, `inactivo`, `pendiente`) | **200**, 422 | RF-93 |
 | PATCH | `/admin/usuarios/{usuario_id}` | Admin | JSON `UsuarioAdminActualizar` (todo opcional) | **200**, 404, 409, 422 | RF-93 |
 | PATCH | `/admin/usuarios/{usuario_id}/asesor` | Admin | JSON `{asesor: true/false}` | **200**, 404, 409, 422 | RF-73, RF-92 |
+| POST | `/admin/riesgo/recalcular` | Admin | Nada | **202** | RF-53 |
+| GET | `/admin/mallas` | Admin | Nada | **200** | RF-56 |
+| PUT | `/admin/mallas/{malla_id}/materias` | Admin | JSON `{materia_id, semestreBase}` | **204**, 404, 422 | RF-56 |
+| DELETE | `/admin/mallas/{malla_id}/materias/{materia_id}` | Admin | Nada | **204**, 404 | RF-56 |
 | PATCH | `/admin/usuarios/{usuario_id}/estado` | Admin | JSON `{estado}` = `activo` o `inactivo` | **200**, 404, 409, 422 | RF-93 |
 | PATCH | `/admin/usuarios/{usuario_id}/contrasena` | Admin | JSON `{nueva_contrasena}` | **200**, 404, 422 | RF-07 |
 | POST | `/admin/carreras` | Admin | JSON `{clave, nombre}` | **201**, 409, 422 | RF-02 |
@@ -1201,6 +1246,13 @@ El administrador da de alta y mantiene las materias. La lista se consulta con el
 |--------|----------|
 | 404 | `Materia no encontrada` |
 | 409 | `No se puede eliminar una materia que ya se usa en un plan de estudios, un curso o un historial académico` |
+
+### Riesgo académico y planes de estudio (RF-53, RF-56)
+
+- `POST /admin/riesgo/recalcular`: lanza en segundo plano el análisis (cierre de ciclos al historial y riesgo de cada matrícula). Responde de inmediato **202** `{"mensaje": "El análisis de riesgo académico se está ejecutando en segundo plano"}`.
+- `GET /admin/mallas`: los planes de estudio con sus materias por semestre: `[{id, carrera, generacion, nombrePlan, materias: [{materia_id, clave, nombre, semestreBase}]}]`.
+- `PUT /admin/mallas/{malla_id}/materias` con `{"materia_id": 12, "semestreBase": 4}` agrega la materia al plan o le cambia el semestre base (1 a 12). **404** `Plan de estudios no encontrado` o `Materia no encontrada`.
+- `DELETE /admin/mallas/{malla_id}/materias/{materia_id}`: la quita del plan. **404** `La materia no está en ese plan de estudios`.
 
 ### `POST /admin/ciclos`
 

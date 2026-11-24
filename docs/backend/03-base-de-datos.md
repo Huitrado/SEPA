@@ -30,8 +30,8 @@ Todo se define en **`models.py`**. Cada clase que hereda de `Base` es una **tabl
 
 | Estado | Tablas |
 |--------|--------|
-| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `Entrega`, `Calificacion`, `PublicacionAsesoria`, `MallaCurricular`, `Materia`, `MallaMateria` |
-| **Sin uso todavía** | `HistorialAcademico`, `BibliotecaNormatividad`, `RegistroRiesgo` |
+| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `Entrega`, `Calificacion`, `PublicacionAsesoria`, `HistorialAcademico` y `RegistroRiesgo` (riesgo académico), `MallaCurricular`, `Materia`, `MallaMateria` |
+| **Sin uso todavía** | `BibliotecaNormatividad` |
 
 ---
 
@@ -283,7 +283,7 @@ Estas tablas usan el patrón **"perfil con el mismo id"**: su `id` es a la vez l
 | | `codigoEstudiante` | String | Sí, único | 9 dígitos; es su **código de login** |
 | | `carrera` | String | No | Clave de carrera (`INFO`). **No es FK** a `Carrera`; se valida contra el catálogo al registrarse |
 | | `ciclo` | String | No | Ciclo en el que se registró (`2026-B`). **No es FK** a `CicloEscolar` |
-| | `mallaCurricular_id` | Integer | No, FK | **Hoy no se llena** al registrarse |
+| | `mallaCurricular_id` | Integer | No, FK | Se llena al registrarse con el plan de su carrera y generación (`services.py → malla_para`, RF-56) |
 | `Docente` | `id` | Integer | PK, FK → Usuario | |
 | | `noEmpleado` | String | Sí, único | Se guarda en mayúsculas; es su **código de login** |
 | | `departamento` | String | No | |
@@ -344,7 +344,7 @@ El ciclo **vigente** (`services.py → ciclo_vigente`) es el que está `activo`.
 | `horaInicio` / `horaFin` | String | Sí | `"HH:MM"` |
 | `cicloEscolar_id` | Integer | FK → CicloEscolar | |
 | `docente_id` | Integer | FK → Docente | El docente dueño del curso (RF-95) |
-| `materia_id` | Integer | FK → Materia | **Hoy no se llena** al crear cursos |
+| `materia_id` | Integer | FK → Materia | Se llena al crear o editar el curso con la materia del catálogo del mismo nombre (`_id_materia`); vacío si el nombre no está en el catálogo |
 
 ### `Matricula`: inscripción de un estudiante en un curso (RF-15, RF-16)
 
