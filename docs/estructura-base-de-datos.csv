@@ -125,8 +125,8 @@ PublicacionAsesoria;topico;Texto;;No;Temas que se van a ver (opcional)
 PublicacionAsesoria;estado;Texto;;Sí;Si la publicación está activa o se ocultó del tablero
 PublicacionAsesoria;estudiante_id;Entero;FK → Estudiante;No;Asesor que publica
 SolicitudAsesor;id;Entero;PK;Sí;Número que identifica la solicitud
-SolicitudAsesor;motivo;Texto;;Sí;Por qué el estudiante quiere ser asesor
-SolicitudAsesor;materias;Texto;;No;Materias en las que puede ayudar (opcional)
+SolicitudAsesor;motivo;Texto;;Sí;Comentario opcional del estudiante (queda vacío si no escribió nada)
+SolicitudAsesor;materias;Texto;;No;Materias de las que el estudiante imparte asesorías
 SolicitudAsesor;estado;Texto;;Sí;Pendiente, aceptada o rechazada
 SolicitudAsesor;fechaSolicitud;Fecha y hora;;Sí;Cuándo se envió la solicitud
 SolicitudAsesor;fechaRespuesta;Fecha y hora;;No;Cuándo respondió el administrador

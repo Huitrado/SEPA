@@ -85,8 +85,8 @@ function pintarSolicitudes() {
     datos.append(el("p", "font-label-lg text-label-lg text-primary", s.nombre),
       el("p", "font-helper-sm text-helper-sm text-on-surface-variant",
         `${s.codigo} · ${s.carrera ? nombreCarrera(s.carrera) : "Sin carrera"} · enviada ${fechaHora(s.fechaSolicitud)}`),
-      el("p", "font-body-md text-body-md text-on-surface whitespace-pre-line", s.motivo));
-    if (s.materias) datos.appendChild(el("p", "font-helper-sm text-helper-sm text-on-surface-variant", `Materias: ${s.materias}`));
+      el("p", "font-body-md text-body-md text-on-surface", `Imparte asesorías de: ${s.materias || "sin indicar"}`));
+    if (s.motivo) datos.appendChild(el("p", "font-helper-sm text-helper-sm text-on-surface-variant whitespace-pre-line", s.motivo));
     const acciones = el("div", "flex gap-1 shrink-0");
     const aceptar = boton("Aceptar", "verified", "primario");
     aceptar.addEventListener("click", () => aceptarSolicitud(s, aceptar));

@@ -33,6 +33,7 @@ function iniciarCatalogos() {
   document.getElementById("btn-nueva-materia").addEventListener("click", () => abrirMateria(null));
   document.getElementById("form-materia").addEventListener("submit", guardarMateria);
   document.getElementById("buscar-materia").addEventListener("input", pintarMaterias);
+  document.getElementById("filtro-plan-materia").addEventListener("change", pintarMaterias);
 }
 
 async function cargarCatalogos() {
@@ -54,6 +55,15 @@ async function cargarMallas() {
   mallas.forEach(m => select.appendChild(new Option(`${m.carrera} · ${m.nombrePlan} (generación ${m.generacion})`, m.id)));
   if (elegido) select.value = elegido;
   pintarMalla();
+  // El filtro de la lista de materias usa los mismos planes
+  const filtro = document.getElementById("filtro-plan-materia");
+  const filtroElegido = filtro.value;
+  filtro.innerHTML = "";
+  filtro.appendChild(new Option("Todos los planes de estudio", ""));
+  mallas.forEach(m => filtro.appendChild(new Option(`${m.carrera} · ${m.nombrePlan}`, m.id)));
+  filtro.appendChild(new Option("Sin plan de estudios", "sin-plan"));
+  filtro.value = filtroElegido;
+  pintarMaterias();
 }
 
 function pintarMalla() {
@@ -302,8 +312,15 @@ function pintarMaterias() {
   const cuerpo = document.getElementById("tabla-materias");
   cuerpo.innerHTML = "";
   const texto = document.getElementById("buscar-materia").value.trim().toLowerCase();
-  const visibles = materias.filter(m => !texto || `${m.clave} ${m.nombre}`.toLowerCase().includes(texto));
-  document.getElementById("materias-total").textContent = String(materias.length);
+  // Filtro por plan de estudios: un plan (con el semestre de cada materia) o "sin plan"
+  const plan = document.getElementById("filtro-plan-materia").value;
+  const malla = mallas.find(x => String(x.id) === plan);
+  const semestreEn = new Map((malla?.materias || []).map(x => [x.materia_id, x.semestreBase]));
+  const enAlgunPlan = new Set(mallas.flatMap(x => x.materias.map(y => y.materia_id)));
+  let visibles = materias.filter(m => (!texto || `${m.clave} ${m.nombre}`.toLowerCase().includes(texto))
+    && (!plan || (plan === "sin-plan" ? !enAlgunPlan.has(m.id) : semestreEn.has(m.id))));
+  if (malla) visibles = visibles.sort((a, b) => semestreEn.get(a.id) - semestreEn.get(b.id) || a.nombre.localeCompare(b.nombre));
+  document.getElementById("materias-total").textContent = plan ? `${visibles.length} de ${materias.length}` : String(materias.length);
   for (const m of visibles) {
     const fila = el("tr", "border-t border-surface-container hover:bg-surface-container-low");
     const acciones = el("td", "py-space-sm px-space-lg");
@@ -316,8 +333,11 @@ function pintarMaterias() {
     borrar.addEventListener("click", () => eliminarMateria(m));
     grupo.append(editar, borrar);
     acciones.appendChild(grupo);
+    const celdaNombre = el("td", "py-space-sm px-space-md", m.nombre);
+    if (malla) celdaNombre.appendChild(el("span", "ml-space-sm px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-md text-label-md",
+      `Semestre ${semestreEn.get(m.id)}`));
     fila.append(el("td", "py-space-sm px-space-lg font-mono font-label-lg text-label-lg text-primary", m.clave),
-      el("td", "py-space-sm px-space-md", m.nombre), acciones);
+      celdaNombre, acciones);
     cuerpo.appendChild(fila);
   }
   if (!visibles.length) {

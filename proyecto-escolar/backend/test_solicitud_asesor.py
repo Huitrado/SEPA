@@ -4,6 +4,7 @@ import pytest
 from helpers import ALUMNO, ALUMNO_B, alta_alumno, auth, crear_admin
 
 MOTIVO = "Tengo 95 en Bases de Datos y ya ayudo a mis compañeros a estudiar SQL."
+MATERIAS = "Bases de Datos"
 
 @pytest.fixture()
 def gente(client):
@@ -13,7 +14,7 @@ def gente(client):
     return {"ta": ta, "ana": ana, "beto": beto}
 
 def _solicitar(client, token, **cambios):
-    return client.post("/asesorias/solicitud", json={"motivo": MOTIVO, "materias": "Bases de Datos", **cambios},
+    return client.post("/asesorias/solicitud", json={"materias": MATERIAS, **cambios},
                        headers=auth(token))
 
 def _responder(client, g, solicitud_id, decision, comentario=None):
@@ -28,13 +29,20 @@ def test_el_alumno_envia_y_ve_su_solicitud(client, gente):
     r = _solicitar(client, gente["ana"])
     assert r.status_code == 201, r.text
     s = r.json()
-    assert (s["estado"], s["motivo"], s["materias"], s["nombre"]) == ("pendiente", MOTIVO, "Bases de Datos", "Ana López")
+    assert (s["estado"], s["materias"], s["motivo"], s["nombre"]) == ("pendiente", "Bases de Datos", "", "Ana López")
     assert client.get("/asesorias/solicitud", headers=auth(gente["ana"])).json()["id"] == s["id"]
 
-def test_motivo_obligatorio_y_con_detalle(client, gente):
-    r = _solicitar(client, gente["ana"], motivo="Quiero ayudar")
+def test_las_materias_son_obligatorias(client, gente):
+    r = client.post("/asesorias/solicitud", json={}, headers=auth(gente["ana"]))
     assert r.status_code == 422
-    assert r.json()["errores"][0] == {"campo": "motivo", "mensaje": "Debe tener al menos 20 caracteres"}
+    assert r.json()["errores"][0] == {"campo": "materias", "mensaje": "Este campo es obligatorio"}
+    r = _solicitar(client, gente["ana"], materias="BD")
+    assert r.json()["errores"][0] == {"campo": "materias", "mensaje": "Debe tener al menos 3 caracteres"}
+
+def test_el_comentario_es_opcional(client, gente):
+    r = _solicitar(client, gente["ana"], motivo=MOTIVO)
+    assert r.status_code == 201
+    assert r.json()["motivo"] == MOTIVO
 
 def test_solo_una_pendiente_a_la_vez(client, gente):
     _solicitar(client, gente["ana"])

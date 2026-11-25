@@ -413,8 +413,8 @@ Se borra la fila al entrar con la contraseña correcta. Explicación en [04-segu
 | Campo | Tipo | Notas |
 |-------|------|-------|
 | `id` | Integer, PK | |
-| `motivo` | String | Por qué quiere ser asesor (20 a 1000 caracteres) |
-| `materias` | String, nulo | En qué materias puede ayudar (texto libre) |
+| `motivo` | String | Comentario opcional del alumno; `""` si no escribió nada (las solicitudes antiguas guardan aquí por qué quería ser asesor) |
+| `materias` | String, nulo | De qué materias imparte asesorías; la pantalla lo pide como obligatorio |
 | `estado` | String | `pendiente`, `aceptada` o `rechazada` |
 | `fechaSolicitud` | String | Cuándo la envió (ISO) |
 | `fechaRespuesta` | String, nulo | Cuándo respondió el administrador |

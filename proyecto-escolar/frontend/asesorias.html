@@ -121,30 +121,21 @@
     <div class="flex items-start justify-between gap-space-md">
       <div>
         <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold">Solicitud</span>
-        <h2 class="font-title-lg text-title-lg text-primary mt-1">Quiero ser asesor</h2>
+        <h2 class="font-title-lg text-title-lg text-primary mt-1">¿Eres asesor?</h2>
       </div>
       <button type="button" data-cerrar-modal="modal-solicitud" aria-label="Cerrar"
         class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low">
         <span class="material-symbols-outlined">close</span>
       </button>
     </div>
-    <p class="font-body-md text-body-md text-on-surface-variant">Un administrador revisará tu solicitud. Si la acepta, podrás publicar asesorías en este tablero.</p>
+    <p class="font-body-md text-body-md text-on-surface-variant">Escribe de qué materias impartes asesorías. Un administrador revisará tu solicitud y, si la acepta, podrás publicarlas en este tablero.</p>
     <p id="solicitud-rechazo" class="hidden p-space-sm rounded-lg bg-surface-container-low font-body-md text-body-md text-on-surface"></p>
     <div id="aviso-solicitud" class="hidden">
       <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
       <p class="font-body-md text-body-md" data-aviso-texto></p>
     </div>
     <div class="flex flex-col space-y-space-xs">
-      <label for="input-motivo" class="font-label-lg text-label-lg text-on-surface">¿Por qué quieres ser asesor?</label>
-      <textarea id="input-motivo" name="motivo" rows="4" maxlength="1000"
-        placeholder="Ej. Saqué 95 en Bases de Datos y ya ayudo a mis compañeros a estudiar SQL."
-        class="w-full px-3.5 py-3 rounded-lg bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none"></textarea>
-      <span id="err-motivo" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
-        <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
-      </span>
-    </div>
-    <div class="flex flex-col space-y-space-xs">
-      <label for="input-materias" class="font-label-lg text-label-lg text-on-surface">Materias en las que puedes ayudar <span class="text-on-surface-variant font-normal">(opcional)</span></label>
+      <label for="input-materias" class="font-label-lg text-label-lg text-on-surface">¿De qué materias impartes asesorías?</label>
       <input id="input-materias" name="materias" type="text" maxlength="200" placeholder="Ej. Bases de Datos, Programación Estructurada"
         class="w-full px-3.5 py-3 rounded-lg bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none" />
       <span id="err-materias" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
