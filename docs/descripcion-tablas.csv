@@ -1,0 +1,28 @@
+﻿Tabla;Descripción;Relaciones
+Usuario;Datos comunes de todas las personas que usan SEPA: nombre, correo, contraseña y estado de la cuenta.;Un usuario puede tener varios roles a través de UsuarioRol. Un usuario puede ser estudiante, docente o administrador, y cada perfil comparte su número. Un usuario tiene muchas sesiones activas.
+Rol;Lista de los roles del sistema: estudiante, docente, administrador y asesor.;Un rol lo tienen muchos usuarios a través de UsuarioRol.
+UsuarioRol;"Indica qué roles tiene cada persona; un estudiante asesor tiene dos filas.";Cada fila une un usuario con un rol.
+Estudiante;Datos propios del estudiante: código de alumno, carrera, ciclo de ingreso y plan de estudios.;Cada estudiante es un usuario. Cada estudiante sigue un plan de estudios. Un estudiante tiene muchas matrículas, materias en su historial, publicaciones de asesoría y solicitudes para ser asesor.
+Docente;Datos propios del docente: número de empleado y departamento.;Cada docente es un usuario. Un docente imparte muchos cursos.
+Administrador;Datos propios del administrador: número de empleado.;Cada administrador es un usuario.
+TokenRevocado;Sesiones que ya se cerraron, para que no se puedan volver a usar.;No se relaciona con otras tablas.
+SesionActiva;Sesiones abiertas y su última actividad, para cerrarlas tras 30 minutos sin uso.;Cada sesión pertenece a un usuario.
+IntentoLogin;Cuenta los intentos fallidos de inicio de sesión para bloquear el acceso 15 minutos tras 5 errores.;No se relaciona con otras tablas: se guarda por código, exista o no la cuenta.
+Carrera;Catálogo oficial de carreras.;Los estudiantes y los planes de estudio guardan la clave de su carrera (relación por clave, sin llave foránea).
+CicloEscolar;Catálogo de ciclos escolares con sus fechas de inicio y término.;Un ciclo escolar tiene muchos cursos.
+Materia;Catálogo oficial de materias con su clave y nombre.;Una materia aparece en muchos planes de estudio a través de MallaMateria. Una materia puede tener muchos cursos y muchos registros de historial.
+MallaCurricular;Planes de estudio de cada carrera, uno por generación.;Un plan de estudios tiene muchas materias a través de MallaMateria. Un plan lo siguen muchos estudiantes.
+MallaMateria;Indica en qué semestre va cada materia dentro de un plan de estudios.;"Cada fila une un plan de estudios con una materia; la misma pareja no se repite."
+Curso;Cursos que crea un docente en un ciclo escolar, con su horario, tipo de evaluación y código de inscripción.;Cada curso pertenece a un ciclo escolar, a un docente y a una materia del catálogo. Un curso tiene muchas matrículas, clases y categorías de evaluación.
+Matricula;Inscripción de un estudiante en un curso, con su estado y calificación acumulada.;"Un curso tiene muchas matrículas; cada matrícula pertenece a un estudiante. Un estudiante solo se inscribe una vez en cada curso. Una matrícula tiene muchas asistencias, entregas y un registro de riesgo."
+SesionClase;Cada clase de un curso en la que se pasa lista.;Cada clase pertenece a un curso. Una clase tiene una asistencia por cada alumno.
+Asistencia;Estado de cada alumno en cada clase: asistencia, falta, retardo o pendiente.;Cada asistencia pertenece a una clase y a la matrícula de un alumno.
+CategoriaEvaluacion;Categorías del encuadre de un curso (por ejemplo Tareas 30 %) que deben sumar 100 %.;Cada categoría pertenece a un curso. Una categoría tiene muchas actividades.
+Actividad;Tareas, prácticas o exámenes que crea el docente, con fecha límite y puntuación.;Cada actividad pertenece a una categoría de evaluación. Una actividad tiene muchas entregas.
+Entrega;Archivo que sube un alumno para una actividad, con la hora y si fue tarde.;Cada entrega pertenece a una actividad y a la matrícula de un alumno. Una entrega puede tener una calificación.
+Calificacion;Puntos y retroalimentación que el docente da a una entrega.;Cada calificación pertenece a una entrega.
+HistorialAcademico;Materias que el alumno cursó en SEPA en ciclos ya cerrados, con su resultado.;Cada registro pertenece a un estudiante y a una materia del catálogo.
+RegistroRiesgo;Resultado del análisis de riesgo de cada alumno en cada curso: semáforo, estatus, historial y rezago.;Cada registro pertenece a una matrícula.
+PublicacionAsesoria;Anuncios de asesoría que publican los estudiantes asesores en el tablero.;Cada publicación pertenece al estudiante asesor que la creó.
+SolicitudAsesor;Solicitudes de estudiantes para ser asesores y la respuesta del administrador.;Cada solicitud pertenece a un estudiante. La responde un usuario administrador.
+BibliotecaNormatividad;"Tabla preparada para el reglamento; hoy no se usa porque el texto vive en la página del frontend.";No se relaciona con otras tablas.
