@@ -79,10 +79,21 @@ function pintarFicha(c, seg) {
   asesoria.classList.toggle("inline-flex", color !== "verde");
 }
 
-function tarjetaAlerta(nombreIcono, titulo, texto, clases) {
+// enlaces: [[texto, href], ...] al reglamento (RF-83, RF-84) o a "¿Por dónde empiezo?" (RF-88)
+function tarjetaAlerta(nombreIcono, titulo, texto, clases, enlaces = []) {
   const t = el("div", `p-space-md rounded-xl flex items-start gap-space-sm ${clases}`);
   const textos = el("div");
   textos.append(el("p", "font-label-lg text-label-lg", titulo), el("p", "font-body-md text-body-md", texto));
+  if (enlaces.length) {
+    const fila = el("div", "flex flex-wrap gap-x-space-md gap-y-1 mt-space-xs");
+    for (const [textoEnlace, href] of enlaces) {
+      const a = el("a", "inline-flex items-center gap-1 font-label-md text-label-md underline underline-offset-2 hover:no-underline");
+      a.href = href;
+      a.append(el("span", "", textoEnlace), icono("arrow_forward", "text-[16px]"));
+      fila.appendChild(a);
+    }
+    textos.appendChild(fila);
+  }
   t.append(icono(nombreIcono, "text-[22px]"), textos);
   return t;
 }
@@ -93,7 +104,8 @@ function pintarAlertas(seg, riesgo) {
   if (riesgo?.alertaArticulos) {
     contenedor.appendChild(tarjetaAlerta("gavel", "Riesgo de permanencia (artículos 33, 34 y 35)",
       "Ya reprobaste esta materia en un ciclo anterior y hoy vas en rojo. Reprobarla otra vez puede afectar tu permanencia en la carrera. Habla con tu coordinación y con tu profesor cuanto antes.",
-      "bg-semaforo-rojo-fondo text-semaforo-rojo"));
+      "bg-semaforo-rojo-fondo text-semaforo-rojo",
+      [["Lee las condiciones de permanencia", "normatividad.html#permanencia"], ["¿Por dónde empiezo?", "normatividad.html#que-hago"]]));
   }
   // RF-58, RF-59: rezago crítico con el detalle de la materia y el semestre
   if (riesgo?.rezagoCritico) {
@@ -105,11 +117,12 @@ function pintarAlertas(seg, riesgo) {
       `Llevas ${numero(seg.desempenoProporcional, 1)} % de los puntos que se han evaluado hasta hoy; el mínimo aprobatorio es 60 %. Habla con tu profesor y busca asesoría.`,
       "bg-semaforo-rojo-fondo text-semaforo-rojo"));
   }
-  // RF-83: aviso por asistencia en amarillo o rojo (la biblioteca de normatividad se enlazará aquí)
+  // RF-83: aviso por asistencia en amarillo o rojo, con enlace a las reglas de asistencia
   if (seg.semaforoAsistencia !== "verde") {
     contenedor.appendChild(tarjetaAlerta("event_busy", "Tu asistencia está en riesgo",
       `Tienes ${numero(seg.porcentajeAsistencia, 1)} % de asistencia (${seg.estatusNormativo}). Con menos de 80 % pierdes el derecho a la evaluación ordinaria y con menos de 65 %, también a la extraordinaria.`,
-      seg.semaforoAsistencia === "rojo" ? "bg-semaforo-rojo-fondo text-semaforo-rojo" : "bg-semaforo-amarillo-fondo text-semaforo-amarillo"));
+      seg.semaforoAsistencia === "rojo" ? "bg-semaforo-rojo-fondo text-semaforo-rojo" : "bg-semaforo-amarillo-fondo text-semaforo-amarillo",
+      [["Lee las reglas de asistencia", "normatividad.html#asistencia"]]));
   }
 }
 

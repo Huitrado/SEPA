@@ -31,7 +31,7 @@ Todo se define en **`models.py`**. Cada clase que hereda de `Base` es una **tabl
 | Estado | Tablas |
 |--------|--------|
 | **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionActiva` e `IntentoLogin` (RNF-02, RNF-03), `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `Entrega`, `Calificacion`, `PublicacionAsesoria` y `SolicitudAsesor` (asesorías), `HistorialAcademico` y `RegistroRiesgo` (riesgo académico), `MallaCurricular`, `Materia`, `MallaMateria` |
-| **Sin uso todavía** | `BibliotecaNormatividad` |
+| **Sin uso todavía** | `BibliotecaNormatividad` (la normatividad es estática y vive en el frontend: `js/normatividad-contenido.js`) |
 
 ---
 

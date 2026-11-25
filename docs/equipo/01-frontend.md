@@ -41,6 +41,7 @@ frontend/
 ├── admin.html           Panel del administrador: inicio, usuarios y roles, ciclos, carreras y materias
 ├── asesorias.html       Tablero de asesorías para los estudiantes (acepta ?materia=...)
 ├── mis-asesorias.html   Publicaciones del asesor: crear, editar, ocultar y eliminar
+├── normatividad.html    Reglamento: extractos, guía de SIATCE, directorio y "¿Por dónde empiezo?"
 ├── css/
 │   └── style.css        Estilos que Tailwind no trae (campo en rojo, animación)
 └── js/
@@ -60,7 +61,9 @@ frontend/
     ├── admin.js            admin.html: secciones, inicio y usuarios
     ├── admin-catalogos.js  admin.html: ciclos, carreras y materias
     ├── asesorias.js        asesorias.html
-    └── mis-asesorias.js    mis-asesorias.html
+    ├── mis-asesorias.js    mis-asesorias.html
+    ├── normatividad.js     normatividad.html (solo pinta)
+    └── normatividad-contenido.js  TEXTO del reglamento: el único archivo que se edita
 ```
 
 | Pantalla | Qué hace | Lógica en |
@@ -76,6 +79,7 @@ frontend/
 | `admin.html` | Cuatro secciones: **Inicio** (conteos, docentes por aprobar y **solicitudes para ser asesor**, con Aceptar y Rechazar; al rechazar se puede escribir un comentario que verá el alumno), **Usuarios y roles** (buscar y filtrar; registrar docente o administrador; editar datos; rol de asesor; restablecer contraseña; aprobar, desactivar y reactivar), **Ciclos escolares** (lista con estado y alta con fechas oficiales) y **Carreras y materias** (catálogos) y **Planes de estudio** (materias por semestre, base del rezago; botón **Nuevo plan** para crear uno vacío o copiando otro: carrera, generación y nombre). En Inicio, el botón **Ejecutar análisis** relanza el análisis de riesgo. | `admin.js`, `admin-catalogos.js` |
 | `asesorias.html` | Tarjetas de las asesorías disponibles con filtros por materia, modalidad y texto, y ventana de detalle con el lugar o enlace. Si el alumno es asesor, ve el acceso a "Mis publicaciones". Si no lo es, ve el botón **Quiero ser asesor**, que abre la solicitud (motivo y materias); con una pendiente ve "Solicitud de asesor en revisión", y si se la rechazaron puede volver a pedirlo y ve el comentario del administrador. | `asesorias.js` |
 | `mis-asesorias.html` | Solo para asesores: formulario para publicar o editar (materia del catálogo, horario, modalidad, lugar o enlace, temas) y lista de sus publicaciones con ocultar/volver a publicar y eliminar. | `mis-asesorias.js` |
+| `normatividad.html` | Solo estudiantes. Reglamento en seis secciones con índice: **Criterios de evaluación**, **Reglas de asistencia** (`#asistencia`), **Condiciones de permanencia** (`#permanencia`, artículos 33 a 35), **Trámite en SIATCE** (pasos y enlaces), **Directorio de coordinaciones** y **¿Por dónde empiezo?** (`#que-hago`). Lo que aún no tiene texto oficial sale como recuadro punteado "Pendiente" (RF-81 a RF-88). | `normatividad.js`, `normatividad-contenido.js` |
 | `actividad.html` | Lista de alumnos con su entrega (filtros: por calificar, calificadas, sin entrega) y panel para descargar la entrega, calificar de 0 al máximo y dejar retroalimentación. "Guardar y siguiente" salta al próximo pendiente. | `actividad.js` |
 
 ### Páginas protegidas: `protegerPagina()`
@@ -91,13 +95,13 @@ Toda página que requiere sesión empieza con `<html class="validando-sesion">` 
 
 ### Barra del estudiante
 
-Todas las páginas del estudiante (`estudiante`, `curso-alumno`, `entrega`, `asesorias`, `mis-asesorias` y `dashboard` cuando entra un alumno) tienen la **misma** barra: **Mis cursos**, **Asesorías** y **Mi historial** (`dashboard.html`), su nombre y **Salir**. En el HTML solo va un hueco:
+Todas las páginas del estudiante (`estudiante`, `curso-alumno`, `entrega`, `asesorias`, `mis-asesorias` y `dashboard` cuando entra un alumno) tienen la **misma** barra: **Mis cursos**, **Asesorías**, **Reglamento** (`normatividad.html`) y **Mi historial** (`dashboard.html`), su nombre y **Salir**. En el HTML solo va un hueco:
 
 ```html
-<div id="barra-estudiante" data-actual="cursos"></div>   <!-- cursos | asesorias | historial -->
+<div id="barra-estudiante" data-actual="cursos"></div>   <!-- cursos | asesorias | reglamento | historial -->
 ```
 
-`app.js → pintarBarraEstudiante` lo llena y marca la sección actual. En pantallas chicas, los tres enlaces pasan a una barra fija abajo, cada uno con ícono **y texto**. Para agregar una sección, se agrega una fila a `ENLACES_ESTUDIANTE`.
+`app.js → pintarBarraEstudiante` lo llena y marca la sección actual. En pantallas chicas, los cuatro enlaces pasan a una barra fija abajo, cada uno con ícono **y texto**. Para agregar una sección, se agrega una fila a `ENLACES_ESTUDIANTE`.
 
 ### Mensajes que se cierran solos
 
@@ -263,7 +267,7 @@ y abrir `http://127.0.0.1:5500/login.html`. Usen este en lugar de `python -m htt
 ## 5. Qué falta o está incompleto (dicho tal cual)
 
 - **Administrador:** ya tiene `admin.html`, incluidos los planes de estudio; `dashboard.html` le sirve como "Mi perfil".
-- **Estudiante:** ya tiene sus pantallas (`estudiante.html`, `curso-alumno.html`, `entrega.html`). `dashboard.html` le sirve como "Mi perfil". Ya tiene el tablero de asesorías; si es asesor, también sus publicaciones. Falta normatividad.
+- **Estudiante:** ya tiene sus pantallas (`estudiante.html`, `curso-alumno.html`, `entrega.html`). `dashboard.html` le sirve como "Mi perfil". Ya tiene el tablero de asesorías; si es asesor, también sus publicaciones. La normatividad ya tiene su página, pero con texto pendiente (ver abajo).
 - **Docente:** ya tiene sus pantallas completas (`docente.html`, `curso.html` y `actividad.html`).
 - **Caché del navegador:** si cambias un `.js` y no ves el cambio, recarga con **Ctrl + Shift + R**.
 - **La carpeta `frontend/assets/` está vacía.** Como Git no guarda carpetas vacías, puede que en tu copia ni aparezca.
@@ -274,3 +278,35 @@ y abrir `http://127.0.0.1:5500/login.html`. Usen este en lugar de `python -m htt
 ---
 
 [Siguiente: 02 · El backend explicado desde cero →](02-backend-como-funciona.md)
+
+## Normatividad: cómo poner el texto del reglamento
+
+La sección de normatividad (RF-81 a RF-88) es **estática**: no usa el backend ni la tabla `BibliotecaNormatividad`. Todo el texto está en **`js/normatividad-contenido.js`**, en la constante `NORMATIVIDAD`. `normatividad.js` solo lo pinta, así que para cambiar el contenido **no hay que tocar HTML ni lógica**.
+
+Cada sección tiene `id`, `icono` (nombre de Material Symbols), `titulo`, `resumen` y una lista de `bloques`. Cada bloque puede ser:
+
+| Bloque | Se ve como |
+|--------|-----------|
+| `"Un párrafo."` | Párrafo normal |
+| `{ pendiente: "Qué falta" }` | Recuadro punteado *"Pendiente: Qué falta"* |
+| `{ articulo: "Artículo 33", texto: "..." }` | Extracto con el número del artículo y una línea a la izquierda |
+| `{ lista: ["...", "..."] }` | Lista con viñetas |
+| `{ pasos: ["...", "..."] }` | Pasos numerados (guía de SIATCE) |
+| `{ enlaces: [{ texto, url }] }` | Botones que abren otra pestaña; con `url: null` sale "(enlace pendiente)" |
+| `{ contactos: [{ carrera, coordinador, correo, ubicacion, horario }] }` | Tarjetas del directorio; un dato en `null` sale como "pendiente" |
+| `{ checklist: [{ texto, enlace?, textoEnlace? }] }` | Lista de acciones con un enlace opcional |
+
+Para llenar un hueco, se cambia el `{ pendiente: "..." }` por el texto real. Ejemplo:
+
+```js
+// Antes
+{ articulo: "Artículo 33", texto: { pendiente: "Texto del artículo 33" } },
+// Después
+{ articulo: "Artículo 33", texto: "El alumno que no acredite una materia en periodo ordinario..." },
+```
+
+**No cambies** los `id` `asistencia`, `permanencia` y `que-hago`: los avisos del panel del curso enlazan a ellos (`curso-alumno.js → pintarAlertas`):
+
+- Aviso por asistencia en amarillo o rojo (RF-83) → **Lee las reglas de asistencia** (`normatividad.html#asistencia`).
+- Aviso de artículos 33 a 35 (RF-84) → **Lee las condiciones de permanencia** (`#permanencia`) y **¿Por dónde empiezo?** (`#que-hago`, RF-88).
+

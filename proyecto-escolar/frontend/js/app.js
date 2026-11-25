@@ -232,12 +232,13 @@ async function protegerPagina(panelesPermitidos) {
 }
 
 // ---------------- Barra del estudiante (igual en todas sus páginas) ----------------
-// Las páginas del estudiante ponen <div id="barra-estudiante" data-actual="cursos|asesorias|historial">
+// Las páginas del estudiante ponen <div id="barra-estudiante" data-actual="cursos|asesorias|reglamento|historial">
 // en el encabezado. Aquí se llena: en pantallas medianas, los enlaces van en el encabezado;
 // en el celular, abajo, cada uno con su ícono y su texto.
 const ENLACES_ESTUDIANTE = [
   ["cursos", "estudiante.html", "menu_book", "Mis cursos"],
   ["asesorias", "asesorias.html", "support_agent", "Asesorías"],
+  ["reglamento", "normatividad.html", "gavel", "Reglamento"],
   ["historial", "dashboard.html", "history_edu", "Mi historial"]
 ];
 
@@ -249,7 +250,7 @@ function pintarBarraEstudiante() {
 
   const nav = el("nav", "hidden sm:flex items-center gap-1");
   nav.setAttribute("aria-label", "Secciones del estudiante");
-  const abajo = el("nav", "sm:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-container-lowest border-t border-surface-container grid grid-cols-3");
+  const abajo = el("nav", "sm:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-container-lowest border-t border-surface-container grid grid-cols-4");
   abajo.setAttribute("aria-label", "Secciones del estudiante");
   for (const [clave, href, nombreIcono, texto] of ENLACES_ESTUDIANTE) {
     const activo = clave === actual;
