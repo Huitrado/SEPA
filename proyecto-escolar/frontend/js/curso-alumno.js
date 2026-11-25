@@ -6,7 +6,8 @@
 //   RF-67, RF-68  Acumulada real y puntos perdidos
 //   RF-69, RF-70  Pendientes por fecha, con enlace a la entrega -> GET /alumno/cursos/{id}/actividades
 //   RF-71  Historial con calificación y retroalimentación -> GET /alumno/cursos/{id}/calificaciones
-//   RF-72  Botón para buscar asesoría si el semáforo es amarillo o rojo
+//   RF-72  Botón para buscar asesoría si el riesgo es por calificación (amarillo o rojo);
+//          por asistencia no se muestra, porque una asesoría no la recupera (decisión del equipo)
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", iniciarCursoAlumno);
@@ -72,11 +73,12 @@ function pintarFicha(c, seg) {
   document.getElementById("franja-semaforo").className = `h-1.5 ${SEMAFORO[color].punto}`;
   document.getElementById("curso-semaforo").appendChild(chipSemaforo(color, `Semáforo: ${SEMAFORO[color].texto}`));
   document.getElementById("curso-semaforo-texto").textContent = TEXTO_SEMAFORO[color];
-  // RF-72: en amarillo o rojo se invita a buscar asesoría de esta materia
+  // RF-72: se invita a buscar asesoría solo cuando el riesgo es por calificación (amarillo o rojo)
   const asesoria = document.getElementById("btn-asesoria");
+  const riesgoPorCalificacion = seg.semaforoCalificacion !== "verde";
   asesoria.href = `asesorias.html?materia=${encodeURIComponent(c.nombreMateria)}`;
-  asesoria.classList.toggle("hidden", color === "verde");
-  asesoria.classList.toggle("inline-flex", color !== "verde");
+  asesoria.classList.toggle("hidden", !riesgoPorCalificacion);
+  asesoria.classList.toggle("inline-flex", riesgoPorCalificacion);
 }
 
 // enlaces: [[texto, href], ...] al reglamento (RF-83, RF-84) o a "¿Por dónde empiezo?" (RF-88)

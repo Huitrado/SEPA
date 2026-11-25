@@ -1055,7 +1055,7 @@ Archivo: `routers/asesorias.py` · Prefijo: `/asesorias`. El tablero lo ven los 
 | GET | `/asesorias/{publicacion_id}` | Estudiante | Nada | **200**, 404 | RF-80 |
 | GET | `/asesorias/mias` | Asesor | Nada | **200** | RF-92 |
 | GET | `/asesorias/solicitud` | Estudiante | Nada | **200** (`SolicitudAsesorSalida` o `null`) | Solicitud de asesor |
-| POST | `/asesorias/solicitud` | Estudiante | JSON `{motivo, materias?}` | **201**, 409, 422 | Solicitud de asesor |
+| POST | `/asesorias/solicitud` | Estudiante | JSON `{materias, motivo?}` | **201**, 409, 422 | Solicitud de asesor |
 | POST | `/asesorias` | Asesor | JSON `PublicacionCrear` | **201**, 422 | RF-74, RF-75 |
 | PATCH | `/asesorias/{publicacion_id}` | Asesor autor | JSON `PublicacionActualizar` (todo opcional) | **200**, 403, 404, 422 | RF-76, RF-77 |
 | DELETE | `/asesorias/{publicacion_id}` | Asesor autor | Nada | **200**, 403, 404 | RF-77 |
@@ -1087,21 +1087,21 @@ Reglas:
 
 ### Solicitud para ser asesor
 
-`services.py → enviar_solicitud_asesor`, `mi_solicitud_asesor`. El estudiante explica por qué quiere ser asesor y un administrador la acepta o la rechaza (`PATCH /admin/solicitudes-asesor/{id}`). Se guarda en la tabla `SolicitudAsesor`.
+`services.py → enviar_solicitud_asesor`, `mi_solicitud_asesor`. El estudiante indica de qué materias imparte asesorías y un administrador la acepta o la rechaza (`PATCH /admin/solicitudes-asesor/{id}`). Se guarda en la tabla `SolicitudAsesor`.
 
 **Nota:** RF-73 dice que el administrador asigna el rol "eliminando la solicitud manual por parte del estudiante". Esta solicitud la agregó el equipo después; el administrador **también** puede seguir dando el rol directo.
 
 `POST /asesorias/solicitud` recibe:
 ```json
-{ "motivo": "Tengo 95 en Bases de Datos y ya ayudo a mis compañeros a estudiar SQL.", "materias": "Bases de Datos" }
+{ "materias": "Bases de Datos, Programación Estructurada" }
 ```
-- `motivo`: obligatorio, de 20 a 1000 caracteres.
-- `materias`: opcional, texto libre de hasta 200 caracteres.
+- `materias`: obligatorio, texto libre de 3 a 200 caracteres. Es lo único que pide la pantalla.
+- `motivo`: opcional, hasta 1000 caracteres; si no se envía se guarda `""`.
 
 Respuesta (`SolicitudAsesorSalida`). `GET /asesorias/solicitud` devuelve la **última** solicitud del alumno con este mismo formato, o `null` si nunca ha enviado una:
 ```json
 {
-  "id": 3, "motivo": "Tengo 95 en Bases de Datos…", "materias": "Bases de Datos",
+  "id": 3, "motivo": "", "materias": "Bases de Datos, Programación Estructurada",
   "estado": "pendiente", "fechaSolicitud": "2026-11-24T17:38:02", "fechaRespuesta": null, "comentarioAdmin": null,
   "estudiante_id": 14, "nombre": "Diego Herrera Luna", "codigo": "219000004", "carrera": "ICOM",
   "correoInstitucional": "diego.demo4@alumnos.udg.mx"
@@ -1117,7 +1117,7 @@ Reglas:
 |--------|----------|
 | 409 | `Ya tienes el rol de asesor` |
 | 409 | `Ya tienes una solicitud pendiente; espera la respuesta del administrador` |
-| 422 | `motivo`: `Debe tener al menos 20 caracteres` |
+| 422 | `materias`: `Este campo es obligatorio` o `Debe tener al menos 3 caracteres` |
 
 ---
 

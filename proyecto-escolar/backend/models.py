@@ -222,8 +222,8 @@ class SolicitudAsesor(Base):
     """Un estudiante pide ser asesor; un administrador la acepta (le da el rol) o la rechaza."""
     __tablename__ = "SolicitudAsesor"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    motivo = Column(String, nullable=False)
-    materias = Column(String)                     # materias en las que puede ayudar (texto libre)
+    motivo = Column(String, nullable=False)       # comentario opcional del alumno ("" si no escribió)
+    materias = Column(String)                     # de qué materias imparte asesorías (se pide al enviarla)
     estado = Column(String, nullable=False)       # pendiente | aceptada | rechazada
     fechaSolicitud = Column(String, nullable=False)
     fechaRespuesta = Column(String)

@@ -38,7 +38,8 @@ async function iniciarAsesorias() {
 }
 
 // ---------- Solicitud para ser asesor (solo quien aún no lo es) ----------
-// Sin solicitud o rechazada: botón "Quiero ser asesor" · pendiente: aviso "en revisión".
+// Sin solicitud o rechazada: botón "¿Eres asesor?" · pendiente: aviso "en revisión".
+// La solicitud solo pide de qué materias imparte asesorías.
 let solicitud = null;
 
 async function cargarSolicitud() {
@@ -62,7 +63,7 @@ function pintarSolicitud() {
     zona.appendChild(chip);
     return;
   }
-  const b = boton("Quiero ser asesor", "volunteer_activism", "suave");
+  const b = boton("¿Eres asesor?", "volunteer_activism", "suave");
   b.addEventListener("click", abrirSolicitud);
   zona.appendChild(b);
   if (solicitud?.estado === "rechazada") {
@@ -78,20 +79,19 @@ function abrirSolicitud() {
   rechazo.textContent = comentario ? `Respuesta a tu solicitud anterior: "${comentario}"` : "";
   rechazo.classList.toggle("hidden", !comentario);
   abrirModal("modal-solicitud");
-  document.getElementById("input-motivo").focus();
+  document.getElementById("input-materias").focus();
 }
 
 async function enviarSolicitud(evento) {
   evento.preventDefault();
   limpiarErrores("aviso-solicitud");
-  const motivo = document.getElementById("input-motivo").value.trim();
-  const materias = document.getElementById("input-materias").value.trim() || null;
-  if (!motivo) return marcarCampo("motivo", "Cuéntanos por qué quieres ser asesor");
-  if (motivo.length < 20) return marcarCampo("motivo", "Debe tener al menos 20 caracteres");
+  const materias = document.getElementById("input-materias").value.trim();
+  if (!materias) return marcarCampo("materias", "Escribe de qué materias impartes asesorías");
+  if (materias.length < 3) return marcarCampo("materias", "Debe tener al menos 3 caracteres");
   const b = document.getElementById("btn-enviar-solicitud");
   botonCargando(b, true);
   try {
-    solicitud = await pedir("/asesorias/solicitud", { metodo: "POST", datos: { motivo, materias }, conToken: true });
+    solicitud = await pedir("/asesorias/solicitud", { metodo: "POST", datos: { materias }, conToken: true });
     cerrarModal("modal-solicitud");
     mostrarToast("Solicitud enviada. Te avisaremos aquí cuando la revisen.");
     pintarSolicitud();

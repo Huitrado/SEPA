@@ -108,10 +108,21 @@ function bloque(b) {
     for (const c of b.contactos) {
       const tarjeta = el("div", "p-space-md rounded-xl bg-surface-container-low space-y-1");
       tarjeta.appendChild(el("p", "font-label-lg text-label-lg text-primary", c.carrera));
-      for (const [nombreIcono, etiqueta, valor] of [["person", "Coordinador", c.coordinador], ["mail", "Correo", c.correo],
-        ["location_on", "Ubicación", c.ubicacion], ["schedule", "Horario de atención", c.horario]]) {
-        const fila = el("p", `flex items-center gap-space-xs font-body-md text-body-md ${valor ? "text-on-surface" : "text-on-surface-variant italic"}`);
-        fila.append(icono(nombreIcono), el("span", "", valor || `${etiqueta}: pendiente`));
+      // [campo, ícono, etiqueta, enlace]: el teléfono y el correo se pueden tocar para llamar o escribir
+      const campos = [["coordinador", "person", "Coordinador"],
+        ["telefono", "call", "Teléfono", v => `tel:+52${v.split(",")[0].replace(/\D/g, "")}`],
+        ["correo", "mail", "Correo", v => `mailto:${v}`],
+        ["ubicacion", "location_on", "Ubicación"], ["horario", "schedule", "Horario de atención"]];
+      for (const [campo, nombreIcono, etiqueta, enlace] of campos) {
+        if (!(campo in c)) continue;  // dato que no aplica para esta coordinación
+        const valor = c[campo];
+        const fila = el("p", `flex items-start gap-space-xs font-body-md text-body-md ${valor ? "text-on-surface" : "text-on-surface-variant italic"}`);
+        let contenido = el("span", "", valor || `${etiqueta}: pendiente`);
+        if (valor && enlace) {
+          contenido = el("a", "text-secondary hover:underline break-all", valor);
+          contenido.href = enlace(valor);
+        }
+        fila.append(icono(nombreIcono, "text-[18px] mt-0.5"), contenido);
         tarjeta.appendChild(fila);
       }
       rejilla.appendChild(tarjeta);

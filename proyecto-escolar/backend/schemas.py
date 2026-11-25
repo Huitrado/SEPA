@@ -633,11 +633,12 @@ class MateriaEnMalla(BaseModel):
     semestreBase: Annotated[int, Field(ge=1, le=12)]
 
 # ------------------------------------------------------------------ solicitud para ser asesor
-MotivoSolicitud = Annotated[str, StringConstraints(strip_whitespace=True, min_length=20, max_length=1000)]
+MateriasSolicitud = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=200)]
+MotivoSolicitud = Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)]
 
 class SolicitudAsesorCrear(BaseModel):
-    motivo: MotivoSolicitud                 # por qué quiere ser asesor
-    materias: TextoAsesoria | None = None   # en qué materias puede ayudar (opcional)
+    materias: MateriasSolicitud        # de qué materias imparte asesorías (obligatorio)
+    motivo: MotivoSolicitud = ""       # comentario opcional para el administrador
 
 class SolicitudAsesorRespuesta(BaseModel):
     decision: Literal["aceptada", "rechazada"]
@@ -645,7 +646,7 @@ class SolicitudAsesorRespuesta(BaseModel):
 
 class SolicitudAsesorSalida(BaseModel):
     id: int
-    motivo: str
+    motivo: str            # "" si el alumno no escribió comentario
     materias: str | None
     estado: str
     fechaSolicitud: str

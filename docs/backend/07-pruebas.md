@@ -322,7 +322,7 @@ Docstring: *"Solicitud para ser asesor: el estudiante la envía y el administrad
 | Caso | Qué comprueban |
 |------|----------------|
 | Enviar | El alumno la envía (201, `pendiente`) y la consulta en `GET /asesorias/solicitud`; antes de enviarla responde `null` |
-| Validación | Un motivo de menos de 20 caracteres → 422 con el mensaje en español |
+| Validación | Sin materias o con menos de 3 caracteres → 422 con el mensaje en español; el comentario (`motivo`) es opcional |
 | Una a la vez | Una segunda solicitud mientras hay una pendiente → 409 |
 | Lista del admin | El admin ve las pendientes, la más antigua primero; un estudiante no puede verlas ni responderlas (403) |
 | Aceptar | Da el rol de asesor; ya puede usar `/asesorias/mias` y no puede volver a pedirlo (409) |

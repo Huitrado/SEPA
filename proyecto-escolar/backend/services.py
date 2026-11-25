@@ -1657,7 +1657,8 @@ def mi_solicitud_asesor(db: Session, usuario: models.Usuario) -> dict | None:
     return _solicitud_dict(db, s) if s else None
 
 def enviar_solicitud_asesor(db: Session, usuario: models.Usuario, datos: schemas.SolicitudAsesorCrear) -> dict:
-    """Una sola solicitud pendiente a la vez; si ya es asesor no hace falta. Tras un rechazo puede volver a pedirlo."""
+    """El alumno indica de qué materias imparte asesorías. Una sola solicitud pendiente a la vez;
+    si ya es asesor no hace falta. Tras un rechazo puede volver a pedirlo."""
     if "asesor" in _roles_de(db, usuario.id):
         raise HTTPException(409, "Ya tienes el rol de asesor")
     ultima = _ultima_solicitud(db, usuario.id)

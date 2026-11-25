@@ -252,19 +252,25 @@ function filaAlumno(a, seg) {
         seg.desempenoProporcional === null ? "Sin evaluaciones aún" : `${numero(seg.desempenoProporcional, 1)} % de lo evaluado`)
     );
     celdaRiesgo.appendChild(chipSemaforo(seg.semaforoGeneral));
-    // Banderas: RF-48 calificación, RF-84 artículos 33 a 35, RF-58/59 rezago crítico, RF-54 historial
+    // Banderas: asistencia en amarillo o rojo (RF-50, RF-51), RF-48 calificación, RF-84 artículos 33 a 35,
+    // RF-58/59 rezago crítico, RF-54 historial. Cada una es una insignia que dice la causa de la alerta.
+    const ROJA = "bg-semaforo-rojo-fondo text-semaforo-rojo";
+    const asistenciaEnRiesgo = seg.semaforoAsistencia && seg.semaforoAsistencia !== "verde";
     const banderas = [
-      [seg.alertaCalificacion, "notification_important", "Alerta por calificación", null],
-      [seg.alertaArticulos, "gavel", "Riesgo art. 33-35", "Ya reprobó esta materia y hoy está en rojo"],
-      [seg.rezagoCritico, "history_toggle_off", "Rezago crítico", seg.detalleRezago],
-      [seg.riesgoPorHistorial, "workspace_premium", "Riesgo por historial", "Reprobó en sus dos ciclos anteriores"]
+      [asistenciaEnRiesgo, "event_busy", "Alerta por asistencia",
+        `${numero(seg.porcentajeAsistencia, 1)} % de asistencia (${seg.estatusNormativo})`,
+        seg.semaforoAsistencia === "rojo" ? ROJA : "bg-semaforo-amarillo-fondo text-semaforo-amarillo"],
+      [seg.alertaCalificacion, "notification_important", "Alerta por calificación", null, ROJA],
+      [seg.alertaArticulos, "gavel", "Riesgo art. 33-35", "Ya reprobó esta materia y hoy está en rojo", ROJA],
+      [seg.rezagoCritico, "history_toggle_off", "Rezago crítico", seg.detalleRezago, ROJA],
+      [seg.riesgoPorHistorial, "workspace_premium", "Riesgo por historial", "Reprobó en sus dos ciclos anteriores", ROJA]
     ];
-    for (const [activa, nombreIcono, texto, detalle] of banderas) {
+    for (const [activa, nombreIcono, texto, detalle, clases] of banderas) {
       if (!activa) continue;
-      const alerta = el("p", "font-helper-sm text-helper-sm text-error mt-1 flex items-center gap-1");
+      const alerta = el("span", `mt-1 mr-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-helper-sm text-helper-sm font-semibold ${clases}`);
       if (detalle) alerta.title = detalle;
       alerta.append(icono(nombreIcono, "text-[14px]"), el("span", "", texto));
-      celdaRiesgo.appendChild(alerta);
+      celdaRiesgo.append(el("br"), alerta);
     }
   } else {
     for (const celda of [celdaAsistencia, celdaCalificacion, celdaRiesgo]) celda.appendChild(el("span", "text-on-surface-variant", "—"));
