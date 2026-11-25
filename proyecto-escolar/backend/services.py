@@ -1605,3 +1605,62 @@ def quitar_materia_de_malla(db: Session, malla_id: int, materia_id: int) -> None
         raise HTTPException(404, "La materia no está en ese plan de estudios")
     db.delete(fila)
     db.commit()
+
+# ======================================================================
+# Solicitud para ser asesor: el estudiante la envía y el administrador la acepta o la rechaza.
+# Aceptarla le da el rol de asesor (lo mismo que RF-73); el administrador también puede darlo directo.
+# ======================================================================
+def _solicitud_dict(db: Session, s: models.SolicitudAsesor) -> dict:
+    usuario = db.get(models.Usuario, s.estudiante_id)
+    estudiante = db.get(models.Estudiante, s.estudiante_id)
+    return {"id": s.id, "motivo": s.motivo, "materias": s.materias, "estado": s.estado,
+            "fechaSolicitud": s.fechaSolicitud, "fechaRespuesta": s.fechaRespuesta,
+            "comentarioAdmin": s.comentarioAdmin, "estudiante_id": s.estudiante_id,
+            "nombre": f"{usuario.nombre} {usuario.apellidos}", "codigo": estudiante.codigoEstudiante,
+            "carrera": estudiante.carrera, "correoInstitucional": usuario.correoInstitucional}
+
+def _ultima_solicitud(db: Session, estudiante_id: int) -> models.SolicitudAsesor | None:
+    return (db.query(models.SolicitudAsesor).filter_by(estudiante_id=estudiante_id)
+            .order_by(models.SolicitudAsesor.id.desc()).first())
+
+def mi_solicitud_asesor(db: Session, usuario: models.Usuario) -> dict | None:
+    """La última solicitud del estudiante (para mostrarle si está pendiente, aceptada o rechazada)."""
+    s = _ultima_solicitud(db, usuario.id)
+    return _solicitud_dict(db, s) if s else None
+
+def enviar_solicitud_asesor(db: Session, usuario: models.Usuario, datos: schemas.SolicitudAsesorCrear) -> dict:
+    """Una sola solicitud pendiente a la vez; si ya es asesor no hace falta. Tras un rechazo puede volver a pedirlo."""
+    if "asesor" in _roles_de(db, usuario.id):
+        raise HTTPException(409, "Ya tienes el rol de asesor")
+    ultima = _ultima_solicitud(db, usuario.id)
+    if ultima and ultima.estado == "pendiente":
+        raise HTTPException(409, "Ya tienes una solicitud pendiente; espera la respuesta del administrador")
+    s = models.SolicitudAsesor(motivo=datos.motivo, materias=datos.materias, estado="pendiente",
+                               fechaSolicitud=_ahora(), estudiante_id=usuario.id)
+    db.add(s)
+    db.commit()
+    return _solicitud_dict(db, s)
+
+def listar_solicitudes_asesor(db: Session, estado: str | None = None) -> list[dict]:
+    """Para el administrador: las pendientes primero y, dentro de cada estado, las más antiguas primero."""
+    q = db.query(models.SolicitudAsesor)
+    if estado:
+        q = q.filter_by(estado=estado)
+    filas = q.order_by((models.SolicitudAsesor.estado != "pendiente"), models.SolicitudAsesor.id).all()
+    return [_solicitud_dict(db, s) for s in filas]
+
+def responder_solicitud_asesor(db: Session, admin: models.Usuario, solicitud_id: int,
+                               datos: schemas.SolicitudAsesorRespuesta) -> dict:
+    s = db.get(models.SolicitudAsesor, solicitud_id)
+    if not s:
+        raise HTTPException(404, "Solicitud no encontrada")
+    if s.estado != "pendiente":
+        raise HTTPException(409, "Esta solicitud ya fue respondida")
+    if datos.decision == "aceptada":
+        if db.get(models.Usuario, s.estudiante_id).estado != "activo":
+            raise HTTPException(409, "La cuenta del estudiante no está activa")
+        cambiar_rol_asesor(db, s.estudiante_id, True)
+    s.estado, s.fechaRespuesta = datos.decision, _ahora()
+    s.comentarioAdmin, s.administrador_id = datos.comentario or None, admin.id
+    db.commit()
+    return _solicitud_dict(db, s)

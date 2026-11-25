@@ -50,9 +50,92 @@ async function iniciarAdmin() {
   document.querySelectorAll('input[name="tipoCuenta"]').forEach(r => r.addEventListener("change", ajustarTipoCuenta));
   document.getElementById("form-editar").addEventListener("submit", guardarUsuario);
   document.getElementById("form-contrasena").addEventListener("submit", restablecerContrasena);
+  document.getElementById("form-rechazo").addEventListener("submit", rechazarSolicitud);
   iniciarCatalogos();
   mostrarSeccion(location.hash.slice(1) || "inicio", false);
-  await Promise.all([cargarUsuarios(), cargarCatalogos()]);
+  await Promise.all([cargarUsuarios(), cargarCatalogos(), cargarSolicitudes()]);
+}
+
+// ==================== SOLICITUDES PARA SER ASESOR ====================
+// GET /admin/solicitudes-asesor?estado=pendiente · PATCH /admin/solicitudes-asesor/{id}
+// Aceptar le da el rol de asesor (igual que en "Editar usuario"); rechazar admite un comentario.
+let solicitudes = [];
+let solicitudEnRechazo = null;
+
+async function cargarSolicitudes() {
+  try {
+    solicitudes = await pedir("/admin/solicitudes-asesor?estado=pendiente", { conToken: true });
+  } catch (error) {
+    if (error.status !== 401) mostrarErrorApi(error);
+    return;
+  }
+  pintarSolicitudes();
+}
+
+function pintarSolicitudes() {
+  const contenedor = document.getElementById("inicio-solicitudes");
+  contenedor.innerHTML = "";
+  if (!solicitudes.length) {
+    contenedor.appendChild(el("p", "px-space-lg pb-space-lg text-on-surface-variant", "No hay solicitudes por revisar."));
+    return;
+  }
+  for (const s of solicitudes) {
+    const fila = el("div", "px-space-lg py-space-md border-t border-surface-container flex flex-col md:flex-row md:items-start justify-between gap-space-sm");
+    const datos = el("div", "min-w-0 space-y-1");
+    datos.append(el("p", "font-label-lg text-label-lg text-primary", s.nombre),
+      el("p", "font-helper-sm text-helper-sm text-on-surface-variant",
+        `${s.codigo} · ${s.carrera ? nombreCarrera(s.carrera) : "Sin carrera"} · enviada ${fechaHora(s.fechaSolicitud)}`),
+      el("p", "font-body-md text-body-md text-on-surface whitespace-pre-line", s.motivo));
+    if (s.materias) datos.appendChild(el("p", "font-helper-sm text-helper-sm text-on-surface-variant", `Materias: ${s.materias}`));
+    const acciones = el("div", "flex gap-1 shrink-0");
+    const aceptar = boton("Aceptar", "verified", "primario");
+    aceptar.addEventListener("click", () => aceptarSolicitud(s, aceptar));
+    const rechazar = boton("Rechazar", "block", "peligro");
+    rechazar.addEventListener("click", () => abrirRechazo(s));
+    acciones.append(aceptar, rechazar);
+    fila.append(datos, acciones);
+    contenedor.appendChild(fila);
+  }
+}
+
+async function aceptarSolicitud(s, b) {
+  if (!await confirmar(`¿Hacer asesor a ${s.nombre}?`, "Podrá publicar asesorías en el tablero. Puedes quitarle el rol después desde Usuarios y roles.", "Aceptar")) return;
+  b.disabled = true;
+  try {
+    await pedir(`/admin/solicitudes-asesor/${s.id}`, { metodo: "PATCH", datos: { decision: "aceptada" }, conToken: true });
+    mostrarToast(`${s.nombre} ahora es asesor.`);
+    await Promise.all([cargarSolicitudes(), cargarUsuarios()]);
+  } catch (error) {
+    if (error.status !== 401) mostrarErrorApi(error);
+    b.disabled = false;
+  }
+}
+
+function abrirRechazo(s) {
+  solicitudEnRechazo = s;
+  document.getElementById("form-rechazo").reset();
+  limpiarErrores("aviso-rechazo");
+  document.getElementById("rechazo-para").textContent = s.nombre;
+  abrirModal("modal-rechazo");
+}
+
+async function rechazarSolicitud(evento) {
+  evento.preventDefault();
+  limpiarErrores("aviso-rechazo");
+  const comentario = document.getElementById("input-comentario").value.trim() || null;
+  const b = document.getElementById("btn-confirmar-rechazo");
+  botonCargando(b, true);
+  try {
+    await pedir(`/admin/solicitudes-asesor/${solicitudEnRechazo.id}`,
+      { metodo: "PATCH", datos: { decision: "rechazada", comentario }, conToken: true });
+    cerrarModal("modal-rechazo");
+    mostrarToast("Solicitud rechazada.");
+    await cargarSolicitudes();
+  } catch (error) {
+    if (error.status !== 401) mostrarErrorApi(error, "aviso-rechazo");
+  } finally {
+    botonCargando(b, false);
+  }
 }
 
 // ==================== SECCIONES ====================

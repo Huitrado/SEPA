@@ -1047,13 +1047,15 @@ Entregar **justo** en la fecha y hora límite cuenta como a tiempo.
 
 ## Router `asesorias`: asesorías entre estudiantes (RF-73 a RF-80, RF-92)
 
-Archivo: `routers/asesorias.py` · Prefijo: `/asesorias`. El tablero lo ven los **estudiantes** (`requiere_estudiante`); publicar y administrar es solo para estudiantes con rol de **asesor** (`security.py → requiere_asesor`, 403 `Se requiere rol de asesor`). El rol lo asigna el administrador con `PATCH /admin/usuarios/{id}/asesor` (RF-73).
+Archivo: `routers/asesorias.py` · Prefijo: `/asesorias`. El tablero lo ven los **estudiantes** (`requiere_estudiante`); publicar y administrar es solo para estudiantes con rol de **asesor** (`security.py → requiere_asesor`, 403 `Se requiere rol de asesor`). El rol lo asigna el administrador con `PATCH /admin/usuarios/{id}/asesor` (RF-73), o al aceptar la solicitud que el estudiante envía con `POST /asesorias/solicitud`.
 
 | Método | Ruta | Quién | Recibe | Respuestas | RF |
 |--------|------|-------|--------|------------|----|
 | GET | `/asesorias` | Estudiante | Query opcional `materia`, `modalidad` (`presencial` o `virtual`) y `q` | **200**, 422 | RF-78, RF-79 |
 | GET | `/asesorias/{publicacion_id}` | Estudiante | Nada | **200**, 404 | RF-80 |
 | GET | `/asesorias/mias` | Asesor | Nada | **200** | RF-92 |
+| GET | `/asesorias/solicitud` | Estudiante | Nada | **200** (`SolicitudAsesorSalida` o `null`) | Solicitud de asesor |
+| POST | `/asesorias/solicitud` | Estudiante | JSON `{motivo, materias?}` | **201**, 409, 422 | Solicitud de asesor |
 | POST | `/asesorias` | Asesor | JSON `PublicacionCrear` | **201**, 422 | RF-74, RF-75 |
 | PATCH | `/asesorias/{publicacion_id}` | Asesor autor | JSON `PublicacionActualizar` (todo opcional) | **200**, 403, 404, 422 | RF-76, RF-77 |
 | DELETE | `/asesorias/{publicacion_id}` | Asesor autor | Nada | **200**, 403, 404 | RF-77 |
@@ -1083,6 +1085,40 @@ Reglas:
 | 404 | `Asesoría no encontrada` |
 | 422 | `La materia no está en el catálogo oficial` |
 
+### Solicitud para ser asesor
+
+`services.py → enviar_solicitud_asesor`, `mi_solicitud_asesor`. El estudiante explica por qué quiere ser asesor y un administrador la acepta o la rechaza (`PATCH /admin/solicitudes-asesor/{id}`). Se guarda en la tabla `SolicitudAsesor`.
+
+**Nota:** RF-73 dice que el administrador asigna el rol "eliminando la solicitud manual por parte del estudiante". Esta solicitud la agregó el equipo después; el administrador **también** puede seguir dando el rol directo.
+
+`POST /asesorias/solicitud` recibe:
+```json
+{ "motivo": "Tengo 95 en Bases de Datos y ya ayudo a mis compañeros a estudiar SQL.", "materias": "Bases de Datos" }
+```
+- `motivo`: obligatorio, de 20 a 1000 caracteres.
+- `materias`: opcional, texto libre de hasta 200 caracteres.
+
+Respuesta (`SolicitudAsesorSalida`). `GET /asesorias/solicitud` devuelve la **última** solicitud del alumno con este mismo formato, o `null` si nunca ha enviado una:
+```json
+{
+  "id": 3, "motivo": "Tengo 95 en Bases de Datos…", "materias": "Bases de Datos",
+  "estado": "pendiente", "fechaSolicitud": "2026-11-24T17:38:02", "fechaRespuesta": null, "comentarioAdmin": null,
+  "estudiante_id": 14, "nombre": "Diego Herrera Luna", "codigo": "219000004", "carrera": "ICOM",
+  "correoInstitucional": "diego.demo4@alumnos.udg.mx"
+}
+```
+`estado` es `pendiente`, `aceptada` o `rechazada`. Al rechazar, `comentarioAdmin` puede traer el motivo que escribió el administrador.
+
+Reglas:
+- Solo una solicitud **pendiente** a la vez. Después de un rechazo, puede enviar otra.
+- Si ya tiene el rol de asesor, no puede enviarla.
+
+| Código | `detail` |
+|--------|----------|
+| 409 | `Ya tienes el rol de asesor` |
+| 409 | `Ya tienes una solicitud pendiente; espera la respuesta del administrador` |
+| 422 | `motivo`: `Debe tener al menos 20 caracteres` |
+
 ---
 
 ## Router `admin`: administración
@@ -1096,6 +1132,8 @@ Archivo: `routers/admin.py` · Prefijo: `/admin` · **Todos exigen Admin** (`req
 | GET | `/admin/usuarios` | Admin | Query opcional `rol` (`estudiante`, `asesor`, `docente`, `administrador`) y `estado` (`activo`, `inactivo`, `pendiente`) | **200**, 422 | RF-93 |
 | PATCH | `/admin/usuarios/{usuario_id}` | Admin | JSON `UsuarioAdminActualizar` (todo opcional) | **200**, 404, 409, 422 | RF-93 |
 | PATCH | `/admin/usuarios/{usuario_id}/asesor` | Admin | JSON `{asesor: true/false}` | **200**, 404, 409, 422 | RF-73, RF-92 |
+| GET | `/admin/solicitudes-asesor` | Admin | Query opcional `estado` (`pendiente`, `aceptada`, `rechazada`) | **200**, 422 | Solicitud de asesor |
+| PATCH | `/admin/solicitudes-asesor/{solicitud_id}` | Admin | JSON `{decision, comentario?}` | **200**, 404, 409, 422 | Solicitud de asesor |
 | POST | `/admin/riesgo/recalcular` | Admin | Nada | **202** | RF-53 |
 | GET | `/admin/mallas` | Admin | Nada | **200** | RF-56 |
 | PUT | `/admin/mallas/{malla_id}/materias` | Admin | JSON `{materia_id, semestreBase}` | **204**, 404, 422 | RF-56 |
@@ -1174,6 +1212,20 @@ El correo **debe** terminar en `@academicos.udg.mx` (`schemas.py → DocenteCrea
 `services.py → cambiar_rol_asesor`. RF-73: asigna (`{"asesor": true}`) o quita (`{"asesor": false}`) el rol **asesor** a un estudiante. El rol se guarda en `Rol`/`UsuarioRol`; repetir la petición no lo duplica. RF-92: un estudiante con rol de asesor sigue entrando a su panel de estudiante (el login responde `"panel": "estudiante"` y `"roles": ["estudiante", "asesor"]`). **200**: el usuario con el formato de `GET /admin/usuarios`.
 
 **409**: `Solo los estudiantes pueden tener el rol de asesor`.
+
+### `GET /admin/solicitudes-asesor` y `PATCH /admin/solicitudes-asesor/{solicitud_id}`
+
+`services.py → listar_solicitudes_asesor`, `responder_solicitud_asesor`. El panel del administrador muestra las pendientes en **Inicio**.
+
+- `GET` devuelve una lista de `SolicitudAsesorSalida` (formato en [Solicitud para ser asesor](#solicitud-para-ser-asesor)): primero las pendientes y, dentro de cada estado, las más antiguas.
+- `PATCH` recibe `{"decision": "aceptada"}` o `{"decision": "rechazada", "comentario": "Primero acredita la materia."}`. `comentario` es opcional (hasta 500 caracteres) y lo ve el estudiante.
+- **Aceptar** le da el rol de asesor, igual que `PATCH /admin/usuarios/{id}/asesor`. Guarda la fecha de respuesta y qué administrador respondió.
+
+| Código | `detail` |
+|--------|----------|
+| 404 | `Solicitud no encontrada` |
+| 409 | `Esta solicitud ya fue respondida` |
+| 409 | `La cuenta del estudiante no está activa` (solo al aceptar) |
 
 ### `PATCH /admin/usuarios/{usuario_id}/estado`
 

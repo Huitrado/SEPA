@@ -26,11 +26,11 @@ Todo se define en **`models.py`**. Cada clase que hereda de `Base` es una **tabl
 
 ## Qué tablas se usan hoy
 
-`models.py` declara **22 tablas**, pero los endpoints actuales solo usan una parte. Las demás están **modeladas para módulos futuros** (asistencia, evaluaciones, riesgo, asesorías…) y hoy ningún endpoint las lee ni las escribe.
+`models.py` declara **23 tablas**, pero los endpoints actuales solo usan una parte. Las demás están **modeladas para módulos futuros** (asistencia, evaluaciones, riesgo, asesorías…) y hoy ningún endpoint las lee ni las escribe.
 
 | Estado | Tablas |
 |--------|--------|
-| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionActiva` e `IntentoLogin` (RNF-02, RNF-03), `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `Entrega`, `Calificacion`, `PublicacionAsesoria`, `HistorialAcademico` y `RegistroRiesgo` (riesgo académico), `MallaCurricular`, `Materia`, `MallaMateria` |
+| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionActiva` e `IntentoLogin` (RNF-02, RNF-03), `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `Entrega`, `Calificacion`, `PublicacionAsesoria` y `SolicitudAsesor` (asesorías), `HistorialAcademico` y `RegistroRiesgo` (riesgo académico), `MallaCurricular`, `Materia`, `MallaMateria` |
 | **Sin uso todavía** | `BibliotecaNormatividad` |
 
 ---
@@ -407,6 +407,22 @@ Se crea en el login y se borra en el logout o al cerrarse por inactividad. Un to
 | `bloqueadoHasta` | String, nulo | Fin del bloqueo (ISO, en UTC) |
 
 Se borra la fila al entrar con la contraseña correcta. Explicación en [04-seguridad.md](04-seguridad.md#8-bloqueo-por-intentos-fallidos-rnf-03).
+
+### `SolicitudAsesor`: solicitudes para ser asesor
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `id` | Integer, PK | |
+| `motivo` | String | Por qué quiere ser asesor (20 a 1000 caracteres) |
+| `materias` | String, nulo | En qué materias puede ayudar (texto libre) |
+| `estado` | String | `pendiente`, `aceptada` o `rechazada` |
+| `fechaSolicitud` | String | Cuándo la envió (ISO) |
+| `fechaRespuesta` | String, nulo | Cuándo respondió el administrador |
+| `comentarioAdmin` | String, nulo | Comentario del administrador; sobre todo al rechazar |
+| `estudiante_id` | Integer, FK → `Estudiante.id` | Quién la envía |
+| `administrador_id` | Integer, FK → `Usuario.id`, nulo | Quién respondió |
+
+Un estudiante puede tener varias (una nueva tras cada rechazo), pero solo una `pendiente`. Aceptarla agrega el rol `asesor` en `UsuarioRol`.
 
 ---
 

@@ -46,6 +46,8 @@
           class="hidden items-center justify-center gap-space-xs py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-on-tertiary-container text-on-primary hover:brightness-110 shadow-sm transition">
           <span class="material-symbols-outlined text-[20px]">campaign</span> Mis publicaciones de asesor
         </a>
+        <!-- Solicitud para ser asesor (solo si aún no lo es): botón, o el estado de su solicitud -->
+        <div id="zona-solicitud" class="hidden flex-col items-stretch sm:items-end gap-1"></div>
       </div>
 
       <!-- Aviso general (errores del backend) -->
@@ -111,6 +113,54 @@
     </div>
     <div class="space-y-space-md mt-space-md" id="detalle-cuerpo"></div>
   </div>
+</div>
+
+<!-- Solicitud para ser asesor -->
+<div id="modal-solicitud" data-modal class="hidden fixed inset-0 z-50 flex items-center justify-center p-gutter bg-primary/40 backdrop-blur-sm">
+  <form id="form-solicitud" novalidate class="bg-surface-container-lowest w-full max-w-lg rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer space-y-space-md">
+    <div class="flex items-start justify-between gap-space-md">
+      <div>
+        <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold">Solicitud</span>
+        <h2 class="font-title-lg text-title-lg text-primary mt-1">Quiero ser asesor</h2>
+      </div>
+      <button type="button" data-cerrar-modal="modal-solicitud" aria-label="Cerrar"
+        class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <p class="font-body-md text-body-md text-on-surface-variant">Un administrador revisará tu solicitud. Si la acepta, podrás publicar asesorías en este tablero.</p>
+    <p id="solicitud-rechazo" class="hidden p-space-sm rounded-lg bg-surface-container-low font-body-md text-body-md text-on-surface"></p>
+    <div id="aviso-solicitud" class="hidden">
+      <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+      <p class="font-body-md text-body-md" data-aviso-texto></p>
+    </div>
+    <div class="flex flex-col space-y-space-xs">
+      <label for="input-motivo" class="font-label-lg text-label-lg text-on-surface">¿Por qué quieres ser asesor?</label>
+      <textarea id="input-motivo" name="motivo" rows="4" maxlength="1000"
+        placeholder="Ej. Saqué 95 en Bases de Datos y ya ayudo a mis compañeros a estudiar SQL."
+        class="w-full px-3.5 py-3 rounded-lg bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none"></textarea>
+      <span id="err-motivo" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+        <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+      </span>
+    </div>
+    <div class="flex flex-col space-y-space-xs">
+      <label for="input-materias" class="font-label-lg text-label-lg text-on-surface">Materias en las que puedes ayudar <span class="text-on-surface-variant font-normal">(opcional)</span></label>
+      <input id="input-materias" name="materias" type="text" maxlength="200" placeholder="Ej. Bases de Datos, Programación Estructurada"
+        class="w-full px-3.5 py-3 rounded-lg bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none" />
+      <span id="err-materias" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+        <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+      </span>
+    </div>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm pt-space-sm">
+      <button type="button" data-cerrar-modal="modal-solicitud"
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button type="submit" id="btn-enviar-solicitud"
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
+        <span data-texto-boton>Enviar solicitud</span>
+        <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+      </button>
+    </div>
+  </form>
 </div>
 
 <script src="js/app.js"></script>

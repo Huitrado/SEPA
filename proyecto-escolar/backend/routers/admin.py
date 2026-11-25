@@ -43,6 +43,16 @@ def cambiar_rol_asesor(usuario_id: int, datos: schemas.RolAsesor, db: Session = 
                        _: models.Usuario = Depends(requiere_admin)):
     return services.cambiar_rol_asesor(db, usuario_id, datos.asesor)
 
+@router.get("/solicitudes-asesor", response_model=list[schemas.SolicitudAsesorSalida])
+def listar_solicitudes_asesor(estado: Literal["pendiente", "aceptada", "rechazada"] | None = None,
+                              db: Session = Depends(get_db), _: models.Usuario = Depends(requiere_admin)):
+    return services.listar_solicitudes_asesor(db, estado)
+
+@router.patch("/solicitudes-asesor/{solicitud_id}", response_model=schemas.SolicitudAsesorSalida)
+def responder_solicitud_asesor(solicitud_id: int, datos: schemas.SolicitudAsesorRespuesta,
+                               db: Session = Depends(get_db), admin: models.Usuario = Depends(requiere_admin)):
+    return services.responder_solicitud_asesor(db, admin, solicitud_id, datos)
+
 @router.patch("/usuarios/{usuario_id}/contrasena")
 def restablecer_contrasena(usuario_id: int, datos: schemas.NuevaContrasena,
                            db: Session = Depends(get_db), _: models.Usuario = Depends(requiere_admin)):

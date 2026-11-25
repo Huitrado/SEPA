@@ -79,6 +79,8 @@ flowchart TD
     T13 --> H
     T14["test_seguridad.py<br/>RNF-02, RNF-03<br/>+ fixture reloj"] --> C
     T14 --> H
+    T15["test_solicitud_asesor.py<br/>solicitud para ser asesor"] --> C
+    T15 --> H
 ```
 
 ### `conftest.py`: la fixture `client`
@@ -312,6 +314,20 @@ Docstring: *"Módulo de asesorías entre estudiantes (RF-73 a RF-80, RF-92)"*. L
 | RF-73, RF-92 | Solo los asesores publican y ven `/mias`; un docente no ve el tablero; al quitar el rol, sus anuncios se ocultan |
 | RF-76, RF-77 | Editar; ocultar (sale del tablero y solo su autora la ve) y volver a publicar; eliminar; otro asesor no puede tocar lo ajeno |
 | RF-79 | Filtros por materia, modalidad y texto (tópico u horario) |
+
+### `test_solicitud_asesor.py`
+
+Docstring: *"Solicitud para ser asesor: el estudiante la envía y el administrador la acepta o la rechaza."* La fixture `gente` crea un administrador y a los alumnos Ana y Beto.
+
+| Caso | Qué comprueban |
+|------|----------------|
+| Enviar | El alumno la envía (201, `pendiente`) y la consulta en `GET /asesorias/solicitud`; antes de enviarla responde `null` |
+| Validación | Un motivo de menos de 20 caracteres → 422 con el mensaje en español |
+| Una a la vez | Una segunda solicitud mientras hay una pendiente → 409 |
+| Lista del admin | El admin ve las pendientes, la más antigua primero; un estudiante no puede verlas ni responderlas (403) |
+| Aceptar | Da el rol de asesor; ya puede usar `/asesorias/mias` y no puede volver a pedirlo (409) |
+| Rechazar | No da el rol; el alumno ve el comentario y puede enviar otra |
+| Una sola respuesta | Responder dos veces → 409; una solicitud que no existe → 404 |
 
 
 ### `test_riesgo.py`

@@ -615,3 +615,29 @@ class MallaSalida(BaseModel):  # plan de estudios para el administrador
 class MateriaEnMalla(BaseModel):
     materia_id: int
     semestreBase: Annotated[int, Field(ge=1, le=12)]
+
+# ------------------------------------------------------------------ solicitud para ser asesor
+MotivoSolicitud = Annotated[str, StringConstraints(strip_whitespace=True, min_length=20, max_length=1000)]
+
+class SolicitudAsesorCrear(BaseModel):
+    motivo: MotivoSolicitud                 # por qué quiere ser asesor
+    materias: TextoAsesoria | None = None   # en qué materias puede ayudar (opcional)
+
+class SolicitudAsesorRespuesta(BaseModel):
+    decision: Literal["aceptada", "rechazada"]
+    comentario: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+
+class SolicitudAsesorSalida(BaseModel):
+    id: int
+    motivo: str
+    materias: str | None
+    estado: str
+    fechaSolicitud: str
+    fechaRespuesta: str | None
+    comentarioAdmin: str | None
+    # Datos del alumno, para el panel del administrador
+    estudiante_id: int
+    nombre: str
+    codigo: str
+    carrera: str | None
+    correoInstitucional: str

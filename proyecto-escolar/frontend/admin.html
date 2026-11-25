@@ -68,6 +68,13 @@
           </div>
           <div id="inicio-pendientes"></div>
         </div>
+        <!-- Solicitudes de estudiantes para ser asesor -->
+        <div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+          <div class="px-space-lg py-space-md">
+            <h2 class="font-title-lg text-title-lg text-primary">Solicitudes para ser asesor</h2>
+          </div>
+          <div id="inicio-solicitudes"></div>
+        </div>
         <!-- RF-53: análisis de historial y riesgo en segundo plano -->
         <div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg flex flex-col md:flex-row md:items-center justify-between gap-space-md">
           <div>
@@ -445,6 +452,39 @@
       <button type="submit" id="btn-guardar-contrasena" class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
         <span data-texto-boton>Restablecer</span>
         <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ VENTANA: RECHAZAR SOLICITUD DE ASESOR ============ -->
+<div id="modal-rechazo" data-modal class="hidden fixed inset-0 z-50 flex items-center justify-center p-gutter bg-primary/40 backdrop-blur-sm">
+  <form id="form-rechazo" novalidate class="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer space-y-space-md">
+    <div class="flex items-start justify-between gap-space-md">
+      <div>
+        <h2 class="font-title-lg text-title-lg text-primary">Rechazar solicitud</h2>
+        <p class="font-helper-sm text-helper-sm text-on-surface-variant" id="rechazo-para"></p>
+      </div>
+      <button type="button" data-cerrar-modal="modal-rechazo" aria-label="Cerrar"
+        class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div id="aviso-rechazo" class="hidden">
+      <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+      <p class="font-body-md text-body-md" data-aviso-texto></p>
+    </div>
+    <div class="flex flex-col space-y-space-xs">
+      <label for="input-comentario" class="font-label-lg text-label-lg">Motivo del rechazo <span class="text-on-surface-variant font-normal">(opcional, lo verá el estudiante)</span></label>
+      <textarea id="input-comentario" name="comentario" rows="3" maxlength="500" placeholder="Ej. Primero acredita la materia con más de 85."
+        class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none"></textarea>
+      <span id="err-comentario" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span></span>
+    </div>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm">
+      <button type="button" data-cerrar-modal="modal-rechazo" class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button type="submit" id="btn-confirmar-rechazo" class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-error text-on-error hover:brightness-110 transition flex items-center justify-center gap-space-xs">
+        <span data-texto-boton>Rechazar</span>
+        <span data-spinner class="hidden w-5 h-5 border-2 border-on-error/40 border-t-on-error rounded-full animate-spin"></span>
       </button>
     </div>
   </form>

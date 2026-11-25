@@ -22,6 +22,16 @@ def tablero(materia: str | None = None, modalidad: Literal["presencial", "virtua
 def mis_publicaciones(db: Session = Depends(get_db), asesor: models.Usuario = Depends(requiere_asesor)):
     return services.mis_asesorias(db, asesor)
 
+# Solicitud para ser asesor (antes de "/{publicacion_id}" para que "solicitud" no se lea como id)
+@router.get("/solicitud", response_model=schemas.SolicitudAsesorSalida | None)
+def mi_solicitud(db: Session = Depends(get_db), alumno: models.Usuario = Depends(requiere_estudiante)):
+    return services.mi_solicitud_asesor(db, alumno)
+
+@router.post("/solicitud", response_model=schemas.SolicitudAsesorSalida, status_code=201)
+def solicitar(datos: schemas.SolicitudAsesorCrear, db: Session = Depends(get_db),
+              alumno: models.Usuario = Depends(requiere_estudiante)):
+    return services.enviar_solicitud_asesor(db, alumno, datos)
+
 @router.get("/{publicacion_id}", response_model=schemas.PublicacionSalida)
 def detalle(publicacion_id: int, db: Session = Depends(get_db),
             alumno: models.Usuario = Depends(requiere_estudiante)):

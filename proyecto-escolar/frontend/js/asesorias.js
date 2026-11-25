@@ -20,6 +20,9 @@ async function iniciarAsesorias() {
     const enlace = document.getElementById("link-mis-asesorias");
     enlace.classList.remove("hidden");
     enlace.classList.add("inline-flex");
+  } else {
+    document.getElementById("form-solicitud").addEventListener("submit", enviarSolicitud);
+    cargarSolicitud();
   }
   document.getElementById("filtro-materia").addEventListener("change", pintar);
   document.getElementById("filtro-texto").addEventListener("input", pintar);
@@ -32,6 +35,72 @@ async function iniciarAsesorias() {
   document.getElementById("cargando").classList.add("hidden");
   llenarMaterias(new URLSearchParams(location.search).get("materia"));
   pintar();
+}
+
+// ---------- Solicitud para ser asesor (solo quien aún no lo es) ----------
+// Sin solicitud o rechazada: botón "Quiero ser asesor" · pendiente: aviso "en revisión".
+let solicitud = null;
+
+async function cargarSolicitud() {
+  try {
+    solicitud = await pedir("/asesorias/solicitud", { conToken: true });
+  } catch (error) {
+    if (error.status !== 401) mostrarErrorApi(error);
+    return;
+  }
+  pintarSolicitud();
+}
+
+function pintarSolicitud() {
+  const zona = document.getElementById("zona-solicitud");
+  zona.innerHTML = "";
+  zona.classList.remove("hidden");
+  zona.classList.add("flex");
+  if (solicitud?.estado === "pendiente") {
+    const chip = el("span", "inline-flex items-center gap-space-xs py-2.5 px-space-lg rounded-lg bg-surface-container-low text-on-surface-variant font-label-lg text-label-lg");
+    chip.append(icono("hourglass_top", "text-[20px]"), el("span", "", "Solicitud de asesor en revisión"));
+    zona.appendChild(chip);
+    return;
+  }
+  const b = boton("Quiero ser asesor", "volunteer_activism", "suave");
+  b.addEventListener("click", abrirSolicitud);
+  zona.appendChild(b);
+  if (solicitud?.estado === "rechazada") {
+    zona.appendChild(el("span", "font-helper-sm text-helper-sm text-on-surface-variant", "Tu solicitud anterior no fue aceptada."));
+  }
+}
+
+function abrirSolicitud() {
+  document.getElementById("form-solicitud").reset();
+  limpiarErrores("aviso-solicitud");
+  const rechazo = document.getElementById("solicitud-rechazo");
+  const comentario = solicitud?.estado === "rechazada" ? solicitud.comentarioAdmin : null;
+  rechazo.textContent = comentario ? `Respuesta a tu solicitud anterior: "${comentario}"` : "";
+  rechazo.classList.toggle("hidden", !comentario);
+  abrirModal("modal-solicitud");
+  document.getElementById("input-motivo").focus();
+}
+
+async function enviarSolicitud(evento) {
+  evento.preventDefault();
+  limpiarErrores("aviso-solicitud");
+  const motivo = document.getElementById("input-motivo").value.trim();
+  const materias = document.getElementById("input-materias").value.trim() || null;
+  if (!motivo) return marcarCampo("motivo", "Cuéntanos por qué quieres ser asesor");
+  if (motivo.length < 20) return marcarCampo("motivo", "Debe tener al menos 20 caracteres");
+  const b = document.getElementById("btn-enviar-solicitud");
+  botonCargando(b, true);
+  try {
+    solicitud = await pedir("/asesorias/solicitud", { metodo: "POST", datos: { motivo, materias }, conToken: true });
+    cerrarModal("modal-solicitud");
+    mostrarToast("Solicitud enviada. Te avisaremos aquí cuando la revisen.");
+    pintarSolicitud();
+  } catch (error) {
+    // 409: ya tiene una pendiente o ya es asesor
+    if (error.status !== 401) mostrarErrorApi(error, "aviso-solicitud");
+  } finally {
+    botonCargando(b, false);
+  }
 }
 
 function pintarModalidades() {

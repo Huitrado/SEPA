@@ -10,6 +10,7 @@ Uso, desde la carpeta backend (con el servidor apagado o encendido, da igual):
 Si ya se corrió, no vuelve a crear nada.
 
 Cuentas que crea (todas son de prueba):
+    Admin:    número de empleado  ADMIN-DEMO contraseña  Demo12345
     Docente:  número de empleado  DEMO-01    contraseña  Demo12345
     Alumnos:  códigos 219000001 a 219000017  contraseña  Demo12345
       219000001 Ana Torres       al día (verde)
@@ -20,6 +21,10 @@ Cuentas que crea (todas son de prueba):
       219000015 Oscar Valdez     rezago crítico: va en 5.º y cursa Programación Estructurada (2.º)
       219000016 Paola Jiménez    riesgo por historial: reprobó en 2025-B y en 2026-A
       219000017 Ricardo Ponce    casos límite sin alerta: 2 semestres de desfase y reprobó en un solo ciclo
+    Solicitudes para ser asesor (el administrador las ve en Inicio):
+      219000002 Bruno Castillo   pendiente
+      219000003 Carla Navarro    pendiente
+      219000004 Diego Herrera    rechazada con comentario (puede volver a pedirlo)
 
 Para borrar los datos de demostración y crearlos de nuevo (no toca nada más):
     .\venv\Scripts\python.exe sembrar_demo.py --reiniciar
@@ -35,6 +40,17 @@ from database import SessionLocal, engine
 
 CONTRASENA = "Demo12345"
 NO_EMPLEADO = "DEMO-01"
+NO_EMPLEADO_ADMIN = "ADMIN-DEMO"
+
+# (índice en ALUMNOS, motivo, materias, estado, comentario del administrador)
+SOLICITUDES = [
+    (1, "Tengo 96 de promedio en Programación Estructurada y los martes ya repaso con compañeros de mi grupo.",
+     "Programación Estructurada", "pendiente", None),
+    (2, "Me gusta explicar SQL y saqué 92 en el primer parcial de Bases de Datos; puedo dar asesorías en línea por las tardes.",
+     "Bases de Datos", "pendiente", None),
+    (3, "Quiero ayudar a otros alumnos con Bases de Datos y ganar experiencia enseñando.",
+     "Bases de Datos", "rechazada", "Primero termina el curso con calificación aprobatoria y vuelve a solicitarlo."),
+]
 INICIO_CLASES = date(2026, 8, 17)
 
 # (nombre, apellidos, prob. de asistir, prob. de entregar, rango de calificación en %, retraso)
@@ -163,6 +179,13 @@ def borrar_demo(db) -> None:
     ids = [e.id for e in db.query(models.Estudiante).filter(models.Estudiante.codigoEstudiante.like("2190000%"))]
     if docente:
         ids.append(docente.id)
+    admin = db.query(models.Administrador).filter(models.Administrador.noEmpleado == NO_EMPLEADO_ADMIN).first()
+    if admin:
+        db.query(models.SolicitudAsesor).filter(models.SolicitudAsesor.administrador_id == admin.id).update(
+            {models.SolicitudAsesor.administrador_id: None}, synchronize_session=False)
+        db.query(models.Administrador).filter(models.Administrador.id == admin.id).delete(synchronize_session=False)
+        ids.append(admin.id)
+    db.query(models.SolicitudAsesor).filter(models.SolicitudAsesor.estudiante_id.in_(ids)).delete(synchronize_session=False)
     db.query(models.Matricula).filter(models.Matricula.estudiante_id.in_(ids)).delete(synchronize_session=False)
     db.query(models.HistorialAcademico).filter(models.HistorialAcademico.estudiante_id.in_(ids)).delete(synchronize_session=False)
     db.query(models.SesionActiva).filter(models.SesionActiva.usuario_id.in_(ids)).delete(synchronize_session=False)
@@ -194,6 +217,12 @@ def main():
             nombre="Rosa", apellidos="Demostración López", correoInstitucional="rosa.demo@academicos.udg.mx",
             contrasena=CONTRASENA, noEmpleado=NO_EMPLEADO, departamento="Ciencias Computacionales"))
 
+        if not db.query(models.Administrador).filter(models.Administrador.noEmpleado == NO_EMPLEADO_ADMIN).first():
+            services.crear_administrador(db, schemas.AdminCrear(
+                nombre="Alma", apellidos="Demostración Ruiz", correoInstitucional="alma.demo@academicos.udg.mx",
+                contrasena=CONTRASENA, noEmpleado=NO_EMPLEADO_ADMIN))
+        admin = db.query(models.Administrador).filter(models.Administrador.noEmpleado == NO_EMPLEADO_ADMIN).one()
+
         alumnos = []
         for i, (nombre, apellidos, *_resto) in enumerate(ALUMNOS, start=1):
             usuario = services.registrarse(db, schemas.UsuarioCrear(
@@ -202,6 +231,15 @@ def main():
                 codigo=f"2190000{i:02d}", carrera=carrera.clave, ciclo=ciclo.nombreOficial,
                 contrasena=CONTRASENA, confirmarContrasena=CONTRASENA))
             alumnos.append(usuario)
+
+        # Solicitudes para ser asesor: dos por revisar y una rechazada
+        for idx, motivo, materias, estado, comentario in SOLICITUDES:
+            enviada = datetime.now() - timedelta(days=5 - idx, hours=3)  # la de Bruno es la más antigua
+            db.add(models.SolicitudAsesor(
+                motivo=motivo, materias=materias, estado=estado, fechaSolicitud=enviada.isoformat(timespec="seconds"),
+                fechaRespuesta=(enviada + timedelta(days=1)).isoformat(timespec="seconds") if estado != "pendiente" else None,
+                comentarioAdmin=comentario, estudiante_id=alumnos[idx].id,
+                administrador_id=admin.id if estado != "pendiente" else None))
 
         # RF-53 a RF-59: ciclo de ingreso anterior, su plan de estudios y su historial
         materias = {m.nombre: m.id for m in db.query(models.Materia)}
