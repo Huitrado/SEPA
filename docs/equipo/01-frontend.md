@@ -283,6 +283,8 @@ y abrir `http://127.0.0.1:5500/login.html`. Usen este en lugar de `python -m htt
 
 La sección de normatividad (RF-81 a RF-88) es **estática**: no usa el backend ni la tabla `BibliotecaNormatividad`. Todo el texto está en **`js/normatividad-contenido.js`**, en la constante `NORMATIVIDAD`. `normatividad.js` solo lo pinta, así que para cambiar el contenido **no hay que tocar HTML ni lógica**.
 
+**Fuentes del contenido actual:** el Reglamento General de Evaluación y Promoción de Alumnos de la UdeG (2017, [PDF oficial](https://secgral.udg.mx/sites/default/files/Normatividad_general/rgepa-oct-2017.pdf)) y las páginas del CUCEI sobre solicitudes de oportunidad por los artículos 33 a 35 y sobre SIATCE. Los artículos están **resumidos en lenguaje sencillo** con su número; el texto literal está en el PDF, que se enlaza desde la página. El directorio tiene los datos de las coordinaciones de ICOM e INFO (coordinador, teléfono, correo y dirección); el teléfono y el correo se pueden tocar para llamar o escribir. Solo falta el enlace del calendario de trámites.
+
 Cada sección tiene `id`, `icono` (nombre de Material Symbols), `titulo`, `resumen` y una lista de `bloques`. Cada bloque puede ser:
 
 | Bloque | Se ve como |
