@@ -24,6 +24,8 @@ let mallas = [];
 function iniciarCatalogos() {
   document.getElementById("select-malla").addEventListener("change", pintarMalla);
   document.getElementById("form-malla").addEventListener("submit", guardarEnMalla);
+  document.getElementById("btn-nuevo-plan").addEventListener("click", abrirNuevoPlan);
+  document.getElementById("form-plan").addEventListener("submit", crearPlan);
   document.getElementById("btn-recalcular").addEventListener("click", recalcularRiesgo);
   document.getElementById("form-ciclo").addEventListener("submit", registrarCiclo);
   document.getElementById("input-ciclo-nombre").addEventListener("input", previsualizarCiclo);
@@ -62,6 +64,10 @@ function pintarMalla() {
     contenedor.appendChild(el("p", "text-on-surface-variant", "No hay planes de estudio cargados."));
     return;
   }
+  if (!malla.materias.length) {
+    contenedor.appendChild(el("p", "md:col-span-2 xl:col-span-3 p-space-lg rounded-xl bg-surface-container-lowest text-on-surface-variant",
+      "Este plan aún no tiene materias. Agrégalas arriba con su semestre."));
+  }
   const semestres = [...new Set(malla.materias.map(m => m.semestreBase))].sort((a, b) => a - b);
   for (const s of semestres) {
     const caja = el("div", "bg-surface-container-lowest rounded-xl shadow-sm p-space-md");
@@ -85,6 +91,52 @@ function pintarMalla() {
     opcion.value = `${m.clave} · ${m.nombre}`;
     lista.appendChild(opcion);
   });
+}
+
+// Nuevo plan (POST /admin/mallas): vacío o copiando las materias de otro.
+// Los alumnos de la carrera que ingresaron desde esa generación pasan al plan nuevo.
+function abrirNuevoPlan() {
+  document.getElementById("form-plan").reset();
+  limpiarErrores("aviso-plan");
+  const carrera = document.getElementById("plan-carrera");
+  carrera.innerHTML = "";
+  carreras.forEach(c => carrera.appendChild(new Option(`${c.clave} · ${c.nombre}`, c.clave)));
+  const copiar = document.getElementById("plan-copiar");
+  copiar.innerHTML = "";
+  copiar.appendChild(new Option("No copiar: empezar vacío", ""));
+  mallas.forEach(m => copiar.appendChild(new Option(`${m.carrera} · ${m.nombrePlan}`, m.id)));
+  abrirModal("modal-plan");
+}
+
+async function crearPlan(evento) {
+  evento.preventDefault();
+  limpiarErrores("aviso-plan");
+  const datos = {
+    carrera: document.getElementById("plan-carrera").value,
+    generacion: document.getElementById("plan-generacion").value.trim().toUpperCase(),
+    nombrePlan: document.getElementById("plan-nombre").value.trim(),
+    copiarDe: Number(document.getElementById("plan-copiar").value) || null
+  };
+  if (!datos.carrera) return marcarCampo("carrera", "Primero agrega la carrera en \"Carreras y materias\"");
+  if (!/^\d{4}-[AB]$/.test(datos.generacion)) return marcarCampo("generacion", "Usa el formato AAAA-A o AAAA-B (por ejemplo 2026-B)");
+  if (!datos.nombrePlan) return marcarCampo("nombrePlan", "Escribe el nombre del plan");
+  const b = document.getElementById("btn-crear-plan");
+  botonCargando(b, true);
+  try {
+    const plan = await pedir("/admin/mallas", { metodo: "POST", datos, conToken: true });
+    cerrarModal("modal-plan");
+    const n = plan.alumnosReasignados;
+    mostrarToast(n ? `Plan creado. ${n} alumno${n === 1 ? "" : "s"} de ${plan.carrera} pasaron a este plan.` : "Plan creado.");
+    document.getElementById("select-malla").value = "";
+    await cargarMallas();
+    document.getElementById("select-malla").value = plan.id;
+    pintarMalla();
+  } catch (error) {
+    // 409: ya hay un plan de esa carrera para esa generación
+    if (error.status !== 401) mostrarErrorApi(error, "aviso-plan");
+  } finally {
+    botonCargando(b, false);
+  }
 }
 
 async function guardarEnMalla(evento) {

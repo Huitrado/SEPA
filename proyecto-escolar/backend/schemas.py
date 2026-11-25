@@ -612,6 +612,22 @@ class MallaSalida(BaseModel):  # plan de estudios para el administrador
     nombrePlan: str
     materias: list[dict]  # [{materia_id, clave, nombre, semestreBase}]
 
+class MallaCrear(BaseModel):  # RF-56: nuevo plan de estudios
+    carrera: Clave                     # clave del catálogo de carreras
+    generacion: Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, min_length=1)]  # "2026-B"
+    nombrePlan: Texto
+    copiarDe: int | None = None        # id de otro plan para copiar sus materias y semestres
+
+    @field_validator("generacion")
+    @classmethod
+    def generacion_valida(cls, v):
+        if not fechas_ciclo(v):
+            raise ValueError("La generación debe tener el formato AAAA-A o AAAA-B (por ejemplo 2026-B)")
+        return v
+
+class MallaCreada(MallaSalida):
+    alumnosReasignados: int  # alumnos de la carrera que pasaron a este plan por su generación
+
 class MateriaEnMalla(BaseModel):
     materia_id: int
     semestreBase: Annotated[int, Field(ge=1, le=12)]

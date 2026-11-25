@@ -1573,19 +1573,47 @@ def banderas_de_curso(db: Session, curso: models.Curso) -> dict[int, dict]:
 
 # ---------- Planes de estudio para el administrador (RF-56) ----------
 
+def _malla_dict(db: Session, malla: models.MallaCurricular) -> dict:
+    filas = (db.query(models.MallaMateria, models.Materia)
+             .join(models.Materia, models.Materia.id == models.MallaMateria.materia_id)
+             .filter(models.MallaMateria.mallaCurricular_id == malla.id)
+             .order_by(models.MallaMateria.semestreBase, models.Materia.nombre).all())
+    return {"id": malla.id, "carrera": malla.carrera, "generacion": malla.generacion,
+            "nombrePlan": malla.nombrePlan,
+            "materias": [{"materia_id": mat.id, "clave": mat.clave, "nombre": mat.nombre,
+                          "semestreBase": mm.semestreBase} for mm, mat in filas]}
+
 def listar_mallas(db: Session) -> list[dict]:
     mallas = db.query(models.MallaCurricular).order_by(models.MallaCurricular.carrera, models.MallaCurricular.generacion).all()
-    salida = []
-    for malla in mallas:
-        filas = (db.query(models.MallaMateria, models.Materia)
-                 .join(models.Materia, models.Materia.id == models.MallaMateria.materia_id)
-                 .filter(models.MallaMateria.mallaCurricular_id == malla.id)
-                 .order_by(models.MallaMateria.semestreBase, models.Materia.nombre).all())
-        salida.append({"id": malla.id, "carrera": malla.carrera, "generacion": malla.generacion,
-                       "nombrePlan": malla.nombrePlan,
-                       "materias": [{"materia_id": mat.id, "clave": mat.clave, "nombre": mat.nombre,
-                                     "semestreBase": mm.semestreBase} for mm, mat in filas]})
-    return salida
+    return [_malla_dict(db, m) for m in mallas]
+
+def crear_malla(db: Session, datos: schemas.MallaCrear) -> dict:
+    """RF-56: nuevo plan de estudios de una carrera para una generación (vacío o copiando las materias
+    de otro plan). Los alumnos de esa carrera pasan al plan que les toca según su ingreso (malla_para)."""
+    if not db.query(models.Carrera).filter_by(clave=datos.carrera).first():
+        raise HTTPException(422, "La carrera seleccionada no pertenece al catálogo oficial")
+    generacion = _generacion_como_ciclo(datos.generacion)
+    for otra in db.query(models.MallaCurricular).filter_by(carrera=datos.carrera).all():
+        if _generacion_como_ciclo(otra.generacion) == generacion:
+            raise HTTPException(409, f"Ya existe un plan de {datos.carrera} para la generación {generacion}: {otra.nombrePlan}")
+    origen = db.get(models.MallaCurricular, datos.copiarDe) if datos.copiarDe else None
+    if datos.copiarDe and not origen:
+        raise HTTPException(404, "Plan de estudios no encontrado")
+    malla = models.MallaCurricular(carrera=datos.carrera, generacion=generacion, nombrePlan=datos.nombrePlan)
+    db.add(malla)
+    db.flush()
+    if origen:
+        for fila in db.query(models.MallaMateria).filter_by(mallaCurricular_id=origen.id).all():
+            db.add(models.MallaMateria(mallaCurricular_id=malla.id, materia_id=fila.materia_id,
+                                       semestreBase=fila.semestreBase))
+    reasignados = 0
+    for est in db.query(models.Estudiante).filter_by(carrera=datos.carrera).all():
+        nueva = malla_para(db, est.carrera, est.ciclo)
+        if nueva and nueva.id != est.mallaCurricular_id:
+            est.mallaCurricular_id = nueva.id
+            reasignados += 1
+    db.commit()
+    return {**_malla_dict(db, malla), "alumnosReasignados": reasignados}
 
 def asignar_materia_a_malla(db: Session, malla_id: int, datos: schemas.MateriaEnMalla) -> None:
     """Agrega la materia al plan o cambia su semestre base."""

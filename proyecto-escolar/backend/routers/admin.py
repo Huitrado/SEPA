@@ -106,6 +106,10 @@ def recalcular_riesgo(tareas: BackgroundTasks, _: models.Usuario = Depends(requi
 def listar_mallas(db: Session = Depends(get_db), _: models.Usuario = Depends(requiere_admin)):
     return services.listar_mallas(db)
 
+@router.post("/mallas", response_model=schemas.MallaCreada, status_code=201)
+def crear_malla(datos: schemas.MallaCrear, db: Session = Depends(get_db), _: models.Usuario = Depends(requiere_admin)):
+    return services.crear_malla(db, datos)
+
 @router.put("/mallas/{malla_id}/materias", status_code=204)
 def asignar_materia(malla_id: int, datos: schemas.MateriaEnMalla, db: Session = Depends(get_db),
                     _: models.Usuario = Depends(requiere_admin)):

@@ -244,3 +244,47 @@ def test_el_administrador_mantiene_los_planes(client, plan):
     assert client.put("/admin/mallas/999/materias", json={"materia_id": plan["bd"], "semestreBase": 1}, headers=auth(ta)).status_code == 404
     assert client.put(url, json={"materia_id": plan["bd"], "semestreBase": 0}, headers=auth(ta)).status_code == 422
     assert client.get("/admin/mallas", headers=auth(plan["t1"])).status_code == 403
+
+# ------------------------------------------------------------------ RF-56: el administrador crea planes de estudio
+def _nuevo_plan(client, plan, **cambios):
+    datos = {"carrera": "INFO", "generacion": "2026-A", "nombrePlan": "Plan INFO 2026", **cambios}
+    return client.post("/admin/mallas", json=datos, headers=auth(plan["ta"]))
+
+def test_rf56_crear_plan_vacio(client, plan):
+    r = _nuevo_plan(client, plan, carrera="info", generacion="2026-b")  # se normaliza a mayúsculas
+    assert r.status_code == 201, r.text
+    nuevo = r.json()
+    assert (nuevo["carrera"], nuevo["generacion"], nuevo["nombrePlan"], nuevo["materias"]) == ("INFO", "2026-B", "Plan INFO 2026", [])
+    assert len(client.get("/admin/mallas", headers=auth(plan["ta"])).json()) == 2
+
+def test_rf56_crear_plan_copiando_otro(client, plan):
+    nuevo = _nuevo_plan(client, plan, copiarDe=plan["malla"]).json()
+    assert [(m["nombre"], m["semestreBase"]) for m in nuevo["materias"]] == [("Programación", 1), ("Bases de datos", 3)]
+    # son copias: cambiar el plan nuevo no toca el original
+    client.put(f"/admin/mallas/{nuevo['id']}/materias", json={"materia_id": plan["bd"], "semestreBase": 5}, headers=auth(plan["ta"]))
+    original = next(m for m in client.get("/admin/mallas", headers=auth(plan["ta"])).json() if m["id"] == plan["malla"])
+    assert [m["semestreBase"] for m in original["materias"]] == [1, 3]
+
+def test_rf56_los_alumnos_pasan_al_plan_de_su_generacion(client, plan):
+    t_ana, ana = _alumno(client, ALUMNO, "2024-A")      # entró antes del plan nuevo: se queda en el de 2023
+    t_beto, beto = _alumno(client, ALUMNO_B, "2026-B")  # entró después: pasa al plan 2026-A
+    r = _nuevo_plan(client, plan, copiarDe=plan["malla"])
+    assert r.json()["alumnosReasignados"] == 1
+    with Sesion() as db:
+        assert db.get(models.Estudiante, ana).mallaCurricular_id == plan["malla"]
+        assert db.get(models.Estudiante, beto).mallaCurricular_id == r.json()["id"]
+    assert client.get("/alumno/riesgo", headers=auth(t_beto)).json()["plan"] == "Plan INFO 2026"
+
+def test_rf56_validaciones_al_crear_plan(client, plan):
+    r = _nuevo_plan(client, plan, generacion="2023-A")  # el plan de la fixture es "2023" = 2023-A
+    assert r.status_code == 409
+    assert r.json()["detail"] == "Ya existe un plan de INFO para la generación 2023-A: Plan INFO 2023"
+    r = _nuevo_plan(client, plan, generacion="2026")
+    assert r.status_code == 422
+    assert r.json()["errores"][0]["mensaje"] == "La generación debe tener el formato AAAA-A o AAAA-B (por ejemplo 2026-B)"
+    r = _nuevo_plan(client, plan, carrera="XYZ")
+    assert (r.status_code, r.json()["detail"]) == (422, "La carrera seleccionada no pertenece al catálogo oficial")
+    assert _nuevo_plan(client, plan, copiarDe=999).status_code == 404
+    assert _nuevo_plan(client, plan, nombrePlan="").status_code == 422
+    r = client.post("/admin/mallas", json={"carrera": "INFO", "generacion": "2026-B", "nombrePlan": "X"}, headers=auth(plan["t1"]))
+    assert r.status_code == 403

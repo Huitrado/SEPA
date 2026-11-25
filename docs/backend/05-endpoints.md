@@ -1136,6 +1136,7 @@ Archivo: `routers/admin.py` · Prefijo: `/admin` · **Todos exigen Admin** (`req
 | PATCH | `/admin/solicitudes-asesor/{solicitud_id}` | Admin | JSON `{decision, comentario?}` | **200**, 404, 409, 422 | Solicitud de asesor |
 | POST | `/admin/riesgo/recalcular` | Admin | Nada | **202** | RF-53 |
 | GET | `/admin/mallas` | Admin | Nada | **200** | RF-56 |
+| POST | `/admin/mallas` | Admin | JSON `{carrera, generacion, nombrePlan, copiarDe?}` | **201**, 404, 409, 422 | RF-56 |
 | PUT | `/admin/mallas/{malla_id}/materias` | Admin | JSON `{materia_id, semestreBase}` | **204**, 404, 422 | RF-56 |
 | DELETE | `/admin/mallas/{malla_id}/materias/{materia_id}` | Admin | Nada | **204**, 404 | RF-56 |
 | PATCH | `/admin/usuarios/{usuario_id}/estado` | Admin | JSON `{estado}` = `activo` o `inactivo` | **200**, 404, 409, 422 | RF-93 |
@@ -1305,6 +1306,15 @@ El administrador da de alta y mantiene las materias. La lista se consulta con el
 
 - `POST /admin/riesgo/recalcular`: lanza en segundo plano el análisis (cierre de ciclos al historial y riesgo de cada matrícula). Responde de inmediato **202** `{"mensaje": "El análisis de riesgo académico se está ejecutando en segundo plano"}`.
 - `GET /admin/mallas`: los planes de estudio con sus materias por semestre: `[{id, carrera, generacion, nombrePlan, materias: [{materia_id, clave, nombre, semestreBase}]}]`.
+- `POST /admin/mallas` (`services.py → crear_malla`) crea un plan nuevo:
+  ```json
+  { "carrera": "ICOM", "generacion": "2026-B", "nombrePlan": "Plan ICOM 2026", "copiarDe": 1 }
+  ```
+  - `carrera`: clave del catálogo (se acepta en minúsculas). **422** `La carrera seleccionada no pertenece al catálogo oficial`.
+  - `generacion`: primer ciclo de ingreso que usa el plan, `AAAA-A` o `AAAA-B`. **422** `La generación debe tener el formato AAAA-A o AAAA-B (por ejemplo 2026-B)`. Si la carrera ya tiene un plan para esa generación: **409** `Ya existe un plan de ICOM para la generación 2026-B: <nombre>` (un plan viejo con generación `2023` cuenta como `2023-A`).
+  - `copiarDe` (opcional): id de otro plan; se copian sus materias con su semestre. Sirve para una revisión del plan. **404** `Plan de estudios no encontrado`.
+  - **Alumnos:** los de esa carrera pasan al plan que les toca por su ingreso. Con un plan ICOM 2026-B, los que entraron en 2026-B o después pasan al nuevo y los anteriores se quedan en el suyo.
+  - **201**: el plan con el formato de `GET /admin/mallas` más `alumnosReasignados` (cuántos alumnos cambiaron de plan).
 - `PUT /admin/mallas/{malla_id}/materias` con `{"materia_id": 12, "semestreBase": 4}` agrega la materia al plan o le cambia el semestre base (1 a 12). **404** `Plan de estudios no encontrado` o `Materia no encontrada`.
 - `DELETE /admin/mallas/{malla_id}/materias/{materia_id}`: la quita del plan. **404** `La materia no está en ese plan de estudios`.
 

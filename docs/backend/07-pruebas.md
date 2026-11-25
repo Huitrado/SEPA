@@ -342,6 +342,7 @@ Docstring: *"Historial académico y riesgo (RF-53 a RF-59, RF-84)"*. La fixture 
 | RF-56 a RF-59 | Alumno y curso ligados al plan; rezago crítico con su detalle; desfase menor; materia fuera del plan |
 | RF-84 | Reprobada antes: la alerta aparece solo cuando el semáforo actual es rojo; el docente ve las mismas banderas |
 | Administrador | Lanzar el análisis (202); ver, agregar, mover y quitar materias de un plan |
+| RF-56: crear planes | Plan vacío (carrera y generación se normalizan); copiar las materias de otro sin tocar el original; solo los alumnos que entraron desde esa generación pasan al plan nuevo; plan duplicado (409), generación o carrera inválida (422), plan para copiar inexistente (404) y solo el admin (403) |
 
 ### `test_seguridad.py`
 

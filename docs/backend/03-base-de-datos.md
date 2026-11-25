@@ -372,9 +372,9 @@ Tiene `UniqueConstraint("curso_id", "estudiante_id")`: un estudiante **no puede 
 
 ### `MallaCurricular`, `Materia` y `MallaMateria`: planes de estudio
 
-Se llenan **una sola vez** desde `planes.json` (`services.py → _sembrar_planes`). `Materia` se consulta en `GET /catalogos/materias` y el administrador la mantiene con `/admin/materias` (RF-94); `MallaCurricular` y `MallaMateria` aún no tienen endpoints.
+Se llenan **una sola vez** desde `planes.json` (`services.py → _sembrar_planes`). `Materia` se consulta en `GET /catalogos/materias` y el administrador la mantiene con `/admin/materias` (RF-94). El administrador crea planes nuevos con `POST /admin/mallas` y les agrega o quita materias con `/admin/mallas/{id}/materias`.
 
-- `MallaCurricular`: un plan por carrera: `ICOM` (generación 2021-B) e `INFO` (generación 2023).
+- `MallaCurricular`: los planes de cada carrera, uno por generación. Al iniciar hay dos: `ICOM` (generación 2021-B) e `INFO` (generación 2023). Cada alumno usa el plan más reciente de su carrera cuya generación no sea posterior a su ingreso (`services.py → malla_para`), guardado en `Estudiante.mallaCurricular_id`.
 - `Materia`: cada materia, con su `clave` única (p. ej. `I5288` Fundamentos de la Programación). Una materia que comparten ICOM e INFO se crea una sola vez.
 - `MallaMateria`: tabla intermedia que indica en qué semestre (`semestreBase`) va cada materia en cada malla. No se puede repetir la misma pareja malla–materia.
 
