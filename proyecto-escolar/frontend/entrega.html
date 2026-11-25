@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es" class="validando-sesion">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Entrega · SEPA CUCEI</title>
+  <!-- Fuentes e íconos de Google -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <!-- Tailwind (estilos del diseño) y su configuración de colores -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link href="css/style.css" rel="stylesheet" />
+</head>
+<body class="bg-surface font-body-md text-on-surface antialiased" data-pagina="entrega">
+
+<!-- Encabezado con el usuario y el botón de salir (RF-91) -->
+<header class="fixed top-0 w-full z-40 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+  <div class="h-16 max-w-7xl mx-auto px-gutter flex items-center justify-between gap-space-md">
+    <a href="estudiante.html" class="flex items-center gap-space-md">
+      <span class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center">
+        <span class="material-symbols-outlined text-on-primary text-[20px]">school</span>
+      </span>
+      <span class="flex flex-col">
+        <span class="font-label-lg text-label-lg text-primary leading-tight">SEPA CUCEI</span>
+        <span class="font-caption text-caption text-on-surface-variant leading-none">Universidad de Guadalajara · CUCEI</span>
+      </span>
+    </a>
+    <!-- Enlaces, nombre y "Salir": los pinta app.js → pintarBarraEstudiante() -->
+    <div id="barra-estudiante" data-actual="cursos"></div>
+  </div>
+</header>
+
+<main class="w-full pt-24 pb-space-2xl min-h-[calc(100vh-6rem)]">
+  <div class="w-full px-gutter">
+    <div class="max-w-5xl mx-auto">
+
+      <nav class="flex flex-wrap items-center gap-space-xs font-label-md text-label-md text-on-surface-variant mb-space-md">
+        <a href="estudiante.html" class="hover:text-primary">Mis cursos</a>
+        <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+        <a id="miga-curso" href="#" class="hover:text-primary">Curso</a>
+        <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+        <span class="text-primary" id="miga-actividad">Actividad</span>
+      </nav>
+
+      <!-- Aviso general (errores del backend) -->
+      <div id="aviso" class="hidden">
+        <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+        <p class="font-body-md text-body-md" data-aviso-texto></p>
+      </div>
+
+      <p id="entrega-cargando" class="text-center font-body-md text-body-md text-on-surface-variant py-space-2xl">Cargando la actividad...</p>
+
+      <div id="entrega-contenido" class="hidden grid grid-cols-1 lg:grid-cols-5 gap-space-lg">
+        <!-- RF-35: detalle de la actividad -->
+        <section class="lg:col-span-3 bg-surface-container-lowest rounded-xl shadow-md p-space-lg sm:p-space-xl h-fit">
+          <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold" id="act-categoria"></span>
+          <h1 class="font-headline-lg text-headline-lg text-primary tracking-tight mt-1" id="act-titulo"></h1>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-space-sm mt-space-md" id="act-datos"></div>
+          <h2 class="font-label-lg text-label-lg text-on-surface mt-space-lg mb-space-xs">Instrucciones</h2>
+          <p class="font-body-md text-body-md text-on-surface-variant whitespace-pre-line" id="act-descripcion"></p>
+          <div id="act-archivo" class="hidden mt-space-lg p-space-md rounded-xl bg-surface-container-low flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
+            <span class="flex items-center gap-space-sm text-on-surface">
+              <span class="material-symbols-outlined text-secondary">description</span> Archivo del profesor
+            </span>
+            <button type="button" id="btn-descargar-guia"
+              class="inline-flex items-center justify-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg bg-surface-container-high text-primary hover:bg-surface-container transition-colors">
+              <span class="material-symbols-outlined text-[18px]">download</span> Descargar
+            </button>
+          </div>
+        </section>
+
+        <!-- RF-36 a RF-39: mi entrega -->
+        <section class="lg:col-span-2 bg-surface-container-lowest rounded-xl shadow-md p-space-lg h-fit space-y-space-md">
+          <div class="flex items-center justify-between gap-space-sm">
+            <h2 class="font-title-lg text-title-lg text-primary">Mi entrega</h2>
+            <span id="estado-entrega"></span>
+          </div>
+          <div id="aviso-entrega" class="hidden">
+            <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+            <p class="font-body-md text-body-md" data-aviso-texto></p>
+          </div>
+
+          <!-- Ya entregó -->
+          <div id="bloque-entregado" class="hidden space-y-space-sm">
+            <div class="p-space-md rounded-xl bg-surface-container-low space-y-1">
+              <p class="font-body-md text-body-md text-on-surface" id="texto-entregado"></p>
+              <p class="font-helper-sm text-helper-sm text-on-surface-variant">La fecha y hora las registró el servidor.</p>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-space-sm">
+              <button type="button" id="btn-descargar-mia"
+                class="flex-1 inline-flex items-center justify-center gap-space-xs font-label-md text-label-md px-space-md py-2.5 rounded-lg bg-surface-container-high text-primary hover:bg-surface-container transition-colors">
+                <span class="material-symbols-outlined text-[18px]">download</span> Ver mi archivo
+              </button>
+              <button type="button" id="btn-cancelar-entrega"
+                class="flex-1 inline-flex items-center justify-center gap-space-xs font-label-md text-label-md px-space-md py-2.5 rounded-lg bg-surface-container-low text-error hover:bg-error-container transition-colors">
+                <span class="material-symbols-outlined text-[18px]">undo</span> Cancelar y volver a subir
+              </button>
+            </div>
+            <p class="font-helper-sm text-helper-sm text-on-surface-variant" id="texto-cancelar"></p>
+          </div>
+
+          <!-- Subir archivo -->
+          <form id="form-entrega" novalidate class="hidden space-y-space-md">
+            <label for="input-archivo" id="zona-archivo"
+              class="flex flex-col items-center justify-center gap-space-xs p-space-lg rounded-xl border-2 border-dashed border-outline-variant bg-surface-container-low text-center cursor-pointer hover:bg-surface-container transition-colors">
+              <span class="material-symbols-outlined text-[36px] text-secondary">upload_file</span>
+              <span class="font-label-lg text-label-lg text-primary" id="nombre-archivo">Elige o arrastra tu archivo</span>
+              <span class="font-helper-sm text-helper-sm text-on-surface-variant">PDF, Word, imágenes o ZIP · máximo 10 MB</span>
+              <input id="input-archivo" name="archivo" type="file" class="sr-only" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.gif,.zip" />
+            </label>
+            <span id="err-archivo" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+              <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+            </span>
+            <p id="aviso-tarde" class="hidden p-space-sm rounded-lg bg-semaforo-amarillo-fondo text-semaforo-amarillo font-body-md text-body-md flex items-start gap-space-xs">
+              <span class="material-symbols-outlined text-[20px]">schedule</span>
+              <span>La fecha límite ya pasó. Puedes entregar, pero quedará marcada como <strong>entregada con retraso</strong> y ya no podrás cancelarla.</span>
+            </p>
+            <button type="submit" id="btn-enviar"
+              class="w-full py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
+              <span data-texto-boton>Enviar entrega</span>
+              <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+            </button>
+          </form>
+
+          <!-- RF-45: calificación y retroalimentación -->
+          <div id="bloque-calificacion" class="hidden p-space-md rounded-xl bg-surface-container-low space-y-space-xs">
+            <p class="font-caption text-caption uppercase tracking-wider text-on-surface-variant">Calificación</p>
+            <p class="font-headline-md text-headline-md text-primary" id="texto-nota"></p>
+            <p class="font-body-md text-body-md text-on-surface whitespace-pre-line" id="texto-retro"></p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="w-full bg-surface-container-lowest py-space-xl shadow-[0_-1px_8px_rgba(0,0,0,0.03)]">
+  <div class="max-w-7xl mx-auto px-gutter flex flex-col items-center md:items-start">
+    <p class="font-label-md text-label-md text-on-surface font-semibold">SEPA · Sistema de Evaluación de Progresión Académica</p>
+    <p class="font-caption text-caption text-on-surface-variant">Centro Universitario de Ciencias Exactas e Ingenierías, Universidad de Guadalajara.</p>
+  </div>
+</footer>
+
+<!-- Ventana de confirmación -->
+<div id="modal-confirmar" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-gutter bg-primary/40 backdrop-blur-sm">
+  <div class="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer">
+    <h2 class="font-title-lg text-title-lg text-primary" data-confirmar-titulo></h2>
+    <p class="font-body-md text-body-md text-on-surface-variant mt-space-sm" data-confirmar-texto></p>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm mt-space-lg">
+      <button type="button" data-confirmar-cancelar
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors">Volver</button>
+      <button type="button" data-confirmar-aceptar
+        class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors"></button>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/entrega.js"></script>
+</body>
+</html>

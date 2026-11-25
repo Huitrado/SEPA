@@ -1,3 +1,4 @@
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -8,7 +9,7 @@ import models
 import services
 from database import SessionLocal, engine
 from errores import errores_de_validacion
-from routers import admin, alumnos, catalogos, cursos, docentes, usuarios
+from routers import admin, alumnos, asesorias, catalogos, cursos, docentes, usuarios
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -16,6 +17,8 @@ models.Base.metadata.create_all(bind=engine)
 async def lifespan(_):
     with SessionLocal() as db:
         services.sembrar_catalogos(db)  # carreras iniciales si el catálogo está vacío
+    # RF-53, RNF-05: el análisis de historial y riesgo corre en otro hilo; el servidor arranca sin esperarlo
+    threading.Thread(target=services.analizar_riesgo_en_segundo_plano, daemon=True).start()
     yield
 
 app = FastAPI(title="API SEPA", lifespan=lifespan)
@@ -41,4 +44,5 @@ app.include_router(catalogos.router)
 app.include_router(cursos.router)
 app.include_router(docentes.router)
 app.include_router(alumnos.router)
+app.include_router(asesorias.router)
 app.include_router(admin.router)

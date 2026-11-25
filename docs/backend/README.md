@@ -16,7 +16,7 @@ Este documento cubre solo el **backend**: la parte que corre en el servidor, gua
 | 1 | [01-tecnologias.md](01-tecnologias.md) | Qué es cada herramienta (FastAPI, SQLAlchemy, Pydantic, bcrypt, JWT, pytest…) con ejemplos de nuestro código |
 | 2 | [02-arquitectura.md](02-arquitectura.md) | Carpetas, archivos, capas y el recorrido completo de `POST /usuarios/registro` |
 | 3 | [03-base-de-datos.md](03-base-de-datos.md) | Tablas, campos, relaciones (diagrama ER), cómo se crea la base y `crear_admin.py` |
-| 4 | [04-seguridad.md](04-seguridad.md) | Contraseñas con bcrypt, tokens JWT, roles, cierre de sesión y `SECRET_KEY` |
+| 4 | [04-seguridad.md](04-seguridad.md) | Contraseñas con bcrypt, tokens JWT, roles, cierre de sesión, inactividad (RNF-02), bloqueo por intentos (RNF-03) y `SECRET_KEY` |
 | 5 | [05-endpoints.md](05-endpoints.md) | Todos los endpoints: quién los usa, qué reciben y qué responden |
 | 6 | [06-errores.md](06-errores.md) | Formato de los errores (422, 401, 403, 404, 409, 500) y dónde se generan |
 | 7 | [07-pruebas.md](07-pruebas.md) | Cómo están hechas las pruebas automáticas y cómo agregar una nueva |
@@ -194,7 +194,7 @@ uvicorn main:app --reload
 | `ModuleNotFoundError: No module named 'models'` | Estás en otra carpeta | `cd` a `backend` |
 | Al correr `pytest`, un error que menciona `httpx` | Falta httpx | `pip install httpx` |
 | El frontend dice "CORS" en la consola | El frontend no se sirve en el puerto 5500 | Ver CORS en [02-arquitectura.md](02-arquitectura.md#mainpy-el-punto-de-arranque) |
-| El login funcionaba y de repente da 401 | El token expiró (8 h), se cerró la sesión o cambió `SECRET_KEY` | Inicia sesión de nuevo |
+| El login funcionaba y de repente da 401 | El token expiró (8 h), pasaron 30 min sin actividad, se cerró la sesión o cambió `SECRET_KEY` | Inicia sesión de nuevo |
 
 ---
 

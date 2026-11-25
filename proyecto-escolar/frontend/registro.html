@@ -194,15 +194,16 @@
                 </div>
                 <div class="flex flex-col space-y-space-xs">
                   <div class="flex items-center justify-between">
-                    <label class="font-label-lg text-label-lg text-on-surface" for="input-ciclo">Ciclo escolar</label>
-                    <span class="font-caption text-caption px-2 py-0.5 rounded bg-surface-container text-on-secondary-container font-semibold">Ciclo en curso</span>
+                    <label class="font-label-lg text-label-lg text-on-surface" for="input-ciclo">Ciclo de ingreso</label>
                   </div>
                   <div class="relative flex items-center">
                     <span class="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">event_note</span>
-                    <input id="input-ciclo" name="ciclo" type="text" readonly value="Cargando..."
-                      class="w-full bg-surface-container text-on-surface-variant font-semibold pl-10 pr-3.5 py-2.5 rounded-lg text-body-md cursor-not-allowed shadow-none select-none" />
+                    <select id="input-ciclo" name="ciclo"
+                      class="w-full bg-surface-container-low text-on-surface pl-10 pr-3.5 py-2.5 rounded-lg text-body-md shadow-sm focus:outline-none">
+                      <option value="">Cargando...</option>
+                    </select>
                   </div>
-                  <span class="font-helper-sm text-helper-sm text-on-surface-variant">Lo asigna el sistema según el calendario escolar</span>
+                  <span class="font-helper-sm text-helper-sm text-on-surface-variant">El ciclo en que entraste a la carrera (el actual o uno anterior)</span>
                   <span id="err-ciclo" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
                     <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
                   </span>

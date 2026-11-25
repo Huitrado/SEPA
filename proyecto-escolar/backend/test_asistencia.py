@@ -238,3 +238,14 @@ def test_sesion_de_otro_curso_no_se_encuentra(client, curso):
     r = client.get(f"/docente/cursos/{otro['id']}/sesiones/{sid}", headers=auth(curso["t1"]))
     assert r.status_code == 404
     assert r.json()["detail"] == "Sesión no encontrada"
+
+def test_el_alumno_sabe_cuantas_clases_cuentan(client, curso, monkeypatch):
+    """Sin listas guardadas el porcentaje es 100 %; clasesRegistradas = 0 permite mostrar "Sin clases registradas"."""
+    ruta = f"/alumno/cursos/{curso['id']}/seguimiento"
+    ana = curso["alumnos"][0]
+    assert client.get(ruta, headers=auth(ana)).json()["clasesRegistradas"] == 0
+    _generar(client, curso)  # una lista sin guardar no cuenta
+    assert client.get(ruta, headers=auth(ana)).json()["clasesRegistradas"] == 0
+    _clase(client, curso, monkeypatch, MIERCOLES, "falta", "asistencia")
+    seg = client.get(ruta, headers=auth(ana)).json()
+    assert seg["clasesRegistradas"] == 1 and seg["porcentajeAsistencia"] == 0

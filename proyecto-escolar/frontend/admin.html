@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="es" class="validando-sesion">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administración · SEPA CUCEI</title>
+  <!-- Fuentes e íconos de Google -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <!-- Tailwind (estilos del diseño) y su configuración de colores -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link href="css/style.css" rel="stylesheet" />
+</head>
+<body class="bg-surface font-body-md text-on-surface antialiased" data-pagina="admin">
+
+<!-- Encabezado con el usuario y el botón de salir (RF-91) -->
+<header class="fixed top-0 w-full z-40 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+  <div class="h-16 max-w-7xl mx-auto px-gutter flex items-center justify-between gap-space-md">
+    <a href="admin.html" class="flex items-center gap-space-md">
+      <span class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center">
+        <span class="material-symbols-outlined text-on-primary text-[20px]">account_balance</span>
+      </span>
+      <span class="flex flex-col">
+        <span class="font-label-lg text-label-lg text-primary leading-tight">SEPA CUCEI</span>
+        <span class="font-caption text-caption text-on-surface-variant leading-none">Administración</span>
+      </span>
+    </a>
+    <div class="flex items-center gap-space-sm">
+      <a href="dashboard.html" class="hidden sm:inline font-label-lg text-label-lg text-on-surface hover:text-primary" id="header-nombre" title="Mi perfil"></a>
+      <a href="dashboard.html" class="w-8 h-8 rounded-full bg-primary flex items-center justify-center" title="Mi perfil">
+        <span class="material-symbols-outlined text-on-primary text-[18px]">person</span>
+      </a>
+      <button id="btn-logout" type="button"
+        class="inline-flex items-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg text-secondary bg-surface-container-low hover:bg-surface-container transition-colors disabled:opacity-60">
+        <span class="material-symbols-outlined text-[18px]">logout</span>
+        <span class="hidden sm:inline">Cerrar sesión</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="w-full pt-24 pb-space-2xl min-h-[calc(100vh-6rem)]">
+  <div class="w-full px-gutter">
+    <div class="max-w-7xl mx-auto">
+
+      <div class="mb-space-lg">
+        <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold">Panel del administrador</span>
+        <h1 class="font-headline-lg text-headline-lg text-primary tracking-tight mt-1" id="titulo-seccion">Inicio</h1>
+      </div>
+
+      <!-- Aviso general (errores del backend) -->
+      <div id="aviso" class="hidden">
+        <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+        <p class="font-body-md text-body-md" data-aviso-texto></p>
+      </div>
+
+      <!-- Secciones -->
+      <div class="flex gap-1 p-1 rounded-xl bg-surface-container-low mb-space-lg overflow-x-auto" role="tablist" id="pestanas"></div>
+
+      <!-- ============ INICIO (pantalla 2.2) ============ -->
+      <section id="panel-inicio" data-panel class="hidden space-y-space-lg">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md" id="inicio-metricas"></div>
+        <div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+          <div class="px-space-lg py-space-md flex items-center justify-between gap-space-sm">
+            <h2 class="font-title-lg text-title-lg text-primary">Docentes pendientes de aprobación</h2>
+            <span id="inicio-ciclo"></span>
+          </div>
+          <div id="inicio-pendientes"></div>
+        </div>
+        <!-- Solicitudes de estudiantes para ser asesor -->
+        <div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+          <div class="px-space-lg py-space-md">
+            <h2 class="font-title-lg text-title-lg text-primary">Solicitudes para ser asesor</h2>
+          </div>
+          <div id="inicio-solicitudes"></div>
+        </div>
+        <!-- RF-53: análisis de historial y riesgo en segundo plano -->
+        <div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg flex flex-col md:flex-row md:items-center justify-between gap-space-md">
+          <div>
+            <h2 class="font-title-lg text-title-lg text-primary flex items-center gap-space-xs">
+              <span class="material-symbols-outlined">monitoring</span> Análisis de riesgo académico
+            </h2>
+            <p class="font-body-md text-body-md text-on-surface-variant mt-1">Pasa al historial los cursos de ciclos terminados y recalcula el riesgo por historial y el rezago de cada alumno. Se hace solo al arrancar el servidor; úsalo si cambiaste un plan de estudios o al iniciar un ciclo.</p>
+          </div>
+          <button type="button" id="btn-recalcular"
+            class="shrink-0 inline-flex items-center justify-center gap-space-xs py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-surface-container-high text-primary hover:bg-surface-container transition-colors">
+            <span class="material-symbols-outlined text-[20px]">refresh</span> Ejecutar análisis
+          </button>
+        </div>
+      </section>
+
+      <!-- ============ PLANES DE ESTUDIO (RF-56) ============ -->
+      <section id="panel-planes" data-panel class="hidden space-y-space-md">
+        <div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md flex flex-col md:flex-row md:items-end gap-space-md">
+          <div class="flex flex-col space-y-space-xs md:w-80">
+            <label for="select-malla" class="font-label-lg text-label-lg text-on-surface">Plan de estudios</label>
+            <div class="flex gap-space-xs">
+              <select id="select-malla" class="flex-1 min-w-0 px-3 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none"></select>
+              <button type="button" id="btn-nuevo-plan" title="Crear un plan de estudios"
+                class="shrink-0 inline-flex items-center justify-center gap-1 py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-surface-container-high text-primary hover:bg-surface-container transition-colors">
+                <span class="material-symbols-outlined text-[20px]">add</span> Nuevo plan
+              </button>
+            </div>
+          </div>
+          <form id="form-malla" novalidate class="flex-1 grid grid-cols-1 sm:grid-cols-[1fr_120px_auto] gap-space-sm items-end">
+            <div class="flex flex-col space-y-space-xs">
+              <label for="input-malla-materia" class="font-label-lg text-label-lg text-on-surface">Agregar o mover materia</label>
+              <input id="input-malla-materia" type="text" list="lista-malla-materias" autocomplete="off" placeholder="Escribe la clave o el nombre"
+                class="w-full px-3.5 py-2.5 rounded-lg bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none" />
+              <datalist id="lista-malla-materias"></datalist>
+            </div>
+            <div class="flex flex-col space-y-space-xs">
+              <label for="input-malla-semestre" class="font-label-lg text-label-lg text-on-surface">Semestre</label>
+              <input id="input-malla-semestre" type="number" min="1" max="12" value="1"
+                class="w-full px-3.5 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none" />
+            </div>
+            <button type="submit" class="inline-flex items-center justify-center gap-space-xs py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors">
+              <span class="material-symbols-outlined text-[20px]">add</span> Guardar
+            </button>
+          </form>
+        </div>
+        <p class="font-helper-sm text-helper-sm text-on-surface-variant">El semestre base de cada materia se usa para calcular el rezago de los alumnos (RF-57, RF-58).</p>
+        <div id="malla-semestres" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-md"></div>
+      </section>
+
+      <!-- ============ USUARIOS (pantalla 2 · RF-07, RF-73, RF-93) ============ -->
+      <section id="panel-usuarios" data-panel class="hidden">
+        <div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md mb-space-md grid grid-cols-1 md:grid-cols-12 gap-space-md items-end">
+          <div class="md:col-span-5 flex flex-col space-y-space-xs">
+            <label for="buscar-usuario" class="font-label-lg text-label-lg text-on-surface">Buscar</label>
+            <div class="relative">
+              <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
+              <input id="buscar-usuario" type="search" placeholder="Nombre, código o correo"
+                class="w-full pl-10 pr-4 py-2.5 rounded-lg bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none" />
+            </div>
+          </div>
+          <div class="md:col-span-2 flex flex-col space-y-space-xs">
+            <label for="filtro-rol" class="font-label-lg text-label-lg text-on-surface">Rol</label>
+            <select id="filtro-rol" class="w-full px-3 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none">
+              <option value="">Todos</option>
+              <option value="estudiante">Estudiantes</option>
+              <option value="asesor">Asesores</option>
+              <option value="docente">Docentes</option>
+              <option value="administrador">Administradores</option>
+            </select>
+          </div>
+          <div class="md:col-span-2 flex flex-col space-y-space-xs">
+            <label for="filtro-estado" class="font-label-lg text-label-lg text-on-surface">Estado</label>
+            <select id="filtro-estado" class="w-full px-3 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none">
+              <option value="">Todos</option>
+              <option value="activo">Activa</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="inactivo">Desactivada</option>
+            </select>
+          </div>
+          <div class="md:col-span-3 flex md:justify-end">
+            <button type="button" id="btn-nuevo-usuario"
+              class="w-full md:w-auto inline-flex items-center justify-center gap-space-xs py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors">
+              <span class="material-symbols-outlined text-[20px]">person_add</span> Registrar usuario
+            </button>
+          </div>
+        </div>
+        <div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+          <div class="px-space-lg py-space-md flex items-center gap-space-sm">
+            <h2 class="font-title-lg text-title-lg text-primary">Usuarios</h2>
+            <span class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-secondary font-label-md text-label-md" id="usuarios-total"></span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left">
+              <thead>
+                <tr class="bg-surface-container text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">
+                  <th class="py-3 px-space-lg">Usuario y código</th>
+                  <th class="py-3 px-space-md">Carrera / Depto.</th>
+                  <th class="py-3 px-space-md">Roles</th>
+                  <th class="py-3 px-space-md">Estado</th>
+                  <th class="py-3 px-space-lg text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-usuarios" class="font-body-md text-body-md"></tbody>
+            </table>
+          </div>
+          <p id="usuarios-vacio" class="hidden text-center text-on-surface-variant py-space-xl">Ningún usuario coincide con el filtro.</p>
+        </div>
+      </section>
+
+      <!-- ============ CICLOS ESCOLARES (pantalla 2.1 · RF-08) ============ -->
+      <section id="panel-ciclos" data-panel class="hidden">
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-space-lg">
+          <div class="xl:col-span-2 bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden h-fit">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-surface-container text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">
+                    <th class="py-3 px-space-lg">Ciclo</th>
+                    <th class="py-3 px-space-md">Inicio</th>
+                    <th class="py-3 px-space-md">Término</th>
+                    <th class="py-3 px-space-lg">Estado</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-ciclos" class="font-body-md text-body-md"></tbody>
+              </table>
+            </div>
+          </div>
+          <form id="form-ciclo" novalidate class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg h-fit space-y-space-md">
+            <h2 class="font-title-lg text-title-lg text-primary flex items-center gap-space-xs">
+              <span class="material-symbols-outlined">event</span> Registrar ciclo escolar
+            </h2>
+            <div id="aviso-ciclo" class="hidden">
+              <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+              <p class="font-body-md text-body-md" data-aviso-texto></p>
+            </div>
+            <div class="flex flex-col space-y-space-xs">
+              <label for="input-ciclo-nombre" class="font-label-lg text-label-lg text-on-surface">Nombre oficial</label>
+              <input id="input-ciclo-nombre" name="nombreOficial" type="text" maxlength="6" placeholder="2027-A"
+                class="w-full bg-surface-container-low text-on-surface px-3.5 py-2.5 rounded-lg text-body-md uppercase placeholder:text-outline focus:outline-none" />
+              <span id="err-nombreOficial" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1">
+                <span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span>
+              </span>
+            </div>
+            <p class="p-space-sm rounded-lg bg-surface-container-low font-body-md text-body-md text-on-surface-variant" id="ciclo-fechas">
+              Escribe AAAA-A o AAAA-B. Las fechas salen del calendario oficial.
+            </p>
+            <button type="submit" id="btn-guardar-ciclo"
+              class="w-full py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
+              <span data-texto-boton>Registrar ciclo</span>
+              <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+            </button>
+            <p class="font-helper-sm text-helper-sm text-on-surface-variant">El estado (próximo, activo, cerrado) se calcula con la fecha de hoy. Los docentes solo pueden elegir ciclos de este catálogo.</p>
+          </form>
+        </div>
+      </section>
+
+      <!-- ============ CATÁLOGOS (pantalla 2.3 · RF-02, RF-94) ============ -->
+      <section id="panel-catalogos" data-panel class="hidden">
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-space-lg">
+          <!-- Carreras (RF-02) -->
+          <div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg h-fit space-y-space-md">
+            <h2 class="font-title-lg text-title-lg text-primary flex items-center gap-space-xs">
+              <span class="material-symbols-outlined">school</span> Carreras
+            </h2>
+            <div id="lista-carreras" class="space-y-space-xs"></div>
+            <form id="form-carrera" novalidate class="pt-space-md border-t border-surface-container space-y-space-sm">
+              <div id="aviso-carrera" class="hidden">
+                <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+                <p class="font-body-md text-body-md" data-aviso-texto></p>
+              </div>
+              <div class="grid grid-cols-3 gap-space-sm">
+                <input id="input-carrera-clave" name="clave" type="text" maxlength="10" placeholder="Clave"
+                  class="bg-surface-container-low text-on-surface px-3 py-2.5 rounded-lg text-body-md uppercase placeholder:text-outline focus:outline-none" />
+                <input id="input-carrera-nombre" name="nombre" type="text" maxlength="100" placeholder="Nombre de la carrera"
+                  class="col-span-2 bg-surface-container-low text-on-surface px-3 py-2.5 rounded-lg text-body-md placeholder:text-outline focus:outline-none" />
+              </div>
+              <button type="submit" id="btn-guardar-carrera"
+                class="w-full py-2 px-space-md rounded-lg font-label-lg text-label-lg bg-surface-container-high text-primary hover:bg-surface-container transition-colors flex items-center justify-center gap-space-xs">
+                <span data-texto-boton>Agregar carrera</span>
+                <span data-spinner class="hidden w-5 h-5 border-2 border-primary/40 border-t-primary rounded-full animate-spin"></span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Materias (RF-94) -->
+          <div class="xl:col-span-2 bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden h-fit">
+            <div class="p-space-md flex flex-col sm:flex-row sm:items-center gap-space-sm">
+              <h2 class="font-title-lg text-title-lg text-primary flex items-center gap-space-xs mr-auto">
+                <span class="material-symbols-outlined">menu_book</span> Materias
+                <span class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-secondary font-label-md text-label-md" id="materias-total"></span>
+              </h2>
+              <input id="buscar-materia" type="search" placeholder="Buscar por clave o nombre"
+                class="sm:w-64 px-3.5 py-2 rounded-lg bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none" />
+              <button type="button" id="btn-nueva-materia"
+                class="inline-flex items-center justify-center gap-space-xs py-2 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors">
+                <span class="material-symbols-outlined text-[20px]">add</span> Nueva materia
+              </button>
+            </div>
+            <div class="overflow-x-auto max-h-[60vh] overflow-y-auto">
+              <table class="w-full text-left">
+                <thead class="sticky top-0">
+                  <tr class="bg-surface-container text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">
+                    <th class="py-3 px-space-lg">Clave</th>
+                    <th class="py-3 px-space-md">Nombre</th>
+                    <th class="py-3 px-space-lg text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-materias" class="font-body-md text-body-md"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer class="w-full bg-surface-container-lowest py-space-xl shadow-[0_-1px_8px_rgba(0,0,0,0.03)]">
+  <div class="max-w-7xl mx-auto px-gutter flex flex-col items-center md:items-start">
+    <p class="font-label-md text-label-md text-on-surface font-semibold">SEPA · Sistema de Evaluación de Progresión Académica</p>
+    <p class="font-caption text-caption text-on-surface-variant">Centro Universitario de Ciencias Exactas e Ingenierías, Universidad de Guadalajara.</p>
+  </div>
+</footer>
+
+<!-- ============ VENTANA: REGISTRAR DOCENTE O ADMINISTRADOR (RF-93) ============ -->
+<div id="modal-nuevo" data-modal class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-space-md sm:p-gutter bg-primary/40 backdrop-blur-sm overflow-y-auto">
+  <form id="form-nuevo" novalidate class="bg-surface-container-lowest w-full max-w-2xl rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer my-auto">
+    <div class="flex items-start justify-between gap-space-md mb-space-md">
+      <div>
+        <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold">Usuarios</span>
+        <h2 class="font-title-lg text-title-lg text-primary mt-1">Registrar usuario</h2>
+        <p class="font-helper-sm text-helper-sm text-on-surface-variant">Los estudiantes crean su propia cuenta en "Crear cuenta".</p>
+      </div>
+      <button type="button" data-cerrar-modal="modal-nuevo" aria-label="Cerrar"
+        class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div id="aviso-nuevo" class="hidden">
+      <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+      <p class="font-body-md text-body-md" data-aviso-texto></p>
+    </div>
+    <div class="grid grid-cols-2 gap-space-sm mb-space-md">
+      <label class="flex items-center gap-space-sm p-space-md rounded-lg bg-surface-container-low cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-secondary">
+        <input type="radio" name="tipoCuenta" value="docente" class="accent-[#0077b6]" checked />
+        <span class="font-label-lg text-label-lg">Docente</span>
+      </label>
+      <label class="flex items-center gap-space-sm p-space-md rounded-lg bg-surface-container-low cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-secondary">
+        <input type="radio" name="tipoCuenta" value="administrador" class="accent-[#0077b6]" />
+        <span class="font-label-lg text-label-lg">Administrador</span>
+      </label>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+      <div class="flex flex-col space-y-space-xs">
+        <label for="nuevo-nombre" class="font-label-lg text-label-lg">Nombre(s)</label>
+        <input id="nuevo-nombre" name="nombre" type="text" maxlength="100" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+        <span id="err-nombre" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span></span>
+      </div>
+      <div class="flex flex-col space-y-space-xs">
+        <label for="nuevo-apellidos" class="font-label-lg text-label-lg">Apellidos</label>
+        <input id="nuevo-apellidos" name="apellidos" type="text" maxlength="100" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+        <span id="err-apellidos" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span></span>
+      </div>
+      <div class="sm:col-span-2 flex flex-col space-y-space-xs">
+        <label for="nuevo-correo" class="font-label-lg text-label-lg">Correo institucional</label>
+        <input id="nuevo-correo" name="correoInstitucional" type="email" placeholder="usuario@academicos.udg.mx" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline focus:outline-none" />
+        <span id="err-correoInstitucional" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span></span>
+      </div>
+      <div class="flex flex-col space-y-space-xs">
+        <label for="nuevo-empleado" class="font-label-lg text-label-lg">Número de empleado</label>
+        <input id="nuevo-empleado" name="noEmpleado" type="text" maxlength="20" placeholder="D-1023" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md uppercase placeholder:text-outline focus:outline-none" />
+        <span class="font-helper-sm text-helper-sm text-on-surface-variant">Será su código para iniciar sesión</span>
+        <span id="err-noEmpleado" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span></span>
+      </div>
+      <div class="flex flex-col space-y-space-xs" id="campo-departamento">
+        <label for="nuevo-departamento" class="font-label-lg text-label-lg">Departamento (opcional)</label>
+        <input id="nuevo-departamento" name="departamento" type="text" maxlength="100" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+      </div>
+      <div class="sm:col-span-2 flex flex-col space-y-space-xs">
+        <label for="nuevo-contrasena" class="font-label-lg text-label-lg">Contraseña inicial</label>
+        <input id="nuevo-contrasena" name="contrasena" type="text" autocomplete="off" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+        <span class="font-helper-sm text-helper-sm text-on-surface-variant">8 a 72 caracteres, con mayúscula, minúscula y número. Compártela con la persona por un medio seguro.</span>
+        <span id="err-contrasena" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span></span>
+      </div>
+    </div>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm mt-space-xl">
+      <button type="button" data-cerrar-modal="modal-nuevo" class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button type="submit" id="btn-guardar-nuevo" class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
+        <span data-texto-boton>Registrar</span>
+        <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ VENTANA: EDITAR USUARIO Y ROL DE ASESOR (RF-73, RF-93) ============ -->
+<div id="modal-editar" data-modal class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-space-md sm:p-gutter bg-primary/40 backdrop-blur-sm overflow-y-auto">
+  <form id="form-editar" novalidate class="bg-surface-container-lowest w-full max-w-xl rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer my-auto space-y-space-md">
+    <div class="flex items-start justify-between gap-space-md">
+      <div>
+        <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold" id="editar-codigo"></span>
+        <h2 class="font-title-lg text-title-lg text-primary mt-1">Editar usuario</h2>
+      </div>
+      <button type="button" data-cerrar-modal="modal-editar" aria-label="Cerrar"
+        class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div id="aviso-editar" class="hidden">
+      <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+      <p class="font-body-md text-body-md" data-aviso-texto></p>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+      <div class="flex flex-col space-y-space-xs">
+        <label for="editar-nombre" class="font-label-lg text-label-lg">Nombre(s)</label>
+        <input id="editar-nombre" type="text" maxlength="100" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+      </div>
+      <div class="flex flex-col space-y-space-xs">
+        <label for="editar-apellidos" class="font-label-lg text-label-lg">Apellidos</label>
+        <input id="editar-apellidos" type="text" maxlength="100" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+      </div>
+      <div class="sm:col-span-2 flex flex-col space-y-space-xs">
+        <label for="editar-correo" class="font-label-lg text-label-lg">Correo institucional</label>
+        <input id="editar-correo" type="email" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+      </div>
+      <div class="sm:col-span-2 flex flex-col space-y-space-xs" id="campo-editar-carrera">
+        <label for="editar-carrera" class="font-label-lg text-label-lg">Carrera</label>
+        <select id="editar-carrera" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none"></select>
+      </div>
+      <div class="sm:col-span-2 flex flex-col space-y-space-xs" id="campo-editar-departamento">
+        <label for="editar-departamento" class="font-label-lg text-label-lg">Departamento</label>
+        <input id="editar-departamento" type="text" maxlength="100" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+      </div>
+    </div>
+    <!-- RF-73: rol de asesor, solo para estudiantes -->
+    <label id="campo-asesor" class="flex items-start gap-space-sm p-space-md rounded-lg bg-tertiary-fixed/40 cursor-pointer">
+      <input type="checkbox" id="editar-asesor" class="mt-1 w-4 h-4 accent-[#de7b0e]" />
+      <span>
+        <span class="block font-label-lg text-label-lg text-primary">Asesor</span>
+        <span class="block font-helper-sm text-helper-sm text-on-surface-variant">Puede publicar asesorías para otros estudiantes. Sigue entrando a su panel de estudiante.</span>
+      </span>
+    </label>
+    <p class="font-helper-sm text-helper-sm text-on-surface-variant flex items-center gap-1">
+      <span class="material-symbols-outlined text-[16px]">lock</span> El código de acceso no se puede cambiar.
+    </p>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm">
+      <button type="button" data-cerrar-modal="modal-editar" class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button type="submit" id="btn-guardar-editar" class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
+        <span data-texto-boton>Guardar cambios</span>
+        <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ VENTANA: RESTABLECER CONTRASEÑA (RF-07) ============ -->
+<div id="modal-contrasena" data-modal class="hidden fixed inset-0 z-50 flex items-center justify-center p-gutter bg-primary/40 backdrop-blur-sm">
+  <form id="form-contrasena" novalidate class="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer space-y-space-md">
+    <div class="flex items-start justify-between gap-space-md">
+      <div>
+        <h2 class="font-title-lg text-title-lg text-primary">Restablecer contraseña</h2>
+        <p class="font-helper-sm text-helper-sm text-on-surface-variant" id="contrasena-para"></p>
+      </div>
+      <button type="button" data-cerrar-modal="modal-contrasena" aria-label="Cerrar"
+        class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div id="aviso-contrasena" class="hidden">
+      <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+      <p class="font-body-md text-body-md" data-aviso-texto></p>
+    </div>
+    <div class="flex flex-col space-y-space-xs">
+      <label for="input-nueva-contrasena" class="font-label-lg text-label-lg">Nueva contraseña</label>
+      <input id="input-nueva-contrasena" name="nueva_contrasena" type="text" autocomplete="off" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+      <span class="font-helper-sm text-helper-sm text-on-surface-variant">8 a 72 caracteres, con mayúscula, minúscula y número.</span>
+      <span id="err-nueva_contrasena" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span></span>
+    </div>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm">
+      <button type="button" data-cerrar-modal="modal-contrasena" class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button type="submit" id="btn-guardar-contrasena" class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
+        <span data-texto-boton>Restablecer</span>
+        <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ VENTANA: NUEVO PLAN DE ESTUDIOS (RF-56) ============ -->
+<div id="modal-plan" data-modal class="hidden fixed inset-0 z-50 flex items-center justify-center p-gutter bg-primary/40 backdrop-blur-sm">
+  <form id="form-plan" novalidate class="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer space-y-space-md max-h-[90vh] overflow-y-auto">
+    <div class="flex items-start justify-between gap-space-md">
+      <div>
+        <span class="font-label-md text-label-md uppercase tracking-wider text-secondary font-semibold">Planes de estudio</span>
+        <h2 class="font-title-lg text-title-lg text-primary mt-1">Nuevo plan</h2>
+      </div>
+      <button type="button" data-cerrar-modal="modal-plan" aria-label="Cerrar"
+        class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div id="aviso-plan" class="hidden">
+      <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+      <p class="font-body-md text-body-md" data-aviso-texto></p>
+    </div>
+    <div class="flex flex-col space-y-space-xs">
+      <label for="plan-carrera" class="font-label-lg text-label-lg">Carrera</label>
+      <select id="plan-carrera" name="carrera" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none"></select>
+      <span id="err-carrera" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span></span>
+    </div>
+    <div class="flex flex-col space-y-space-xs">
+      <label for="plan-generacion" class="font-label-lg text-label-lg">Generación</label>
+      <input id="plan-generacion" name="generacion" type="text" maxlength="6" placeholder="2026-B" autocomplete="off"
+        class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md uppercase focus:outline-none" />
+      <span class="font-helper-sm text-helper-sm text-on-surface-variant">Primer ciclo de ingreso que usa este plan. Los alumnos que entraron desde ese ciclo pasan a él.</span>
+      <span id="err-generacion" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span></span>
+    </div>
+    <div class="flex flex-col space-y-space-xs">
+      <label for="plan-nombre" class="font-label-lg text-label-lg">Nombre del plan</label>
+      <input id="plan-nombre" name="nombrePlan" type="text" maxlength="100" placeholder="Plan ICOM 2026"
+        class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none" />
+      <span id="err-nombrePlan" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span></span>
+    </div>
+    <div class="flex flex-col space-y-space-xs">
+      <label for="plan-copiar" class="font-label-lg text-label-lg">Copiar materias de <span class="text-on-surface-variant font-normal">(opcional)</span></label>
+      <select id="plan-copiar" name="copiarDe" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none"></select>
+      <span class="font-helper-sm text-helper-sm text-on-surface-variant">Útil para una revisión del plan: después ajustas solo lo que cambió.</span>
+    </div>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm">
+      <button type="button" data-cerrar-modal="modal-plan" class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button type="submit" id="btn-crear-plan" class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
+        <span data-texto-boton>Crear plan</span>
+        <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ VENTANA: RECHAZAR SOLICITUD DE ASESOR ============ -->
+<div id="modal-rechazo" data-modal class="hidden fixed inset-0 z-50 flex items-center justify-center p-gutter bg-primary/40 backdrop-blur-sm">
+  <form id="form-rechazo" novalidate class="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer space-y-space-md">
+    <div class="flex items-start justify-between gap-space-md">
+      <div>
+        <h2 class="font-title-lg text-title-lg text-primary">Rechazar solicitud</h2>
+        <p class="font-helper-sm text-helper-sm text-on-surface-variant" id="rechazo-para"></p>
+      </div>
+      <button type="button" data-cerrar-modal="modal-rechazo" aria-label="Cerrar"
+        class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div id="aviso-rechazo" class="hidden">
+      <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+      <p class="font-body-md text-body-md" data-aviso-texto></p>
+    </div>
+    <div class="flex flex-col space-y-space-xs">
+      <label for="input-comentario" class="font-label-lg text-label-lg">Motivo del rechazo <span class="text-on-surface-variant font-normal">(opcional, lo verá el estudiante)</span></label>
+      <textarea id="input-comentario" name="comentario" rows="3" maxlength="500" placeholder="Ej. Primero acredita la materia con más de 85."
+        class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md focus:outline-none"></textarea>
+      <span id="err-comentario" class="hidden font-helper-sm text-helper-sm text-error flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">error</span> <span data-texto></span></span>
+    </div>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm">
+      <button type="button" data-cerrar-modal="modal-rechazo" class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button type="submit" id="btn-confirmar-rechazo" class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-error text-on-error hover:brightness-110 transition flex items-center justify-center gap-space-xs">
+        <span data-texto-boton>Rechazar</span>
+        <span data-spinner class="hidden w-5 h-5 border-2 border-on-error/40 border-t-on-error rounded-full animate-spin"></span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ VENTANA: MATERIA (RF-94) ============ -->
+<div id="modal-materia" data-modal class="hidden fixed inset-0 z-50 flex items-center justify-center p-gutter bg-primary/40 backdrop-blur-sm">
+  <form id="form-materia" novalidate class="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer space-y-space-md">
+    <div class="flex items-start justify-between gap-space-md">
+      <h2 class="font-title-lg text-title-lg text-primary" id="materia-titulo">Nueva materia</h2>
+      <button type="button" data-cerrar-modal="modal-materia" aria-label="Cerrar"
+        class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div id="aviso-materia" class="hidden">
+      <span class="material-symbols-outlined icono-relleno text-[22px]" data-aviso-icono>error</span>
+      <p class="font-body-md text-body-md" data-aviso-texto></p>
+    </div>
+    <div class="flex flex-col space-y-space-xs">
+      <label for="input-materia-clave" class="font-label-lg text-label-lg">Clave</label>
+      <input id="input-materia-clave" name="clave" type="text" maxlength="15" placeholder="I5288" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md uppercase placeholder:text-outline focus:outline-none" />
+    </div>
+    <div class="flex flex-col space-y-space-xs">
+      <label for="input-materia-nombre" class="font-label-lg text-label-lg">Nombre oficial</label>
+      <input id="input-materia-nombre" name="nombre" type="text" maxlength="100" placeholder="Bases de Datos" class="bg-surface-container-low px-3.5 py-2.5 rounded-lg text-body-md placeholder:text-outline focus:outline-none" />
+    </div>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm">
+      <button type="button" data-cerrar-modal="modal-materia" class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button type="submit" id="btn-guardar-materia" class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors flex items-center justify-center gap-space-xs">
+        <span data-texto-boton>Guardar</span>
+        <span data-spinner class="hidden w-5 h-5 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin"></span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ VENTANA: CONFIRMAR ============ -->
+<div id="modal-confirmar" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-gutter bg-primary/40 backdrop-blur-sm">
+  <div class="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-xl p-space-lg sm:p-space-xl animate-aparecer">
+    <h2 class="font-title-lg text-title-lg text-primary" data-confirmar-titulo></h2>
+    <p class="font-body-md text-body-md text-on-surface-variant mt-space-sm" data-confirmar-texto></p>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-space-sm mt-space-lg">
+      <button type="button" data-confirmar-cancelar class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-surface-container hover:bg-surface-container-high transition-colors">Cancelar</button>
+      <button type="button" data-confirmar-aceptar class="py-2.5 px-space-lg rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors"></button>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/admin-catalogos.js"></script>
+</body>
+</html>

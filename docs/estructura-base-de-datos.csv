@@ -1,0 +1,140 @@
+﻿Tabla;Campo;Tipo;Llave;Obligatorio;Descripción
+Usuario;id;Entero;PK;Sí;Número que identifica a cada persona registrada
+Usuario;nombre;Texto;;Sí;Nombre o nombres de la persona
+Usuario;apellidos;Texto;;Sí;Apellidos de la persona
+Usuario;correoInstitucional;Texto;;Sí;"Correo de la UdeG; no se puede repetir"
+Usuario;contrasena;Texto;;Sí;Contraseña cifrada (nunca se guarda tal cual la escribe el usuario)
+Usuario;estado;Texto;;Sí;Si la cuenta está activa, inactiva o pendiente de aprobación
+Usuario;fechaRegistro;Fecha y hora;;Sí;Cuándo se creó la cuenta
+Rol;id;Entero;PK;Sí;Número que identifica al rol
+Rol;nombre;Texto;;Sí;Nombre del rol: estudiante, docente, administrador o asesor
+UsuarioRol;usuario_id;Entero;PK, FK → Usuario;Sí;Persona que tiene el rol
+UsuarioRol;rol_id;Entero;PK, FK → Rol;Sí;Rol que se le asigna a esa persona
+Estudiante;id;Entero;PK, FK → Usuario;Sí;"Mismo número del usuario; une la cuenta con sus datos de estudiante"
+Estudiante;codigoEstudiante;Texto;;Sí;Código de alumno de la UdeG con el que inicia sesión
+Estudiante;carrera;Texto;;No;Clave de la carrera que estudia (por ejemplo ICOM)
+Estudiante;ciclo;Texto;;No;"Ciclo escolar en que ingresó (por ejemplo 2024-B); sirve para calcular su semestre"
+Estudiante;mallaCurricular_id;Entero;FK → MallaCurricular;No;Plan de estudios que le corresponde según su carrera y generación
+Docente;id;Entero;PK, FK → Usuario;Sí;"Mismo número del usuario; une la cuenta con sus datos de docente"
+Docente;noEmpleado;Texto;;Sí;Número de empleado con el que inicia sesión
+Docente;departamento;Texto;;No;Departamento académico al que pertenece
+Administrador;id;Entero;PK, FK → Usuario;Sí;"Mismo número del usuario; une la cuenta con sus datos de administrador"
+Administrador;noEmpleado;Texto;;Sí;Número de empleado con el que inicia sesión
+TokenRevocado;jti;Texto;PK;Sí;Identificador de una sesión que ya se cerró
+TokenRevocado;expira;Fecha y hora;;Sí;Hasta cuándo habría sido válida esa sesión
+SesionActiva;jti;Texto;PK;Sí;Identificador de la sesión abierta
+SesionActiva;usuario_id;Entero;FK → Usuario;Sí;Persona dueña de la sesión
+SesionActiva;ultimaActividad;Fecha y hora;;Sí;"Última vez que el usuario usó el sistema; tras 30 minutos sin uso la sesión se cierra"
+SesionActiva;expira;Fecha y hora;;Sí;Hasta cuándo es válida la sesión aunque haya actividad
+IntentoLogin;codigo;Texto;PK;Sí;Código o número de empleado con el que se intentó entrar
+IntentoLogin;intentosFallidos;Entero;;Sí;Cuántas veces seguidas se escribió mal la contraseña
+IntentoLogin;bloqueadoHasta;Fecha y hora;;No;Hasta cuándo no se puede iniciar sesión con ese código
+Carrera;id;Entero;PK;Sí;Número que identifica a la carrera
+Carrera;clave;Texto;;Sí;Clave oficial de la carrera (por ejemplo ICOM)
+Carrera;nombre;Texto;;Sí;Nombre oficial de la carrera
+CicloEscolar;id;Entero;PK;Sí;Número que identifica al ciclo
+CicloEscolar;nombreOficial;Texto;;Sí;Nombre del ciclo (por ejemplo 2026-B)
+CicloEscolar;fechaInicio;Fecha;;Sí;Primer día del ciclo
+CicloEscolar;fechaTermino;Fecha;;Sí;Último día del ciclo
+CicloEscolar;estado;Texto;;Sí;Si el ciclo es próximo, está en curso o ya cerró
+Materia;id;Entero;PK;Sí;Número que identifica a la materia
+Materia;clave;Texto;;Sí;Clave oficial de la materia (por ejemplo I5288)
+Materia;nombre;Texto;;Sí;Nombre oficial de la materia
+MallaCurricular;id;Entero;PK;Sí;Número que identifica al plan de estudios
+MallaCurricular;carrera;Texto;;Sí;Clave de la carrera a la que pertenece el plan
+MallaCurricular;generacion;Texto;;Sí;Primer ciclo de ingreso que usa este plan
+MallaCurricular;nombrePlan;Texto;;Sí;Nombre del plan de estudios
+MallaMateria;id;Entero;PK;Sí;Número que identifica la fila
+MallaMateria;semestreBase;Entero;;Sí;Semestre en el que el plan coloca la materia
+MallaMateria;mallaCurricular_id;Entero;FK → MallaCurricular;Sí;Plan de estudios al que pertenece
+MallaMateria;materia_id;Entero;FK → Materia;Sí;Materia que forma parte del plan
+Curso;id;Entero;PK;Sí;Número que identifica al curso
+Curso;nombreMateria;Texto;;Sí;Nombre de la materia que se imparte
+Curso;seccion;Texto;;Sí;Sección o grupo (por ejemplo D02)
+Curso;descripcion;Texto;;No;Descripción del curso que escribe el docente
+Curso;codigoCurso;Texto;;Sí;Código único que los alumnos usan para inscribirse
+Curso;estado;Texto;;Sí;Si el curso está activo o archivado
+Curso;tipoEvaluacion;Texto;;Sí;Calificación numérica o aprobado/no aprobado
+Curso;umbralNumerico;Decimal;;Sí;"Calificación mínima para aprobar; siempre 60"
+Curso;diasSemana;Texto;;Sí;Días de clase (por ejemplo lunes, miércoles y viernes)
+Curso;horaInicio;Hora;;Sí;Hora en que empieza la clase
+Curso;horaFin;Hora;;Sí;Hora en que termina la clase
+Curso;cicloEscolar_id;Entero;FK → CicloEscolar;No;Ciclo escolar al que pertenece el curso
+Curso;docente_id;Entero;FK → Docente;No;Docente que imparte el curso
+Curso;materia_id;Entero;FK → Materia;No;Materia del catálogo que corresponde al curso
+Matricula;id;Entero;PK;Sí;Número que identifica la inscripción
+Matricula;fechaInscripcion;Fecha y hora;;Sí;Cuándo se inscribió el alumno al curso
+Matricula;estado;Texto;;Sí;Si el alumno sigue activo en el curso o se dio de baja
+Matricula;calificacionAcumuladaActual;Decimal;;No;Calificación acumulada del alumno en el curso, sobre 100
+Matricula;curso_id;Entero;FK → Curso;No;Curso en el que está inscrito
+Matricula;estudiante_id;Entero;FK → Estudiante;No;Alumno inscrito
+SesionClase;id;Entero;PK;Sí;Número que identifica la clase
+SesionClase;fecha;Fecha;;Sí;Día de la clase
+SesionClase;horaInicio;Hora;;Sí;Hora en que empezó la clase
+SesionClase;horaFin;Hora;;Sí;Hora en que terminó la clase
+SesionClase;tema;Texto;;No;Tema de la clase (opcional)
+SesionClase;listaGuardada;Booleano;;Sí;"Si el docente ya guardó el pase de lista; mientras no, no cuenta"
+SesionClase;curso_id;Entero;FK → Curso;No;Curso al que pertenece la clase
+Asistencia;id;Entero;PK;Sí;Número que identifica el registro
+Asistencia;estado;Texto;;Sí;Asistencia, falta, retardo o pendiente
+Asistencia;observaciones;Texto;;No;Nota del docente sobre esa asistencia (opcional)
+Asistencia;sesionClase_id;Entero;FK → SesionClase;No;Clase a la que corresponde
+Asistencia;matricula_id;Entero;FK → Matricula;No;Inscripción del alumno al que corresponde
+CategoriaEvaluacion;id;Entero;PK;Sí;Número que identifica la categoría
+CategoriaEvaluacion;nombre;Texto;;Sí;Nombre de la categoría (por ejemplo Tareas o Exámenes)
+CategoriaEvaluacion;porcentajePeso;Decimal;;Sí;Porcentaje que vale la categoría en la calificación final
+CategoriaEvaluacion;curso_id;Entero;FK → Curso;No;Curso al que pertenece la categoría
+Actividad;id;Entero;PK;Sí;Número que identifica la actividad
+Actividad;titulo;Texto;;Sí;Título de la actividad
+Actividad;descripcion;Texto;;No;Instrucciones de la actividad
+Actividad;fechaHoraLimite;Fecha y hora;;Sí;Fecha y hora límite de entrega
+Actividad;puntuacionMaxima;Decimal;;Sí;Puntos máximos que se pueden obtener
+Actividad;categoriaEvaluacion_id;Entero;FK → CategoriaEvaluacion;No;Categoría a la que pertenece la actividad
+Actividad;archivoAdjunto;Texto;;No;Ubicación del archivo que adjuntó el docente (opcional)
+Entrega;id;Entero;PK;Sí;Número que identifica la entrega
+Entrega;fechaHoraEntrega;Fecha y hora;;Sí;Fecha y hora en que el alumno entregó
+Entrega;archivoDigital;Texto;;No;Ubicación del archivo que subió el alumno
+Entrega;entregadoConRetraso;Booleano;;Sí;Si se entregó después de la fecha límite
+Entrega;actividad_id;Entero;FK → Actividad;No;Actividad que se entrega
+Entrega;matricula_id;Entero;FK → Matricula;No;Inscripción del alumno que entrega
+Calificacion;id;Entero;PK;Sí;Número que identifica la calificación
+Calificacion;calificacionObtenida;Decimal;;Sí;Puntos que obtuvo el alumno
+Calificacion;retroalimentacion;Texto;;No;Comentarios del docente para el alumno (opcional)
+Calificacion;fecha;Fecha y hora;;Sí;Cuándo se calificó
+Calificacion;entrega_id;Entero;FK → Entrega;No;Entrega que se calificó
+HistorialAcademico;id;Entero;PK;Sí;Número que identifica el registro
+HistorialAcademico;periodo;Texto;;Sí;Ciclo escolar en que se cursó la materia (por ejemplo 2025-B)
+HistorialAcademico;materia;Texto;;Sí;Nombre de la materia cursada
+HistorialAcademico;calificacion;Decimal;;Sí;Calificación final obtenida
+HistorialAcademico;resultado;Texto;;Sí;Si la materia quedó aprobada o reprobada
+HistorialAcademico;estudiante_id;Entero;FK → Estudiante;No;Alumno que cursó la materia
+HistorialAcademico;materia_id;Entero;FK → Materia;No;Materia del catálogo que corresponde
+RegistroRiesgo;id;Entero;PK;Sí;Número que identifica el registro
+RegistroRiesgo;semaforo;Texto;;Sí;Color del semáforo del alumno en el curso: verde, amarillo o rojo
+RegistroRiesgo;estadoInformativo;Texto;;Sí;Estatus por asistencia: Ordinario, Extraordinario o Sin Derecho
+RegistroRiesgo;riesgoPorHistorial;Booleano;;Sí;Si reprobó materias en los dos ciclos anteriores
+RegistroRiesgo;riesgoCritico;Booleano;;Sí;Si cursa una materia que debió acreditar tres o más semestres atrás
+RegistroRiesgo;detalleCausaRezago;Texto;;No;Explicación del rezago: la materia y el semestre al que corresponde
+RegistroRiesgo;matricula_id;Entero;FK → Matricula;No;Inscripción del alumno que se analizó
+PublicacionAsesoria;id;Entero;PK;Sí;Número que identifica la publicación
+PublicacionAsesoria;materia;Texto;;Sí;Materia en la que se ofrece la asesoría
+PublicacionAsesoria;horario;Texto;;Sí;Días y horas de la asesoría
+PublicacionAsesoria;modalidad;Texto;;Sí;Presencial o virtual
+PublicacionAsesoria;lugarOMedio;Texto;;Sí;Salón o enlace de la videollamada
+PublicacionAsesoria;topico;Texto;;No;Temas que se van a ver (opcional)
+PublicacionAsesoria;estado;Texto;;Sí;Si la publicación está activa o se ocultó del tablero
+PublicacionAsesoria;estudiante_id;Entero;FK → Estudiante;No;Asesor que publica
+SolicitudAsesor;id;Entero;PK;Sí;Número que identifica la solicitud
+SolicitudAsesor;motivo;Texto;;Sí;Por qué el estudiante quiere ser asesor
+SolicitudAsesor;materias;Texto;;No;Materias en las que puede ayudar (opcional)
+SolicitudAsesor;estado;Texto;;Sí;Pendiente, aceptada o rechazada
+SolicitudAsesor;fechaSolicitud;Fecha y hora;;Sí;Cuándo se envió la solicitud
+SolicitudAsesor;fechaRespuesta;Fecha y hora;;No;Cuándo respondió el administrador
+SolicitudAsesor;comentarioAdmin;Texto;;No;Comentario del administrador, sobre todo al rechazar
+SolicitudAsesor;estudiante_id;Entero;FK → Estudiante;Sí;Estudiante que pide ser asesor
+SolicitudAsesor;administrador_id;Entero;FK → Usuario;No;Administrador que respondió la solicitud
+BibliotecaNormatividad;id;Entero;PK;Sí;Número que identifica el registro
+BibliotecaNormatividad;extractosReglamento;Texto;;No;Extractos del reglamento (sin uso: el texto vive en la página del frontend)
+BibliotecaNormatividad;guiaSIATCE;Texto;;No;Guía del trámite en SIATCE (sin uso)
+BibliotecaNormatividad;directorioCoordinacion;Texto;;No;Directorio de coordinaciones (sin uso)
+BibliotecaNormatividad;checklistSupervivencia;Texto;;No;Acciones sugeridas para casos críticos (sin uso)

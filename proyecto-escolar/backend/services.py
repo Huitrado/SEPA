@@ -1,6 +1,6 @@
 """Lógica de negocio. Los routers solo reciben, delegan aquí y responden."""
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import func, or_
@@ -13,8 +13,11 @@ from config import (ASISTENCIA_EXTRAORDINARIO, ASISTENCIA_ORDINARIO, CARPETA_ARC
                     CARRERAS_INICIALES, DESEMPENO_ALERTA, DIAS_SEMANA, DOCENTE_REQUIERE_APROBACION,
                     ESTADOS_ASISTENCIA, ESTADOS_QUE_CUENTAN, EXTENSIONES_PERMITIDAS, ORDEN_SEMAFORO,
                     PRIORIDAD_PANEL, SEMAFORO_AMARILLO, SEMAFORO_CALIFICACION_VERDE, SEMAFORO_VERDE,
-                    TAMANO_MAXIMO_ARCHIVO, UMBRAL_APROBATORIO, rol_por_correo)
-from security import crear_token, hashear, verificar
+                    TAMANO_MAXIMO_ARCHIVO, UMBRAL_APROBATORIO, CICLOS_HISTORIAL, REZAGO_CRITICO,
+                    dominio_de, fechas_ciclo, rol_por_correo)
+import security
+from config import INTENTOS_MAXIMOS, MINUTOS_BLOQUEO
+from security import abrir_sesion, hashear, verificar
 
 import json
 from pathlib import Path
@@ -159,11 +162,15 @@ def crear_carrera(db: Session, datos: schemas.CarreraCrear) -> models.Carrera:
 def _validar_catalogos(db: Session, datos: schemas.UsuarioCrear) -> None:
     if not db.query(models.Carrera).filter_by(clave=datos.carrera).first():
         raise HTTPException(422, "La carrera seleccionada no pertenece al catálogo oficial")
-    vigente = ciclo_vigente(db)  # el ciclo del estudiante es el que está en curso
+    # El ciclo del estudiante es su ciclo de INGRESO (p. ej. 2023-B): sirve para calcular el rezago
+    # (RF-57). Puede ser el vigente o uno anterior, nunca uno futuro.
+    vigente = ciclo_vigente(db)
     if not vigente:
         raise HTTPException(409, "No hay un ciclo escolar en curso registrado; contacta a un administrador")
-    if datos.ciclo != vigente.nombreOficial:
-        raise HTTPException(422, f"El ciclo en curso es {vigente.nombreOficial}")
+    if not fechas_ciclo(datos.ciclo):
+        raise HTTPException(422, "El ciclo de ingreso debe tener el formato AAAA-A o AAAA-B (por ejemplo 2023-B)")
+    if datos.ciclo > vigente.nombreOficial:  # "2026-A" < "2026-B" < "2027-A": el orden de texto sirve
+        raise HTTPException(422, f"El ciclo de ingreso no puede ser posterior al ciclo en curso ({vigente.nombreOficial})")
 
 # ======================================================================
 # Registro, sesión y perfil (RF-01 a RF-07, RF-89 a RF-92)
@@ -214,8 +221,10 @@ def registrarse(db: Session, datos: schemas.UsuarioCrear) -> models.Usuario:
         db.add_all([usuario, rol])
         db.flush()
         if rol_nombre == "estudiante":
+            malla = malla_para(db, datos.carrera, datos.ciclo)  # RF-56: plan de su carrera y generación
             db.add(models.Estudiante(id=usuario.id, codigoEstudiante=datos.codigo,
-                                     carrera=datos.carrera, ciclo=datos.ciclo))
+                                     carrera=datos.carrera, ciclo=datos.ciclo,
+                                     mallaCurricular_id=malla.id if malla else None))
         else:
             db.add(models.Docente(id=usuario.id, noEmpleado=datos.noEmpleado,
                                   departamento=datos.departamento))
@@ -236,19 +245,46 @@ def _ids_por_codigo(db: Session, codigo: str) -> set[int]:
     )
     return {fila[0] for q in consultas for fila in q}
 
+def _mensaje_bloqueo(hasta: datetime, ahora: datetime) -> str:
+    minutos = max(1, -(-int((hasta - ahora).total_seconds()) // 60))  # redondeo hacia arriba
+    return (f"Demasiados intentos fallidos. El inicio de sesión de esta cuenta está bloqueado; "
+            f"intenta de nuevo en {minutos} minuto{'s' if minutos != 1 else ''}")
+
 def iniciarSesion(db: Session, cred: schemas.UsuarioLogin) -> dict:
+    # RNF-03: el control va por código, exista o no, para no delatar qué códigos están registrados
+    ahora = security.ahora_utc()
+    intento = db.get(models.IntentoLogin, cred.codigo)
+    if intento and intento.bloqueadoHasta:
+        hasta = datetime.fromisoformat(intento.bloqueadoHasta)
+        if ahora < hasta:
+            raise HTTPException(429, _mensaje_bloqueo(hasta, ahora))
+        intento.intentosFallidos, intento.bloqueadoHasta = 0, None  # el bloqueo ya terminó: cuenta de cero
+
     usuarios = [db.get(models.Usuario, i) for i in _ids_por_codigo(db, cred.codigo)]
     if not usuarios:
         verificar(cred.contrasena, _HASH_FALSO)
     u = next((x for x in usuarios if x and verificar(cred.contrasena, x.contrasena)), None)
     if not u:  # mismo mensaje para código inexistente y contraseña errónea
+        if not intento:
+            intento = models.IntentoLogin(codigo=cred.codigo, intentosFallidos=0)
+            db.add(intento)
+        intento.intentosFallidos += 1
+        if intento.intentosFallidos >= INTENTOS_MAXIMOS:
+            hasta = ahora + timedelta(minutes=MINUTOS_BLOQUEO)
+            intento.bloqueadoHasta = hasta.isoformat()
+            db.commit()
+            raise HTTPException(429, _mensaje_bloqueo(hasta, ahora))
+        db.commit()
         raise HTTPException(401, "Código o contraseña incorrectos")
+    if intento:  # con la contraseña correcta, los fallos anteriores dejan de contar
+        db.delete(intento)
+        db.commit()
     if u.estado == "pendiente":  # solo se revela con la contraseña correcta
         raise HTTPException(403, "Tu cuenta está pendiente de aprobación por un administrador")
     if u.estado != "activo":
         raise HTTPException(403, "Tu cuenta está desactivada")
     roles = _roles_de(db, u.id)
-    return {"access_token": crear_token(u.id), "token_type": "bearer", "roles": roles,
+    return {"access_token": abrir_sesion(db, u.id), "token_type": "bearer", "roles": roles,
             "panel": _panel_de(roles), "nombre": f"{u.nombre} {u.apellidos}"}
 
 def cerrarSesion(db: Session, payload: dict) -> None:
@@ -257,6 +293,7 @@ def cerrarSesion(db: Session, payload: dict) -> None:
     if not db.get(models.TokenRevocado, jti):
         expira = datetime.fromtimestamp(payload["exp"], timezone.utc).isoformat()
         db.add(models.TokenRevocado(jti=jti, expira=expira))
+    db.query(models.SesionActiva).filter(models.SesionActiva.jti == jti).delete()
     # limpieza: un token expirado ya es inválido por sí solo
     db.query(models.TokenRevocado).filter(
         models.TokenRevocado.expira < datetime.now(timezone.utc).isoformat()).delete()
@@ -272,9 +309,75 @@ def perfil_de(db: Session, usuario: models.Usuario) -> dict:
 # Administración (RF-08, RF-93)
 # ======================================================================
 def _usuario_admin(db: Session, u: models.Usuario) -> dict:
+    estudiante = db.get(models.Estudiante, u.id)
+    docente = db.get(models.Docente, u.id)
     return {"id": u.id, "nombre": u.nombre, "apellidos": u.apellidos,
             "correoInstitucional": u.correoInstitucional, "estado": u.estado,
-            "roles": _roles_de(db, u.id)}
+            "roles": _roles_de(db, u.id), "codigo": _codigo_de(db, u.id),
+            "carrera": estudiante.carrera if estudiante else None,
+            "ciclo": estudiante.ciclo if estudiante else None,
+            "departamento": docente.departamento if docente else None,
+            "fechaRegistro": u.fechaRegistro}
+
+def _obtener_rol(db: Session, nombre: str) -> models.Rol:
+    rol = db.query(models.Rol).filter_by(nombre=nombre).first()
+    if not rol:
+        rol = models.Rol(nombre=nombre)
+        db.add(rol)
+        db.flush()
+    return rol
+
+def _usuario(db: Session, usuario_id: int) -> models.Usuario:
+    usuario = db.get(models.Usuario, usuario_id)
+    if not usuario:
+        raise HTTPException(404, "Usuario no encontrado")
+    return usuario
+
+def actualizar_usuario(db: Session, usuario_id: int, datos: schemas.UsuarioAdminActualizar) -> dict:
+    """RF-93: el administrador corrige los datos de una cuenta. Los códigos de acceso no cambian."""
+    usuario = _usuario(db, usuario_id)
+    estudiante = db.get(models.Estudiante, usuario.id)
+    docente = db.get(models.Docente, usuario.id)
+    cambios = {k: v for k, v in datos.model_dump(exclude_unset=True).items() if v is not None}
+    if "carrera" in cambios:
+        if not estudiante:
+            raise HTTPException(422, "Solo los estudiantes tienen carrera")
+        if not db.query(models.Carrera).filter_by(clave=cambios["carrera"]).first():
+            raise HTTPException(422, "La carrera seleccionada no pertenece al catálogo oficial")
+        estudiante.carrera = cambios.pop("carrera")
+    if "departamento" in cambios:
+        if not docente:
+            raise HTTPException(422, "Solo los docentes tienen departamento")
+        docente.departamento = cambios.pop("departamento")
+    correo = cambios.get("correoInstitucional")
+    if correo and correo != usuario.correoInstitucional:
+        otro = db.query(models.Usuario).filter_by(correoInstitucional=correo).first()
+        if otro:
+            raise HTTPException(409, "El correo institucional ya está registrado")
+        # El dominio decide el rol: un estudiante sigue en @alumnos y un docente en @academicos
+        for perfil, rol in ((estudiante, "estudiante"), (docente, "docente")):
+            if perfil and rol_por_correo(correo) != rol:
+                raise HTTPException(422, f"El correo de un {rol} debe terminar en @{dominio_de(rol)}")
+    for campo, valor in cambios.items():
+        setattr(usuario, campo, valor)
+    db.commit()
+    return _usuario_admin(db, usuario)
+
+def cambiar_rol_asesor(db: Session, usuario_id: int, asesor: bool) -> dict:
+    """RF-73: el administrador asigna (o quita) el rol de asesor a un estudiante.
+    RF-92: un estudiante con rol de asesor sigue entrando a su panel de estudiante."""
+    usuario = _usuario(db, usuario_id)
+    if not db.get(models.Estudiante, usuario.id):
+        raise HTTPException(409, "Solo los estudiantes pueden tener el rol de asesor")
+    rol = _obtener_rol(db, "asesor")
+    tiene = "asesor" in _roles_de(db, usuario.id)
+    if asesor and not tiene:
+        db.execute(models.usuario_rol.insert().values(usuario_id=usuario.id, rol_id=rol.id))
+    elif not asesor and tiene:
+        db.execute(models.usuario_rol.delete().where(models.usuario_rol.c.usuario_id == usuario.id,
+                                                     models.usuario_rol.c.rol_id == rol.id))
+    db.commit()
+    return _usuario_admin(db, usuario)
 
 def _crear_personal(db: Session, datos, rol_nombre: str, perfil, extra: dict) -> models.Usuario:
     """Crea Usuario + perfil (Docente/Administrador) + rol, todo en una transacción."""
@@ -324,6 +427,8 @@ def cambiar_estado_usuario(db: Session, admin: models.Usuario, usuario_id: int, 
         raise HTTPException(404, "Usuario no encontrado")
     if usuario.id == admin.id:
         raise HTTPException(409, "No puedes cambiar tu propio estado")  # evita quedarse sin admins
+    if estado == "inactivo" and db.get(models.Administrador, usuario.id):
+        raise HTTPException(403, "No puedes desactivar a otro administrador")
     usuario.estado = estado
     db.commit()
     return _usuario_admin(db, usuario)
@@ -372,6 +477,24 @@ def _umbral_para(tipo: str) -> float:
     """RF-18: 60 fijo para 'numerica'. En Aprobado/No Aprobado no aplica umbral (se guarda 0)."""
     return UMBRAL_APROBATORIO if tipo == "numerica" else 0.0
 
+def _id_materia(db: Session, nombre: str) -> int | None:
+    """Liga el curso con la materia del catálogo del mismo nombre (RF-56); None si no está."""
+    materia = db.query(models.Materia).filter(func.lower(models.Materia.nombre) == nombre.lower()).first()
+    return materia.id if materia else None
+
+def _generacion_como_ciclo(generacion: str) -> str:
+    return generacion if "-" in generacion else f"{generacion}-A"  # "2023" -> "2023-A"
+
+def malla_para(db: Session, carrera: str | None, ciclo_ingreso: str | None) -> models.MallaCurricular | None:
+    """RF-56: el plan vigente de la carrera para esa generación (el más reciente que no sea posterior
+    al ingreso); si todos son posteriores, el más antiguo."""
+    mallas = db.query(models.MallaCurricular).filter_by(carrera=carrera).all() if carrera else []
+    if not mallas:
+        return None
+    mallas.sort(key=lambda m: _generacion_como_ciclo(m.generacion))
+    previas = [m for m in mallas if ciclo_ingreso and _generacion_como_ciclo(m.generacion) <= ciclo_ingreso]
+    return previas[-1] if previas else mallas[0]
+
 def generarCodigoUnico() -> str:
     return uuid.uuid4().hex[:8].upper()
 
@@ -395,7 +518,7 @@ def crearCurso(db: Session, docente: models.Usuario, datos: schemas.CursoCrear) 
             diasSemana=_dias_a_texto(datos.diasSemana),
             horaInicio=datos.horaInicio.strftime("%H:%M"), horaFin=datos.horaFin.strftime("%H:%M"),
             cicloEscolar_id=ciclo.id, codigoCurso=generarCodigoUnico(),
-            estado="activo", docente_id=docente.id,
+            estado="activo", docente_id=docente.id, materia_id=_id_materia(db, datos.nombreMateria),
         )
         db.add(curso)
         try:
@@ -414,6 +537,10 @@ def _curso_del_docente(db: Session, docente: models.Usuario, curso_id: int) -> m
     if curso.docente_id != docente.id:
         raise HTTPException(403, "Este curso no te pertenece")
     return curso
+
+def ver_curso_docente(db: Session, docente: models.Usuario, curso_id: int) -> models.Curso:
+    """Un curso del docente, activo o archivado (para la página de detalle del curso)."""
+    return _curso_del_docente(db, docente, curso_id)
 
 def cursos_del_docente(db: Session, docente: models.Usuario, estado: str = "activo") -> list[models.Curso]:
     """RF-11: por defecto solo los activos; los archivados se piden con estado='archivado'."""
@@ -441,6 +568,8 @@ def actualizar_curso(db: Session, docente: models.Usuario, curso_id: int,
     cambios = {k: v for k, v in datos.model_dump(exclude_unset=True).items() if v is not None}
     if "diasSemana" in cambios:
         cambios["diasSemana"] = _dias_a_texto(cambios["diasSemana"])
+    if "nombreMateria" in cambios:
+        cambios["materia_id"] = _id_materia(db, cambios["nombreMateria"])
     for campo in ("horaInicio", "horaFin"):
         if campo in cambios:
             cambios[campo] = cambios[campo].strftime("%H:%M")
@@ -514,13 +643,16 @@ def semaforo_asistencia(porcentaje: float) -> str:
         return "amarillo"
     return "rojo"
 
+def _estados_asistencia(db: Session, matricula_id: int) -> list[str]:
+    """Estados del alumno en las listas guardadas de su curso."""
+    return [e for (e,) in (db.query(models.Asistencia.estado)
+            .join(models.SesionClase, models.SesionClase.id == models.Asistencia.sesionClase_id)
+            .filter(models.Asistencia.matricula_id == matricula_id,
+                    models.SesionClase.listaGuardada == 1).all())]
+
 def porcentaje_asistencia(db: Session, matricula_id: int) -> float:
     """Porcentaje de un alumno en su curso, contando solo las listas guardadas."""
-    estados = (db.query(models.Asistencia.estado)
-               .join(models.SesionClase, models.SesionClase.id == models.Asistencia.sesionClase_id)
-               .filter(models.Asistencia.matricula_id == matricula_id,
-                       models.SesionClase.listaGuardada == 1).all())
-    return calcular_porcentaje_asistencia([e for (e,) in estados])
+    return calcular_porcentaje_asistencia(_estados_asistencia(db, matricula_id))
 
 def _alumnos_activos(db: Session, curso_id: int) -> list[tuple]:
     """(Matricula, Estudiante, Usuario) de las matrículas activas, por apellidos y nombre."""
@@ -914,12 +1046,40 @@ def _actividad_alumno_dict(db: Session, a: models.Actividad, matricula: models.M
     return {**_actividad_dict(db, a, valores), "estadoEntrega": _estado_entrega(a, entrega),
             "entrega": entrega, "puedeCancelar": bool(entrega) and not _vencida(a)}
 
-def cursos_del_alumno(db: Session, usuario: models.Usuario) -> list[models.Curso]:
-    """Cursos con matrícula activa del alumno (incluye archivados para consultar su historial)."""
-    return (db.query(models.Curso)
-            .join(models.Matricula, models.Matricula.curso_id == models.Curso.id)
-            .filter(models.Matricula.estudiante_id == usuario.id, models.Matricula.estado == "activo")
-            .order_by(models.Curso.id).all())
+def _tarjeta_curso(db: Session, curso: models.Curso, matricula: models.Matricula) -> dict:
+    """RF-61: datos de la tarjeta del curso para el alumno: materia, profesor y semáforo general."""
+    profesor = db.get(models.Usuario, curso.docente_id) if curso.docente_id else None
+    ciclo = db.get(models.CicloEscolar, curso.cicloEscolar_id) if curso.cicloEscolar_id else None
+    seguimiento = _indicadores(porcentaje_asistencia(db, matricula.id),
+                               _fila_calificaciones(matricula.id, *_datos_calificaciones(db, curso.id)))
+    return {**schemas.CursoPublico.model_validate(curso).model_dump(),
+            "profesor": f"{profesor.nombre} {profesor.apellidos}" if profesor else None,
+            "ciclo": ciclo.nombreOficial if ciclo else None,
+            "porcentajeAsistencia": seguimiento["porcentajeAsistencia"],
+            "calificacionAcumulada": seguimiento["calificacionAcumulada"],
+            "alertaCalificacion": seguimiento["alertaCalificacion"],
+            "semaforoGeneral": seguimiento["semaforoGeneral"]}
+
+def cursos_del_alumno(db: Session, usuario: models.Usuario) -> list[dict]:
+    """RF-60: solo los cursos del ciclo escolar activo en los que el alumno tiene matrícula activa."""
+    filas = (db.query(models.Curso, models.Matricula)
+             .join(models.Matricula, models.Matricula.curso_id == models.Curso.id)
+             .filter(models.Matricula.estudiante_id == usuario.id, models.Matricula.estado == "activo")
+             .order_by(models.Curso.nombreMateria, models.Curso.id).all())
+    return [_tarjeta_curso(db, c, m) for c, m in filas
+            if (ciclo := db.get(models.CicloEscolar, c.cicloEscolar_id)) and estado_ciclo(ciclo) == "activo"]
+
+def curso_del_alumno(db: Session, usuario: models.Usuario, curso_id: int) -> dict:
+    """La ficha de un curso para el panel consolidado del alumno (RF-62)."""
+    matricula = _matricula_activa(db, usuario, curso_id)
+    return _tarjeta_curso(db, db.get(models.Curso, matricula.curso_id), matricula)
+
+def encuadre_del_alumno(db: Session, usuario: models.Usuario, curso_id: int) -> dict:
+    """RF-63: el alumno ve las categorías del encuadre y sus porcentajes."""
+    matricula = _matricula_activa(db, usuario, curso_id)
+    categorias = (db.query(models.CategoriaEvaluacion).filter_by(curso_id=matricula.curso_id)
+                  .order_by(models.CategoriaEvaluacion.id).all())
+    return {"categorias": categorias, **_resumen_pesos(db, matricula.curso_id)}
 
 def actividades_del_alumno(db: Session, usuario: models.Usuario, curso_id: int) -> list[dict]:
     matricula = _matricula_activa(db, usuario, curso_id)
@@ -1004,6 +1164,7 @@ def calcular_calificacion(items: list[tuple[float, float, float | None, bool]]) 
         elif cero:
             posibles += valor
     return {"calificacionAcumulada": round(ganados, 2), "puntosPosibles": round(posibles, 2),
+            "puntosPerdidos": round(posibles - ganados, 2),  # RF-68: lo que ya no se puede recuperar
             "desempenoProporcional": round(ganados * 100 / posibles, 2) if posibles else None}
 
 def _actividades_de_curso(db: Session, curso_id: int) -> list[models.Actividad]:
@@ -1123,7 +1284,8 @@ def _indicadores(asistencia: float, calificacion: dict) -> dict:
     return {"porcentajeAsistencia": round(asistencia, 2), "estatusNormativo": estatus_normativo(asistencia),
             "semaforoAsistencia": sem_asistencia,
             "calificacionAcumulada": calificacion["calificacionAcumulada"],
-            "puntosPosibles": calificacion["puntosPosibles"], "desempenoProporcional": desempeno,
+            "puntosPosibles": calificacion["puntosPosibles"], "puntosPerdidos": calificacion["puntosPerdidos"],
+            "desempenoProporcional": desempeno,
             "alertaCalificacion": alerta_calificacion(desempeno),
             "semaforoCalificacion": sem_calificacion,
             "semaforoGeneral": semaforo_general(sem_asistencia, sem_calificacion)}
@@ -1131,14 +1293,402 @@ def _indicadores(asistencia: float, calificacion: dict) -> dict:
 def seguimiento_de_curso(db: Session, docente: models.Usuario, curso_id: int) -> dict:
     curso = _curso_del_docente(db, docente, curso_id)
     datos = _datos_calificaciones(db, curso.id)
-    alumnos = [{**_datos_alumno(m, e, u),
-                **_indicadores(porcentaje_asistencia(db, m.id), _fila_calificaciones(m.id, *datos))}
-               for m, e, u in _alumnos_activos(db, curso.id)]
+    banderas = banderas_de_curso(db, curso)  # RF-54, RF-58, RF-59
+    alumnos = []
+    for m, e, u in _alumnos_activos(db, curso.id):
+        indicadores = _indicadores(porcentaje_asistencia(db, m.id), _fila_calificaciones(m.id, *datos))
+        bandera = banderas.get(m.id, {})
+        alumnos.append({**_datos_alumno(m, e, u), **indicadores, **bandera,
+                        "alertaArticulos": bool(bandera.get("reprobadaAntes")) and indicadores["semaforoGeneral"] == "rojo"})
     resumen = {color: sum(a["semaforoGeneral"] == color for a in alumnos) for color in ORDEN_SEMAFORO}
     return {"curso_id": curso.id, "resumen": resumen, "alumnos": alumnos}
 
 def seguimiento_del_alumno(db: Session, usuario: models.Usuario, curso_id: int) -> dict:
     matricula = _matricula_activa(db, usuario, curso_id)
     datos = _datos_calificaciones(db, matricula.curso_id)
-    return {"curso_id": matricula.curso_id,
-            **_indicadores(porcentaje_asistencia(db, matricula.id), _fila_calificaciones(matricula.id, *datos))}
+    estados = _estados_asistencia(db, matricula.id)
+    return {"curso_id": matricula.curso_id, "clasesRegistradas": sum(e in ESTADOS_ASISTENCIA for e in estados),
+            **_indicadores(calcular_porcentaje_asistencia(estados), _fila_calificaciones(matricula.id, *datos))}
+
+# ======================================================================
+# Asesorías entre estudiantes (RF-73 a RF-80, RF-92)
+# ======================================================================
+def _publicacion_dict(db: Session, p: models.PublicacionAsesoria, usuario: models.Usuario) -> dict:
+    autor = db.get(models.Usuario, p.estudiante_id)
+    estudiante = db.get(models.Estudiante, p.estudiante_id)
+    return {"id": p.id, "materia": p.materia, "horario": p.horario, "modalidad": p.modalidad,
+            "lugarOMedio": p.lugarOMedio, "topico": p.topico, "estado": p.estado,
+            "asesor": f"{autor.nombre} {autor.apellidos}", "carreraAsesor": estudiante.carrera if estudiante else None,
+            "correoAsesor": autor.correoInstitucional, "esMia": p.estudiante_id == usuario.id}
+
+def _materia_del_catalogo(db: Session, nombre: str) -> str:
+    """La materia de la asesoría sale del catálogo oficial (RF-94), sin distinguir mayúsculas."""
+    materia = db.query(models.Materia).filter(func.lower(models.Materia.nombre) == nombre.lower()).first()
+    if not materia:
+        raise HTTPException(422, "La materia no está en el catálogo oficial")
+    return materia.nombre
+
+def _asesores_vigentes(db: Session):
+    """Ids de estudiantes activos que hoy tienen el rol de asesor (si se lo quitan, sus anuncios se ocultan)."""
+    return (db.query(models.usuario_rol.c.usuario_id)
+            .join(models.Rol, models.Rol.id == models.usuario_rol.c.rol_id)
+            .join(models.Usuario, models.Usuario.id == models.usuario_rol.c.usuario_id)
+            .filter(models.Rol.nombre == "asesor", models.Usuario.estado == "activo"))
+
+def tablero_asesorias(db: Session, usuario: models.Usuario, materia: str | None = None,
+                      modalidad: str | None = None, texto: str | None = None) -> list[dict]:
+    """RF-78, RF-79: publicaciones activas de asesores vigentes, con filtros opcionales.
+    "texto" busca en el tópico, el horario, el lugar y el nombre del asesor."""
+    q = (db.query(models.PublicacionAsesoria)
+         .filter(models.PublicacionAsesoria.estado == "activa",
+                 models.PublicacionAsesoria.estudiante_id.in_(_asesores_vigentes(db))))
+    if materia:
+        q = q.filter(func.lower(models.PublicacionAsesoria.materia) == materia.lower())
+    if modalidad:
+        q = q.filter(models.PublicacionAsesoria.modalidad == modalidad)
+    publicaciones = [_publicacion_dict(db, p, usuario)
+                     for p in q.order_by(models.PublicacionAsesoria.materia, models.PublicacionAsesoria.id).all()]
+    if texto:
+        t = texto.lower()
+        publicaciones = [p for p in publicaciones
+                         if t in f"{p['topico'] or ''} {p['horario']} {p['lugarOMedio']} {p['asesor']}".lower()]
+    return publicaciones
+
+def ver_asesoria(db: Session, usuario: models.Usuario, publicacion_id: int) -> dict:
+    """RF-80: detalle completo con el lugar o enlace. Solo las activas, salvo para su autor."""
+    p = db.get(models.PublicacionAsesoria, publicacion_id)
+    if not p or (p.estudiante_id != usuario.id and p.estado != "activa"):
+        raise HTTPException(404, "Asesoría no encontrada")
+    return _publicacion_dict(db, p, usuario)
+
+def mis_asesorias(db: Session, asesor: models.Usuario) -> list[dict]:
+    """RF-92: las publicaciones del asesor, activas e inactivas."""
+    q = (db.query(models.PublicacionAsesoria).filter_by(estudiante_id=asesor.id)
+         .order_by(models.PublicacionAsesoria.estado, models.PublicacionAsesoria.id.desc()))
+    return [_publicacion_dict(db, p, asesor) for p in q.all()]
+
+def crearPublicacion(db: Session, asesor: models.Usuario, datos: schemas.PublicacionCrear) -> dict:
+    """RF-74, RF-75: la publicación aparece de inmediato en el tablero."""
+    p = models.PublicacionAsesoria(materia=_materia_del_catalogo(db, datos.materia), horario=datos.horario,
+                                   modalidad=datos.modalidad, lugarOMedio=datos.lugarOMedio,
+                                   topico=datos.topico, estado="activa", estudiante_id=asesor.id)
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return _publicacion_dict(db, p, asesor)
+
+def _publicacion_propia(db: Session, asesor: models.Usuario, publicacion_id: int) -> models.PublicacionAsesoria:
+    p = db.get(models.PublicacionAsesoria, publicacion_id)
+    if not p:
+        raise HTTPException(404, "Asesoría no encontrada")
+    if p.estudiante_id != asesor.id:
+        raise HTTPException(403, "Esta publicación no es tuya")
+    return p
+
+def modificarPublicacion(db: Session, asesor: models.Usuario, publicacion_id: int,
+                         datos: schemas.PublicacionActualizar) -> dict:
+    """RF-76: cambiar horario, lugar, etc. RF-77: estado "inactiva" la retira del tablero."""
+    p = _publicacion_propia(db, asesor, publicacion_id)
+    cambios = {k: v for k, v in datos.model_dump(exclude_unset=True).items() if v is not None}
+    if "materia" in cambios:
+        cambios["materia"] = _materia_del_catalogo(db, cambios["materia"])
+    for campo, valor in cambios.items():
+        setattr(p, campo, valor)
+    db.commit()
+    return _publicacion_dict(db, p, asesor)
+
+def desactivarPublicacion(db: Session, asesor: models.Usuario, publicacion_id: int) -> None:
+    """RF-77: eliminar la publicación (para ocultarla sin borrarla, se pone en "inactiva")."""
+    db.delete(_publicacion_propia(db, asesor, publicacion_id))
+    db.commit()
+
+# ======================================================================
+# Historial académico y riesgo (RF-53 a RF-59, RF-84)
+# El historial se forma solo con cursos de SEPA (desde que el alumno se registró, RF-53).
+# ======================================================================
+def _indice_ciclo(nombre: str) -> int:
+    anio, letra = nombre.split("-")
+    return int(anio) * 2 + (letra == "B")
+
+def ciclos_anteriores(nombre: str, cuantos: int) -> list[str]:
+    """"2026-B", 2 -> ["2026-A", "2025-B"]"""
+    i = _indice_ciclo(nombre)
+    return [f"{(i - k) // 2}-{'B' if (i - k) % 2 else 'A'}" for k in range(1, cuantos + 1)]
+
+def semestre_cronologico(ciclo_ingreso: str | None, vigente: str | None) -> int | None:
+    """RF-57: el semestre en que debería ir según su ingreso (ingresó en 2023-B y hoy es 2026-B -> 7.º)."""
+    if not ciclo_ingreso or not vigente or not fechas_ciclo(ciclo_ingreso) or not fechas_ciclo(vigente):
+        return None
+    return max(1, _indice_ciclo(vigente) - _indice_ciclo(ciclo_ingreso) + 1)
+
+def resultado_final(acumulada: float, estatus: str) -> str:
+    """Aprobada si la acumulada es >= 60 y no quedó Sin Derecho por asistencia (decisión del equipo).
+    Los cursos Aprobado/No aprobado usan la misma regla."""
+    return "aprobada" if acumulada >= UMBRAL_APROBATORIO and estatus != "Sin Derecho" else "reprobada"
+
+def cerrar_ciclos_terminados(db: Session) -> int:
+    """RF-53: los cursos de ciclos ya cerrados pasan al historial de sus alumnos activos (una sola vez)."""
+    nuevos = 0
+    for ciclo in db.query(models.CicloEscolar).all():
+        if estado_ciclo(ciclo) != "cerrado":
+            continue
+        for curso in db.query(models.Curso).filter_by(cicloEscolar_id=ciclo.id).all():
+            datos = _datos_calificaciones(db, curso.id)
+            for m in db.query(models.Matricula).filter_by(curso_id=curso.id, estado="activo").all():
+                ya = db.query(models.HistorialAcademico).filter_by(
+                    estudiante_id=m.estudiante_id, periodo=ciclo.nombreOficial, materia=curso.nombreMateria).first()
+                if ya:
+                    continue
+                acumulada = _fila_calificaciones(m.id, *datos)["calificacionAcumulada"]
+                estatus = estatus_normativo(porcentaje_asistencia(db, m.id))
+                db.add(models.HistorialAcademico(
+                    periodo=ciclo.nombreOficial, materia=curso.nombreMateria, calificacion=acumulada,
+                    resultado=resultado_final(acumulada, estatus), estudiante_id=m.estudiante_id,
+                    materia_id=curso.materia_id or _id_materia(db, curso.nombreMateria)))
+                nuevos += 1
+    db.commit()
+    return nuevos
+
+def riesgo_por_historial(db: Session, estudiante_id: int, vigente: str) -> list[str]:
+    """RF-54: devuelve los ciclos con reprobadas si reprobó al menos una materia en CADA uno de los
+    ciclos inmediatamente anteriores al actual; si no, lista vacía (sin riesgo)."""
+    anteriores = ciclos_anteriores(vigente, CICLOS_HISTORIAL)
+    con_reprobadas = [c for c in anteriores if db.query(models.HistorialAcademico).filter_by(
+        estudiante_id=estudiante_id, periodo=c, resultado="reprobada").first()]
+    return con_reprobadas if len(con_reprobadas) == len(anteriores) else []
+
+def _reprobada_antes(db: Session, estudiante_id: int, curso: models.Curso, vigente: str) -> bool:
+    q = db.query(models.HistorialAcademico).filter(
+        models.HistorialAcademico.estudiante_id == estudiante_id,
+        models.HistorialAcademico.resultado == "reprobada",
+        models.HistorialAcademico.periodo != vigente)
+    if curso.materia_id:
+        q = q.filter(or_(models.HistorialAcademico.materia_id == curso.materia_id,
+                         func.lower(models.HistorialAcademico.materia) == curso.nombreMateria.lower()))
+    else:
+        q = q.filter(func.lower(models.HistorialAcademico.materia) == curso.nombreMateria.lower())
+    return q.first() is not None
+
+def _ordinal(n: int) -> str:
+    return f"{n}.º"
+
+def rezago_de_matricula(db: Session, matricula: models.Matricula, vigente: str) -> dict:
+    """RF-56 a RF-59: compara la materia del curso con el plan de estudios del alumno."""
+    curso = db.get(models.Curso, matricula.curso_id)
+    estudiante = db.get(models.Estudiante, matricula.estudiante_id)
+    malla = (db.get(models.MallaCurricular, estudiante.mallaCurricular_id) if estudiante.mallaCurricular_id
+             else malla_para(db, estudiante.carrera, estudiante.ciclo))
+    materia_id = curso.materia_id or _id_materia(db, curso.nombreMateria)
+    en_malla = (db.query(models.MallaMateria).filter_by(mallaCurricular_id=malla.id, materia_id=materia_id).first()
+                if malla and materia_id else None)
+    semestre = semestre_cronologico(estudiante.ciclo, vigente)
+    resultado = {"curso_id": curso.id, "materia": curso.nombreMateria, "semestreBase": None, "desfase": None,
+                 "rezagoCritico": False, "detalleRezago": None}
+    if en_malla and semestre:
+        desfase = semestre - en_malla.semestreBase
+        resultado.update(semestreBase=en_malla.semestreBase, desfase=desfase, rezagoCritico=desfase >= REZAGO_CRITICO)
+        if desfase >= REZAGO_CRITICO:  # RF-59
+            resultado["detalleRezago"] = (f"{curso.nombreMateria} corresponde al {_ordinal(en_malla.semestreBase)} semestre "
+                                          f"de tu plan y vas en {_ordinal(semestre)}: {desfase} semestres de desfase.")
+    return resultado
+
+def calcularRiesgo(db: Session, matricula: models.Matricula, vigente: str) -> models.RegistroRiesgo:
+    """Guarda en RegistroRiesgo el análisis de una matrícula del ciclo actual (una fila por matrícula)."""
+    rezago = rezago_de_matricula(db, matricula, vigente)
+    historial = riesgo_por_historial(db, matricula.estudiante_id, vigente)
+    indicadores = _indicadores(porcentaje_asistencia(db, matricula.id),
+                               _fila_calificaciones(matricula.id, *_datos_calificaciones(db, matricula.curso_id)))
+    registro = db.query(models.RegistroRiesgo).filter_by(matricula_id=matricula.id).first()
+    if not registro:
+        registro = models.RegistroRiesgo(matricula_id=matricula.id)
+        db.add(registro)
+    registro.semaforo = "rojo" if rezago["rezagoCritico"] else indicadores["semaforoGeneral"]
+    registro.estadoInformativo = indicadores["estatusNormativo"]
+    registro.riesgoPorHistorial = int(bool(historial))
+    registro.riesgoCritico = int(rezago["rezagoCritico"])
+    registro.detalleCausaRezago = rezago["detalleRezago"]
+    return registro
+
+def analizar_riesgo_ciclo(db: Session) -> int:
+    """RF-53: cierra los ciclos terminados en el historial y analiza todas las matrículas activas
+    del ciclo vigente. Corre en segundo plano (RNF-05): al arrancar el servidor y cuando el
+    administrador lo pide. Devuelve cuántas matrículas analizó."""
+    cerrar_ciclos_terminados(db)
+    vigente = ciclo_vigente(db)
+    if not vigente:
+        return 0
+    matriculas = (db.query(models.Matricula).join(models.Curso, models.Curso.id == models.Matricula.curso_id)
+                  .filter(models.Curso.cicloEscolar_id == vigente.id, models.Matricula.estado == "activo").all())
+    for m in matriculas:
+        calcularRiesgo(db, m, vigente.nombreOficial)
+    db.commit()
+    return len(matriculas)
+
+def analizar_riesgo_en_segundo_plano() -> None:
+    """Para hilos o BackgroundTasks: abre su propia sesión, así no bloquea ninguna petición."""
+    from database import SessionLocal
+    with SessionLocal() as db:
+        analizar_riesgo_ciclo(db)
+
+def _riesgo_curso(db: Session, m: models.Matricula, vigente: str) -> dict:
+    curso = db.get(models.Curso, m.curso_id)
+    rezago = rezago_de_matricula(db, m, vigente)
+    reprobada = _reprobada_antes(db, m.estudiante_id, curso, vigente)
+    general = _indicadores(porcentaje_asistencia(db, m.id),
+                           _fila_calificaciones(m.id, *_datos_calificaciones(db, curso.id)))["semaforoGeneral"]
+    return {**rezago, "reprobadaAntes": reprobada, "alertaArticulos": reprobada and general == "rojo"}
+
+def riesgo_del_alumno(db: Session, usuario: models.Usuario) -> dict:
+    """RF-54, RF-55 (bandera del perfil), RF-56 a RF-59 (rezago por curso) y RF-84 (art. 33 a 35)."""
+    estudiante = db.get(models.Estudiante, usuario.id)
+    vigente = ciclo_vigente(db)
+    nombre = vigente.nombreOficial if vigente else None
+    malla = (db.get(models.MallaCurricular, estudiante.mallaCurricular_id) if estudiante.mallaCurricular_id
+             else malla_para(db, estudiante.carrera, estudiante.ciclo))
+    historial = riesgo_por_historial(db, usuario.id, nombre) if nombre else []
+    cursos = []
+    if vigente:
+        matriculas = (db.query(models.Matricula).join(models.Curso, models.Curso.id == models.Matricula.curso_id)
+                      .filter(models.Matricula.estudiante_id == usuario.id, models.Matricula.estado == "activo",
+                              models.Curso.cicloEscolar_id == vigente.id).all())
+        cursos = [_riesgo_curso(db, m, nombre) for m in matriculas]
+    return {"semestreActual": semestre_cronologico(estudiante.ciclo, nombre), "plan": malla.nombrePlan if malla else None,
+            "riesgoPorHistorial": bool(historial), "ciclosConReprobadas": historial, "cursos": cursos}
+
+def historial_del_alumno(db: Session, usuario: models.Usuario) -> list[models.HistorialAcademico]:
+    return (db.query(models.HistorialAcademico).filter_by(estudiante_id=usuario.id)
+            .order_by(models.HistorialAcademico.periodo.desc(), models.HistorialAcademico.materia).all())
+
+def banderas_de_curso(db: Session, curso: models.Curso) -> dict[int, dict]:
+    """Para el seguimiento del docente: {matricula_id: {riesgoPorHistorial, rezagoCritico, detalleRezago, reprobadaAntes}}."""
+    vigente = db.get(models.CicloEscolar, curso.cicloEscolar_id)
+    nombre = vigente.nombreOficial if vigente else None
+    resultado = {}
+    for m in db.query(models.Matricula).filter_by(curso_id=curso.id, estado="activo").all():
+        rezago = rezago_de_matricula(db, m, nombre) if nombre else {"rezagoCritico": False, "detalleRezago": None}
+        resultado[m.id] = {"riesgoPorHistorial": bool(riesgo_por_historial(db, m.estudiante_id, nombre)) if nombre else False,
+                           "rezagoCritico": rezago["rezagoCritico"], "detalleRezago": rezago["detalleRezago"],
+                           "reprobadaAntes": _reprobada_antes(db, m.estudiante_id, curso, nombre) if nombre else False}
+    return resultado
+
+# ---------- Planes de estudio para el administrador (RF-56) ----------
+
+def _malla_dict(db: Session, malla: models.MallaCurricular) -> dict:
+    filas = (db.query(models.MallaMateria, models.Materia)
+             .join(models.Materia, models.Materia.id == models.MallaMateria.materia_id)
+             .filter(models.MallaMateria.mallaCurricular_id == malla.id)
+             .order_by(models.MallaMateria.semestreBase, models.Materia.nombre).all())
+    return {"id": malla.id, "carrera": malla.carrera, "generacion": malla.generacion,
+            "nombrePlan": malla.nombrePlan,
+            "materias": [{"materia_id": mat.id, "clave": mat.clave, "nombre": mat.nombre,
+                          "semestreBase": mm.semestreBase} for mm, mat in filas]}
+
+def listar_mallas(db: Session) -> list[dict]:
+    mallas = db.query(models.MallaCurricular).order_by(models.MallaCurricular.carrera, models.MallaCurricular.generacion).all()
+    return [_malla_dict(db, m) for m in mallas]
+
+def crear_malla(db: Session, datos: schemas.MallaCrear) -> dict:
+    """RF-56: nuevo plan de estudios de una carrera para una generación (vacío o copiando las materias
+    de otro plan). Los alumnos de esa carrera pasan al plan que les toca según su ingreso (malla_para)."""
+    if not db.query(models.Carrera).filter_by(clave=datos.carrera).first():
+        raise HTTPException(422, "La carrera seleccionada no pertenece al catálogo oficial")
+    generacion = _generacion_como_ciclo(datos.generacion)
+    for otra in db.query(models.MallaCurricular).filter_by(carrera=datos.carrera).all():
+        if _generacion_como_ciclo(otra.generacion) == generacion:
+            raise HTTPException(409, f"Ya existe un plan de {datos.carrera} para la generación {generacion}: {otra.nombrePlan}")
+    origen = db.get(models.MallaCurricular, datos.copiarDe) if datos.copiarDe else None
+    if datos.copiarDe and not origen:
+        raise HTTPException(404, "Plan de estudios no encontrado")
+    malla = models.MallaCurricular(carrera=datos.carrera, generacion=generacion, nombrePlan=datos.nombrePlan)
+    db.add(malla)
+    db.flush()
+    if origen:
+        for fila in db.query(models.MallaMateria).filter_by(mallaCurricular_id=origen.id).all():
+            db.add(models.MallaMateria(mallaCurricular_id=malla.id, materia_id=fila.materia_id,
+                                       semestreBase=fila.semestreBase))
+    reasignados = 0
+    for est in db.query(models.Estudiante).filter_by(carrera=datos.carrera).all():
+        nueva = malla_para(db, est.carrera, est.ciclo)
+        if nueva and nueva.id != est.mallaCurricular_id:
+            est.mallaCurricular_id = nueva.id
+            reasignados += 1
+    db.commit()
+    return {**_malla_dict(db, malla), "alumnosReasignados": reasignados}
+
+def asignar_materia_a_malla(db: Session, malla_id: int, datos: schemas.MateriaEnMalla) -> None:
+    """Agrega la materia al plan o cambia su semestre base."""
+    if not db.get(models.MallaCurricular, malla_id):
+        raise HTTPException(404, "Plan de estudios no encontrado")
+    _materia(db, datos.materia_id)
+    fila = db.query(models.MallaMateria).filter_by(mallaCurricular_id=malla_id, materia_id=datos.materia_id).first()
+    if fila:
+        fila.semestreBase = datos.semestreBase
+    else:
+        db.add(models.MallaMateria(mallaCurricular_id=malla_id, materia_id=datos.materia_id, semestreBase=datos.semestreBase))
+    db.commit()
+
+def quitar_materia_de_malla(db: Session, malla_id: int, materia_id: int) -> None:
+    fila = db.query(models.MallaMateria).filter_by(mallaCurricular_id=malla_id, materia_id=materia_id).first()
+    if not fila:
+        raise HTTPException(404, "La materia no está en ese plan de estudios")
+    db.delete(fila)
+    db.commit()
+
+# ======================================================================
+# Solicitud para ser asesor: el estudiante la envía y el administrador la acepta o la rechaza.
+# Aceptarla le da el rol de asesor (lo mismo que RF-73); el administrador también puede darlo directo.
+# ======================================================================
+def _solicitud_dict(db: Session, s: models.SolicitudAsesor) -> dict:
+    usuario = db.get(models.Usuario, s.estudiante_id)
+    estudiante = db.get(models.Estudiante, s.estudiante_id)
+    return {"id": s.id, "motivo": s.motivo, "materias": s.materias, "estado": s.estado,
+            "fechaSolicitud": s.fechaSolicitud, "fechaRespuesta": s.fechaRespuesta,
+            "comentarioAdmin": s.comentarioAdmin, "estudiante_id": s.estudiante_id,
+            "nombre": f"{usuario.nombre} {usuario.apellidos}", "codigo": estudiante.codigoEstudiante,
+            "carrera": estudiante.carrera, "correoInstitucional": usuario.correoInstitucional}
+
+def _ultima_solicitud(db: Session, estudiante_id: int) -> models.SolicitudAsesor | None:
+    return (db.query(models.SolicitudAsesor).filter_by(estudiante_id=estudiante_id)
+            .order_by(models.SolicitudAsesor.id.desc()).first())
+
+def mi_solicitud_asesor(db: Session, usuario: models.Usuario) -> dict | None:
+    """La última solicitud del estudiante (para mostrarle si está pendiente, aceptada o rechazada)."""
+    s = _ultima_solicitud(db, usuario.id)
+    return _solicitud_dict(db, s) if s else None
+
+def enviar_solicitud_asesor(db: Session, usuario: models.Usuario, datos: schemas.SolicitudAsesorCrear) -> dict:
+    """Una sola solicitud pendiente a la vez; si ya es asesor no hace falta. Tras un rechazo puede volver a pedirlo."""
+    if "asesor" in _roles_de(db, usuario.id):
+        raise HTTPException(409, "Ya tienes el rol de asesor")
+    ultima = _ultima_solicitud(db, usuario.id)
+    if ultima and ultima.estado == "pendiente":
+        raise HTTPException(409, "Ya tienes una solicitud pendiente; espera la respuesta del administrador")
+    s = models.SolicitudAsesor(motivo=datos.motivo, materias=datos.materias, estado="pendiente",
+                               fechaSolicitud=_ahora(), estudiante_id=usuario.id)
+    db.add(s)
+    db.commit()
+    return _solicitud_dict(db, s)
+
+def listar_solicitudes_asesor(db: Session, estado: str | None = None) -> list[dict]:
+    """Para el administrador: las pendientes primero y, dentro de cada estado, las más antiguas primero."""
+    q = db.query(models.SolicitudAsesor)
+    if estado:
+        q = q.filter_by(estado=estado)
+    filas = q.order_by((models.SolicitudAsesor.estado != "pendiente"), models.SolicitudAsesor.id).all()
+    return [_solicitud_dict(db, s) for s in filas]
+
+def responder_solicitud_asesor(db: Session, admin: models.Usuario, solicitud_id: int,
+                               datos: schemas.SolicitudAsesorRespuesta) -> dict:
+    s = db.get(models.SolicitudAsesor, solicitud_id)
+    if not s:
+        raise HTTPException(404, "Solicitud no encontrada")
+    if s.estado != "pendiente":
+        raise HTTPException(409, "Esta solicitud ya fue respondida")
+    if datos.decision == "aceptada":
+        if db.get(models.Usuario, s.estudiante_id).estado != "activo":
+            raise HTTPException(409, "La cuenta del estudiante no está activa")
+        cambiar_rol_asesor(db, s.estudiante_id, True)
+    s.estado, s.fechaRespuesta = datos.decision, _ahora()
+    s.comentarioAdmin, s.administrador_id = datos.comentario or None, admin.id
+    db.commit()
+    return _solicitud_dict(db, s)

@@ -2,7 +2,7 @@
 
 [← Volver al índice](README.md)
 
-Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **58 endpoints** en 6 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
+Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sabe atender, por ejemplo `POST /usuarios/login`. En total hay **75 endpoints** en 7 routers. Puedes probarlos todos en **http://127.0.0.1:8000/docs**.
 
 ## Cómo leer estas tablas
 
@@ -30,7 +30,7 @@ Un **endpoint** es una combinación de **método HTTP + ruta** que el backend sa
 
 **Errores comunes a todos los endpoints protegidos** (no se repiten en cada fila):
 
-- **401**: falta el token, es inválido o expiró, la sesión se cerró, o el usuario ya no está activo.
+- **401**: falta el token, es inválido o expiró, la sesión se cerró, pasaron más de 30 minutos sin peticiones (RNF-02: `"Tu sesión se cerró por inactividad; inicia sesión de nuevo"`), o el usuario ya no está activo.
 - **403**: el usuario no tiene el rol requerido. Ver también la nota de [04-seguridad.md](04-seguridad.md#3-el-encabezado-authorization) sobre 401/403 cuando falta el encabezado.
 - **422**: el JSON o los parámetros no pasan la validación (formato en [06-errores.md](06-errores.md)).
 
@@ -45,7 +45,7 @@ Archivo: `routers/usuarios.py` · Prefijo: `/usuarios`
 | Método | Ruta | Quién | Recibe | Respuestas | RF |
 |--------|------|-------|--------|------------|----|
 | POST | `/usuarios/registro` | Público | JSON `UsuarioCrear` | **201**, 409, 422 | RF-01, RF-02, RF-03 |
-| POST | `/usuarios/login` | Público | JSON `{codigo, contrasena}` | **200**, 401, 403, 422 | RF-04, RF-90 |
+| POST | `/usuarios/login` | Público | JSON `{codigo, contrasena}` | **200**, 401, 403, 422, 429 | RF-04, RF-90, RNF-03 |
 | POST | `/usuarios/logout` | Token válido* | Nada (solo el token) | **200**, 401 | RF-06, RF-91 |
 | GET | `/usuarios/yo` | Sesión | Nada | **200**, 401 | RF-05, RF-90 |
 | GET | `/usuarios/recuperar-contrasena` | Público | Nada | **200** | RF-07 |
@@ -60,7 +60,7 @@ El **rol se decide por el dominio del correo** (`config.py → DOMINIOS_ROL`):
 
 | Dominio | Rol | Campos extra obligatorios | Estado inicial |
 |---------|-----|---------------------------|----------------|
-| `@alumnos.udg.mx` | estudiante | `codigo` (9 dígitos), `carrera` (clave del catálogo), `ciclo` (el ciclo vigente) | `activo` |
+| `@alumnos.udg.mx` | estudiante | `codigo` (9 dígitos), `carrera` (clave del catálogo), `ciclo` (su ciclo de **ingreso**: el vigente o uno anterior) | `activo` |
 | `@academicos.udg.mx` | docente | `noEmpleado` (3–20 caracteres: letras, números, guiones); `departamento` es opcional | `pendiente`, o `activo` si `DOCENTE_REQUIERE_APROBACION=0` |
 | Cualquier otro | — | Se rechaza con 422 | — |
 
@@ -74,7 +74,7 @@ Campos de `UsuarioCrear` (`schemas.py`):
 | `confirmarContrasena` | Sí | Igual a `contrasena` |
 | `codigo` | Estudiante | 9 dígitos; se acepta como texto o número |
 | `carrera` | Estudiante | Clave alfanumérica de 2–10 caracteres, en mayúsculas; debe existir en `Carrera` |
-| `ciclo` | Estudiante | Se pasa a mayúsculas; debe ser el ciclo vigente (`GET /catalogos/ciclo-actual`) |
+| `ciclo` | Estudiante | Ciclo de **ingreso** a la carrera, `AAAA-A` o `AAAA-B`; se pasa a mayúsculas. Puede ser el vigente (`GET /catalogos/ciclo-actual`) o uno anterior, nunca uno futuro. No tiene que estar en el catálogo de ciclos. Se usa para calcular el rezago (RF-57) |
 | `noEmpleado` | Docente | Ver tabla de arriba; se pasa a mayúsculas |
 | `departamento` | No | Texto libre |
 
@@ -118,7 +118,8 @@ Errores posibles:
 | 409 | `No hay un ciclo escolar en curso registrado; contacta a un administrador` | No hay ciclo activo ni próximo |
 | 409 | `Ya existe un registro con esos datos` | Choque en la base al guardar (respaldo) |
 | 422 | `La carrera seleccionada no pertenece al catálogo oficial` | Carrera inexistente (formato simple, sin `errores[]`) |
-| 422 | `El ciclo en curso es 2026-B` | El ciclo enviado no es el vigente (formato simple) |
+| 422 | `El ciclo de ingreso debe tener el formato AAAA-A o AAAA-B (por ejemplo 2023-B)` | Formato inválido (formato simple) |
+| 422 | `El ciclo de ingreso no puede ser posterior al ciclo en curso (2026-B)` | Ciclo futuro (formato simple) |
 | 422 | `Hay datos inválidos en la solicitud` + `errores[]` | Cualquier falla de validación del esquema |
 
 ### `POST /usuarios/login`
@@ -147,6 +148,7 @@ Petición:
 | 401 | `Código o contraseña incorrectos` (el mismo mensaje si el código no existe o si la contraseña está mal) |
 | 403 | `Tu cuenta está pendiente de aprobación por un administrador` |
 | 403 | `Tu cuenta está desactivada` |
+| 429 | `Demasiados intentos fallidos. El inicio de sesión de esta cuenta está bloqueado; intenta de nuevo en N minutos` (RNF-03: al 5.º fallo consecutivo y durante los 15 minutos siguientes, aunque la contraseña sea correcta) |
 
 ### `POST /usuarios/logout`
 
@@ -382,6 +384,7 @@ Archivo: `routers/docentes.py` · Prefijo: `/docente` (en singular) · RF-95: so
 | Método | Ruta | Quién | Recibe | Respuestas | RF |
 |--------|------|-------|--------|------------|----|
 | GET | `/docente/cursos` | Docente | Query `estado` = `activo` (por defecto) o `archivado` | **200**, 422 | RF-11, RF-14, RF-95 |
+| GET | `/docente/cursos/{curso_id}` | Docente dueño | Nada | **200**, 403, 404 | RF-14, RF-95 |
 | GET | `/docente/cursos/{curso_id}/alumnos` | Docente dueño | Nada | **200**, 403, 404 | RF-16, RF-95 |
 | PATCH | `/docente/cursos/{curso_id}` | Docente dueño | JSON `CursoActualizar` (todo opcional) | **200**, 403, 404, 422 | RF-13, RF-17, RF-18, RF-95 |
 | PATCH | `/docente/cursos/{curso_id}/estado` | Docente dueño | JSON `{estado}` = `activo` o `archivado` | **200**, 403, 404, 422 | RF-10, RF-95 |
@@ -411,6 +414,10 @@ Errores de dueño (`services.py → _curso_del_docente`): **404** `Curso no enco
 ### `GET /docente/cursos`
 
 `services.py → cursos_del_docente`. Solo los cursos del docente, **con** `codigoCurso`, para compartirlo con los alumnos. **200**: lista de objetos `CursoSalida`, iguales al de `POST /cursos`. Si no tiene cursos, `[]`.
+
+### `GET /docente/cursos/{curso_id}`
+
+`services.py → ver_curso_docente`. Un curso del docente, activo **o archivado**, con su `codigoCurso`. Lo usa la página de detalle del curso (`curso.html`). **200**: `CursoSalida`.
 
 ### `GET /docente/cursos/{curso_id}/alumnos`
 
@@ -751,6 +758,7 @@ Cómo se calcula (`services.py → calcular_calificacion`), para cada alumno y c
 
 - **`calificacionAcumulada`** (RF-46): suma de los puntos ganados, **sobre 100**. Es la que se guarda en `Matricula.calificacionAcumuladaActual` (RF-67).
 - **`puntosPosibles`**: cuánto se ha podido ganar hasta hoy.
+- **`puntosPerdidos`** (RF-68): `puntosPosibles - calificacionAcumulada`, lo que ya no se puede recuperar. También viene en el seguimiento.
 - **`desempenoProporcional`**: `calificacionAcumulada / puntosPosibles × 100`, o `null` si aún no hay nada evaluado. Es el valor que usará la alerta de RF-48 contra el 60 %.
 - La acumulada guardada se **recalcula sola** al calificar, al editar el peso de una categoría y al crear, editar o eliminar actividades (`services.py → recalcular_acumuladas`).
 - Los cursos `aprobado_no_aprobado` se califican igual que los numéricos.
@@ -865,6 +873,8 @@ Las funciones están en `services.py` para reutilizarlas: `alerta_calificacion`,
 ```
 `resumen` cuenta cuántos alumnos hay en cada color del semáforo general.
 
+Cada alumno trae además las banderas del módulo de riesgo (ver "Historial y riesgo académico"): `riesgoPorHistorial` (RF-54), `rezagoCritico` y `detalleRezago` (RF-58, RF-59), `reprobadaAntes` y `alertaArticulos` (RF-84).
+
 ---
 
 ## Router `alumnos`: lo que hace el alumno en sus cursos
@@ -873,12 +883,16 @@ Archivo: `routers/alumnos.py` · Prefijo: `/alumno` (en singular) · **Todos exi
 
 | Método | Ruta | Quién | Recibe | Respuestas | RF |
 |--------|------|-------|--------|------------|----|
-| GET | `/alumno/cursos` | Estudiante | Nada | **200** | Por confirmar |
+| GET | `/alumno/cursos` | Estudiante | Nada | **200** | RF-60, RF-61 |
+| GET | `/alumno/cursos/{curso_id}` | Alumno inscrito | Nada | **200**, 403, 404 | RF-62 |
+| GET | `/alumno/cursos/{curso_id}/encuadre` | Alumno inscrito | Nada | **200**, 403, 404 | RF-63 |
 | GET | `/alumno/cursos/{curso_id}/actividades` | Alumno inscrito | Nada | **200**, 403, 404 | RF-29 a RF-36 |
 | POST | `/alumno/actividades/{actividad_id}/entrega` | Alumno inscrito | `multipart/form-data` con el campo `archivo` | **201**, 403, 404, 409, 413, 415, 422 | RF-37, RF-39, RNF-8 |
 | DELETE | `/alumno/actividades/{actividad_id}/entrega` | Alumno inscrito | Nada | **200**, 403, 404, 409 | RF-38 |
 | GET | `/alumno/cursos/{curso_id}/calificaciones` | Alumno inscrito | Nada | **200**, 403, 404 | RF-46, RF-47 |
 | GET | `/alumno/cursos/{curso_id}/seguimiento` | Alumno inscrito | Nada | **200**, 403, 404 | RF-48, RF-49, RF-61 |
+| GET | `/alumno/historial` | Estudiante | Nada | **200** | RF-53 |
+| GET | `/alumno/riesgo` | Estudiante | Nada | **200** | RF-54 a RF-59, RF-84 |
 
 Errores de inscripción (`services.py → _matricula_activa`): **404** `Curso no encontrado` · **404** `Actividad no encontrada` · **403** `No estás inscrito en este curso` (tampoco si su matrícula está dada de baja).
 
@@ -897,7 +911,27 @@ Entregar **justo** en la fecha y hora límite cuenta como a tiempo.
 
 ### `GET /alumno/cursos`
 
-`services.py → cursos_del_alumno`. Los cursos en los que el alumno tiene matrícula activa, incluidos los archivados. **200**: lista de `CursoPublico` (como `GET /cursos`, **sin** `codigoCurso`).
+`services.py → cursos_del_alumno`. Las tarjetas del panel del alumno (RF-60, RF-61): **solo los cursos del ciclo escolar activo** en los que tiene matrícula activa, ordenados por materia. Cada una trae los datos de `CursoPublico` (**sin** `codigoCurso`) más el profesor y el semáforo. **200** (lista de `CursoAlumno`):
+```json
+[
+  {
+    "id": 1, "nombreMateria": "Bases de datos", "seccion": "D01", "descripcion": "Curso de SQL",
+    "estado": "activo", "tipoEvaluacion": "numerica", "umbralNumerico": 60.0, "cicloEscolar_id": 1,
+    "diasSemana": ["lunes", "miercoles"], "horaInicio": "08:00", "horaFin": "10:00", "docente_id": 2,
+    "profesor": "Luis Pérez", "ciclo": "2026-B",
+    "porcentajeAsistencia": 100.0, "calificacionAcumulada": 18.0,
+    "alertaCalificacion": false, "semaforoGeneral": "verde"
+  }
+]
+```
+
+### `GET /alumno/cursos/{curso_id}`
+
+`services.py → curso_del_alumno`. La misma tarjeta (`CursoAlumno`) para un solo curso; la usa el panel consolidado del curso (RF-62). Sirve también para cursos de otros ciclos.
+
+### `GET /alumno/cursos/{curso_id}/encuadre`
+
+`services.py → encuadre_del_alumno`. RF-63: el alumno ve las categorías del encuadre y sus pesos. **200**: igual que `GET /docente/cursos/{id}/categorias` (`CategoriasCurso`).
 
 ### `GET /alumno/cursos/{curso_id}/actividades`
 
@@ -956,21 +990,134 @@ Entregar **justo** en la fecha y hora límite cuenta como a tiempo.
   "celdas": [ { "actividad_id": 1, "estadoEntrega": "entregada", "entrega_id": 1,
                 "calificacion": { "calificacionObtenida": 9.0, "retroalimentacion": "Bien", "fecha": "2026-10-26T09:30:00" },
                 "cuentaComoCero": false } ],
-  "calificacionAcumulada": 18.0, "puntosPosibles": 20.0, "desempenoProporcional": 90.0
+  "calificacionAcumulada": 18.0, "puntosPosibles": 20.0, "puntosPerdidos": 2.0, "desempenoProporcional": 90.0
 }
 ```
 
 ### `GET /alumno/cursos/{curso_id}/seguimiento`
 
-`services.py → seguimiento_del_alumno`. El seguimiento del propio alumno en el curso: los mismos indicadores que ve el docente, sin los datos personales. **200** (`SeguimientoPropio`):
+`services.py → seguimiento_del_alumno`. El seguimiento del propio alumno en el curso: los mismos indicadores que ve el docente, sin los datos personales, más `clasesRegistradas`: cuántas listas guardadas cuentan para su asistencia. Con `0`, `porcentajeAsistencia` vale 100 por regla (RF-49), así que la pantalla muestra "Sin clases registradas" en lugar del porcentaje. **200** (`SeguimientoPropio`):
 ```json
 {
-  "curso_id": 1,
+  "curso_id": 1, "clasesRegistradas": 6,
   "porcentajeAsistencia": 100.0, "estatusNormativo": "Ordinario", "semaforoAsistencia": "verde",
   "calificacionAcumulada": 25.0, "puntosPosibles": 50.0, "desempenoProporcional": 50.0,
   "alertaCalificacion": true, "semaforoCalificacion": "rojo", "semaforoGeneral": "rojo"
 }
 ```
+
+### Historial y riesgo académico (RF-53 a RF-59, RF-84)
+
+**El historial se forma solo con cursos de SEPA**, desde que el alumno se registró (RF-53): no se carga historial previo.
+
+- **Cierre de ciclo** (`services.py → cerrar_ciclos_terminados`): cuando un ciclo termina (pasa su fecha de término), cada curso de ese ciclo pasa al historial de sus alumnos **activos** con su calificación acumulada final. Es **aprobada** si la acumulada es ≥ 60 y su estatus de asistencia no es Sin Derecho; si no, **reprobada** (`resultado_final`). Los cursos Aprobado/No aprobado usan la misma regla. No se duplica.
+- **Análisis en segundo plano** (`analizar_riesgo_ciclo`, RF-53, RNF-05): cierra los ciclos terminados y guarda en `RegistroRiesgo` el análisis de cada matrícula activa del ciclo vigente. Corre en **otro hilo al arrancar el servidor** y cuando el administrador lo pide (`POST /admin/riesgo/recalcular`); nunca durante el login.
+- **Riesgo por historial** (RF-54, `riesgo_por_historial`): reprobó al menos una materia en **cada uno** de los 2 ciclos inmediatamente anteriores al vigente (`config.py → CICLOS_HISTORIAL`).
+- **Semestre cronológico** (RF-57, `semestre_cronologico`): ciclos desde su **ciclo de ingreso** hasta el vigente. Ingresó en 2023-B y hoy es 2026-B → 7.º.
+- **Rezago** (RF-56 a RF-59, `rezago_de_matricula`): se busca la materia del curso en el **plan de estudios del alumno** (`Estudiante.mallaCurricular_id`, o el plan de su carrera y generación). Desfase = semestre del alumno − semestre base de la materia. Si es ≥ 3 (`config.py → REZAGO_CRITICO`) hay **rezago crítico**. Si la materia no está en su plan (por ejemplo, una materia de otra carrera u optativa), no se calcula.
+- **Artículos 33, 34 y 35** (RF-84): `alertaArticulos` es verdadero si el alumno **ya reprobó esa materia** en un ciclo anterior y **hoy su semáforo general es rojo**.
+
+#### `GET /alumno/historial`
+
+`services.py → historial_del_alumno`. **200** (lista de `HistorialSalida`, del ciclo más reciente al más antiguo):
+```json
+[ { "id": 3, "periodo": "2026-A", "materia": "Estructura de Datos (INFO)", "calificacion": 30.0, "resultado": "reprobada" } ]
+```
+
+#### `GET /alumno/riesgo`
+
+`services.py → riesgo_del_alumno`. RF-55: el perfil muestra la insignia si `riesgoPorHistorial` es verdadero. **200** (`RiesgoAlumno`):
+```json
+{
+  "semestreActual": 7, "plan": "Mapa Curricular INFO (rev. enero 2023)",
+  "riesgoPorHistorial": true, "ciclosConReprobadas": ["2026-A", "2025-B"],
+  "cursos": [
+    {
+      "curso_id": 1, "materia": "Estructura de Datos (INFO)", "semestreBase": 4, "desfase": 3,
+      "rezagoCritico": true,
+      "detalleRezago": "Estructura de Datos (INFO) corresponde al 4.º semestre de tu plan y vas en 7.º: 3 semestres de desfase.",
+      "reprobadaAntes": true, "alertaArticulos": true
+    }
+  ]
+}
+```
+`cursos` son los del ciclo vigente con matrícula activa.
+
+---
+
+## Router `asesorias`: asesorías entre estudiantes (RF-73 a RF-80, RF-92)
+
+Archivo: `routers/asesorias.py` · Prefijo: `/asesorias`. El tablero lo ven los **estudiantes** (`requiere_estudiante`); publicar y administrar es solo para estudiantes con rol de **asesor** (`security.py → requiere_asesor`, 403 `Se requiere rol de asesor`). El rol lo asigna el administrador con `PATCH /admin/usuarios/{id}/asesor` (RF-73), o al aceptar la solicitud que el estudiante envía con `POST /asesorias/solicitud`.
+
+| Método | Ruta | Quién | Recibe | Respuestas | RF |
+|--------|------|-------|--------|------------|----|
+| GET | `/asesorias` | Estudiante | Query opcional `materia`, `modalidad` (`presencial` o `virtual`) y `q` | **200**, 422 | RF-78, RF-79 |
+| GET | `/asesorias/{publicacion_id}` | Estudiante | Nada | **200**, 404 | RF-80 |
+| GET | `/asesorias/mias` | Asesor | Nada | **200** | RF-92 |
+| GET | `/asesorias/solicitud` | Estudiante | Nada | **200** (`SolicitudAsesorSalida` o `null`) | Solicitud de asesor |
+| POST | `/asesorias/solicitud` | Estudiante | JSON `{motivo, materias?}` | **201**, 409, 422 | Solicitud de asesor |
+| POST | `/asesorias` | Asesor | JSON `PublicacionCrear` | **201**, 422 | RF-74, RF-75 |
+| PATCH | `/asesorias/{publicacion_id}` | Asesor autor | JSON `PublicacionActualizar` (todo opcional) | **200**, 403, 404, 422 | RF-76, RF-77 |
+| DELETE | `/asesorias/{publicacion_id}` | Asesor autor | Nada | **200**, 403, 404 | RF-77 |
+
+Respuesta de una publicación (`PublicacionSalida`):
+```json
+{
+  "id": 1, "materia": "Estructura de Datos", "horario": "Lunes y miércoles de 16:00 a 18:00",
+  "modalidad": "presencial", "lugarOMedio": "Módulo X, salón 12", "topico": "Árboles AVL",
+  "estado": "activa", "asesor": "Carla Navarro Gil", "carreraAsesor": "INFO",
+  "correoAsesor": "carla@alumnos.udg.mx", "esMia": false
+}
+```
+
+Reglas:
+- **RF-74:** `materia`, `horario`, `modalidad` y `lugarOMedio` son obligatorios. La materia debe estar en el catálogo (`GET /catalogos/materias`); se acepta sin distinguir mayúsculas y se guarda con el nombre oficial. `horario` y `lugarOMedio` son texto libre de hasta 200 caracteres (un salón o el enlace de la videollamada).
+- **RF-75:** `topico` es opcional, hasta 2000 caracteres.
+- **RF-78:** el tablero muestra solo publicaciones `activa` de asesores que **siguen** teniendo el rol y una cuenta activa. Si el administrador le quita el rol a alguien, sus anuncios desaparecen del tablero.
+- **RF-79:** `materia` filtra por nombre exacto (sin distinguir mayúsculas), `modalidad` por tipo y `q` busca en el tópico, el horario, el lugar y el nombre del asesor.
+- **RF-80:** el detalle de una publicación inactiva solo lo ve su autor (404 para los demás). No hay inscripción: el alumno se presenta o se conecta por su cuenta.
+- **RF-77:** `PATCH` con `{"estado": "inactiva"}` la **oculta** sin borrarla y `{"estado": "activa"}` la vuelve a publicar. `DELETE` la elimina.
+
+| Código | `detail` |
+|--------|----------|
+| 403 | `Se requiere rol de asesor` |
+| 403 | `Esta publicación no es tuya` |
+| 404 | `Asesoría no encontrada` |
+| 422 | `La materia no está en el catálogo oficial` |
+
+### Solicitud para ser asesor
+
+`services.py → enviar_solicitud_asesor`, `mi_solicitud_asesor`. El estudiante explica por qué quiere ser asesor y un administrador la acepta o la rechaza (`PATCH /admin/solicitudes-asesor/{id}`). Se guarda en la tabla `SolicitudAsesor`.
+
+**Nota:** RF-73 dice que el administrador asigna el rol "eliminando la solicitud manual por parte del estudiante". Esta solicitud la agregó el equipo después; el administrador **también** puede seguir dando el rol directo.
+
+`POST /asesorias/solicitud` recibe:
+```json
+{ "motivo": "Tengo 95 en Bases de Datos y ya ayudo a mis compañeros a estudiar SQL.", "materias": "Bases de Datos" }
+```
+- `motivo`: obligatorio, de 20 a 1000 caracteres.
+- `materias`: opcional, texto libre de hasta 200 caracteres.
+
+Respuesta (`SolicitudAsesorSalida`). `GET /asesorias/solicitud` devuelve la **última** solicitud del alumno con este mismo formato, o `null` si nunca ha enviado una:
+```json
+{
+  "id": 3, "motivo": "Tengo 95 en Bases de Datos…", "materias": "Bases de Datos",
+  "estado": "pendiente", "fechaSolicitud": "2026-11-24T17:38:02", "fechaRespuesta": null, "comentarioAdmin": null,
+  "estudiante_id": 14, "nombre": "Diego Herrera Luna", "codigo": "219000004", "carrera": "ICOM",
+  "correoInstitucional": "diego.demo4@alumnos.udg.mx"
+}
+```
+`estado` es `pendiente`, `aceptada` o `rechazada`. Al rechazar, `comentarioAdmin` puede traer el motivo que escribió el administrador.
+
+Reglas:
+- Solo una solicitud **pendiente** a la vez. Después de un rechazo, puede enviar otra.
+- Si ya tiene el rol de asesor, no puede enviarla.
+
+| Código | `detail` |
+|--------|----------|
+| 409 | `Ya tienes el rol de asesor` |
+| 409 | `Ya tienes una solicitud pendiente; espera la respuesta del administrador` |
+| 422 | `motivo`: `Debe tener al menos 20 caracteres` |
 
 ---
 
@@ -982,7 +1129,16 @@ Archivo: `routers/admin.py` · Prefijo: `/admin` · **Todos exigen Admin** (`req
 |--------|------|-------|--------|------------|----|
 | POST | `/admin/docentes` | Admin | JSON `DocenteCrear` | **201**, 409, 422 | RF-93 |
 | POST | `/admin/administradores` | Admin | JSON `AdminCrear` | **201**, 409, 422 | RF-93 |
-| GET | `/admin/usuarios` | Admin | Query opcional `rol` (`estudiante`, `docente`, `administrador`) y `estado` (`activo`, `inactivo`, `pendiente`) | **200**, 422 | RF-93 |
+| GET | `/admin/usuarios` | Admin | Query opcional `rol` (`estudiante`, `asesor`, `docente`, `administrador`) y `estado` (`activo`, `inactivo`, `pendiente`) | **200**, 422 | RF-93 |
+| PATCH | `/admin/usuarios/{usuario_id}` | Admin | JSON `UsuarioAdminActualizar` (todo opcional) | **200**, 404, 409, 422 | RF-93 |
+| PATCH | `/admin/usuarios/{usuario_id}/asesor` | Admin | JSON `{asesor: true/false}` | **200**, 404, 409, 422 | RF-73, RF-92 |
+| GET | `/admin/solicitudes-asesor` | Admin | Query opcional `estado` (`pendiente`, `aceptada`, `rechazada`) | **200**, 422 | Solicitud de asesor |
+| PATCH | `/admin/solicitudes-asesor/{solicitud_id}` | Admin | JSON `{decision, comentario?}` | **200**, 404, 409, 422 | Solicitud de asesor |
+| POST | `/admin/riesgo/recalcular` | Admin | Nada | **202** | RF-53 |
+| GET | `/admin/mallas` | Admin | Nada | **200** | RF-56 |
+| POST | `/admin/mallas` | Admin | JSON `{carrera, generacion, nombrePlan, copiarDe?}` | **201**, 404, 409, 422 | RF-56 |
+| PUT | `/admin/mallas/{malla_id}/materias` | Admin | JSON `{materia_id, semestreBase}` | **204**, 404, 422 | RF-56 |
+| DELETE | `/admin/mallas/{malla_id}/materias/{materia_id}` | Admin | Nada | **204**, 404 | RF-56 |
 | PATCH | `/admin/usuarios/{usuario_id}/estado` | Admin | JSON `{estado}` = `activo` o `inactivo` | **200**, 404, 409, 422 | RF-93 |
 | PATCH | `/admin/usuarios/{usuario_id}/contrasena` | Admin | JSON `{nueva_contrasena}` | **200**, 404, 422 | RF-07 |
 | POST | `/admin/carreras` | Admin | JSON `{clave, nombre}` | **201**, 409, 422 | RF-02 |
@@ -1023,14 +1179,58 @@ El correo **debe** terminar en `@academicos.udg.mx` (`schemas.py → DocenteCrea
   {
     "id": 2, "nombre": "Luis", "apellidos": "Pérez",
     "correoInstitucional": "luis@academicos.udg.mx",
-    "estado": "pendiente", "roles": ["docente"]
+    "estado": "pendiente", "roles": ["docente"],
+    "codigo": "D-001", "carrera": null, "ciclo": null, "departamento": "Sistemas",
+    "fechaRegistro": "2026-10-25T14:03:00"
   }
 ]
 ```
+`codigo` es el código de estudiante o el número de empleado. `carrera` y `ciclo` (de ingreso) solo vienen en estudiantes; `departamento`, solo en docentes.
+
+### `PATCH /admin/usuarios/{usuario_id}`
+
+`services.py → actualizar_usuario`. RF-93: el administrador corrige los datos de una cuenta. Solo se cambian los campos que envíes; un campo en `null` se ignora. **El código de acceso no se puede cambiar.**
+
+| Campo | Para quién | Reglas |
+|-------|-----------|--------|
+| `nombre`, `apellidos` | Todos | Mismas reglas que en el registro |
+| `correoInstitucional` | Todos | Único. Un estudiante debe seguir en `@alumnos.udg.mx` y un docente en `@academicos.udg.mx` |
+| `carrera` | Estudiante | Clave del catálogo |
+| `departamento` | Docente | Texto libre, hasta 100 caracteres |
+
+**200**: el usuario con el formato de `GET /admin/usuarios`.
+
+| Código | `detail` |
+|--------|----------|
+| 404 | `Usuario no encontrado` |
+| 409 | `El correo institucional ya está registrado` |
+| 422 | `El correo de un estudiante debe terminar en @alumnos.udg.mx` (o `de un docente ... @academicos.udg.mx`) |
+| 422 | `La carrera seleccionada no pertenece al catálogo oficial` |
+| 422 | `Solo los estudiantes tienen carrera` · `Solo los docentes tienen departamento` |
+
+### `PATCH /admin/usuarios/{usuario_id}/asesor`
+
+`services.py → cambiar_rol_asesor`. RF-73: asigna (`{"asesor": true}`) o quita (`{"asesor": false}`) el rol **asesor** a un estudiante. El rol se guarda en `Rol`/`UsuarioRol`; repetir la petición no lo duplica. RF-92: un estudiante con rol de asesor sigue entrando a su panel de estudiante (el login responde `"panel": "estudiante"` y `"roles": ["estudiante", "asesor"]`). **200**: el usuario con el formato de `GET /admin/usuarios`.
+
+**409**: `Solo los estudiantes pueden tener el rol de asesor`.
+
+### `GET /admin/solicitudes-asesor` y `PATCH /admin/solicitudes-asesor/{solicitud_id}`
+
+`services.py → listar_solicitudes_asesor`, `responder_solicitud_asesor`. El panel del administrador muestra las pendientes en **Inicio**.
+
+- `GET` devuelve una lista de `SolicitudAsesorSalida` (formato en [Solicitud para ser asesor](#solicitud-para-ser-asesor)): primero las pendientes y, dentro de cada estado, las más antiguas.
+- `PATCH` recibe `{"decision": "aceptada"}` o `{"decision": "rechazada", "comentario": "Primero acredita la materia."}`. `comentario` es opcional (hasta 500 caracteres) y lo ve el estudiante.
+- **Aceptar** le da el rol de asesor, igual que `PATCH /admin/usuarios/{id}/asesor`. Guarda la fecha de respuesta y qué administrador respondió.
+
+| Código | `detail` |
+|--------|----------|
+| 404 | `Solicitud no encontrada` |
+| 409 | `Esta solicitud ya fue respondida` |
+| 409 | `La cuenta del estudiante no está activa` (solo al aceptar) |
 
 ### `PATCH /admin/usuarios/{usuario_id}/estado`
 
-`services.py → cambiar_estado_usuario`. Sirve para **aprobar** un docente pendiente (`"activo"`) o **desactivar** cualquier cuenta (`"inactivo"`). No se puede poner `"pendiente"`.
+`services.py → cambiar_estado_usuario`. Sirve para **aprobar** un docente pendiente (`"activo"`) o **desactivar** una cuenta de estudiante o docente (`"inactivo"`); un administrador no puede desactivar a otro. No se puede poner `"pendiente"`.
 
 ```json
 { "estado": "activo" }
@@ -1040,6 +1240,7 @@ El correo **debe** terminar en `@academicos.udg.mx` (`schemas.py → DocenteCrea
 | Código | `detail` |
 |--------|----------|
 | 404 | `Usuario no encontrado` |
+| 403 | `No puedes desactivar a otro administrador` |
 | 409 | `No puedes cambiar tu propio estado` (evita que el sistema se quede sin administradores) |
 
 ### `PATCH /admin/usuarios/{usuario_id}/contrasena`
@@ -1100,6 +1301,22 @@ El administrador da de alta y mantiene las materias. La lista se consulta con el
 |--------|----------|
 | 404 | `Materia no encontrada` |
 | 409 | `No se puede eliminar una materia que ya se usa en un plan de estudios, un curso o un historial académico` |
+
+### Riesgo académico y planes de estudio (RF-53, RF-56)
+
+- `POST /admin/riesgo/recalcular`: lanza en segundo plano el análisis (cierre de ciclos al historial y riesgo de cada matrícula). Responde de inmediato **202** `{"mensaje": "El análisis de riesgo académico se está ejecutando en segundo plano"}`.
+- `GET /admin/mallas`: los planes de estudio con sus materias por semestre: `[{id, carrera, generacion, nombrePlan, materias: [{materia_id, clave, nombre, semestreBase}]}]`.
+- `POST /admin/mallas` (`services.py → crear_malla`) crea un plan nuevo:
+  ```json
+  { "carrera": "ICOM", "generacion": "2026-B", "nombrePlan": "Plan ICOM 2026", "copiarDe": 1 }
+  ```
+  - `carrera`: clave del catálogo (se acepta en minúsculas). **422** `La carrera seleccionada no pertenece al catálogo oficial`.
+  - `generacion`: primer ciclo de ingreso que usa el plan, `AAAA-A` o `AAAA-B`. **422** `La generación debe tener el formato AAAA-A o AAAA-B (por ejemplo 2026-B)`. Si la carrera ya tiene un plan para esa generación: **409** `Ya existe un plan de ICOM para la generación 2026-B: <nombre>` (un plan viejo con generación `2023` cuenta como `2023-A`).
+  - `copiarDe` (opcional): id de otro plan; se copian sus materias con su semestre. Sirve para una revisión del plan. **404** `Plan de estudios no encontrado`.
+  - **Alumnos:** los de esa carrera pasan al plan que les toca por su ingreso. Con un plan ICOM 2026-B, los que entraron en 2026-B o después pasan al nuevo y los anteriores se quedan en el suyo.
+  - **201**: el plan con el formato de `GET /admin/mallas` más `alumnosReasignados` (cuántos alumnos cambiaron de plan).
+- `PUT /admin/mallas/{malla_id}/materias` con `{"materia_id": 12, "semestreBase": 4}` agrega la materia al plan o le cambia el semestre base (1 a 12). **404** `Plan de estudios no encontrado` o `Materia no encontrada`.
+- `DELETE /admin/mallas/{malla_id}/materias/{materia_id}`: la quita del plan. **404** `La materia no está en ese plan de estudios`.
 
 ### `POST /admin/ciclos`
 

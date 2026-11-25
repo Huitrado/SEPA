@@ -56,12 +56,19 @@ async function cargarCatalogos() {
     mostrarErrorApi(error);
   }
 
+  // El ciclo es el de INGRESO (para calcular el rezago, RF-57): el vigente o uno anterior.
   const ciclo = document.getElementById("input-ciclo");
   try {
     const actual = await pedir("/catalogos/ciclo-actual");
-    ciclo.value = actual.nombreOficial;
+    ciclo.innerHTML = "";
+    for (const nombre of ciclosHastaHoy(actual.nombreOficial, 16)) {
+      const opcion = document.createElement("option");
+      opcion.value = nombre;
+      opcion.textContent = nombre === actual.nombreOficial ? `${nombre} (en curso)` : nombre;
+      ciclo.appendChild(opcion);
+    }
   } catch (error) {
-    ciclo.value = "Sin ciclo en curso";
+    ciclo.innerHTML = '<option value="">Sin ciclo en curso</option>';
     // 404 = el administrador no ha registrado un ciclo vigente
     if (error.status === 404) {
       mostrarAviso("No hay un ciclo escolar en curso registrado; los estudiantes no podrán registrarse hasta que un administrador lo dé de alta.");
@@ -69,6 +76,19 @@ async function cargarCatalogos() {
       mostrarErrorApi(error);
     }
   }
+}
+
+// "2026-B" -> ["2026-B", "2026-A", "2025-B", ...] (cantidad ciclos hacia atrás)
+function ciclosHastaHoy(vigente, cantidad) {
+  let [anio, letra] = vigente.split("-");
+  anio = Number(anio);
+  const lista = [];
+  for (let i = 0; i < cantidad; i++) {
+    lista.push(`${anio}-${letra}`);
+    if (letra === "B") letra = "A";
+    else { letra = "B"; anio -= 1; }
+  }
+  return lista;
 }
 
 function elegirRol(rol) {
@@ -260,6 +280,7 @@ async function enviarLogin(evento) {
     window.location.href = PAGINA_POR_PANEL[respuesta.panel] || "dashboard.html";
   } catch (error) {
     // 401: código o contraseña incorrectos · 403: cuenta pendiente o desactivada
+    // 429: bloqueada 15 min tras 5 intentos fallidos (RNF-03); el mensaje dice cuánto falta
     mostrarErrorApi(error);
     botonCargando(boton, false);
   }
@@ -294,6 +315,21 @@ function mostrarPerfil(perfil) {
   const texto = (id, valor) => { document.getElementById(id).textContent = valor; };
   const nombreCompleto = `${perfil.nombre} ${perfil.apellidos}`;
 
+  // Estudiante: la misma barra que en sus demás páginas, con "Mi historial" marcado.
+  // Administrador: enlace de regreso a "Administración".
+  if (perfil.panel === "estudiante") {
+    const acciones = document.getElementById("acciones-encabezado");
+    acciones.id = "barra-estudiante";
+    acciones.dataset.actual = "historial";
+    pintarBarraEstudiante();
+  } else if (perfil.panel === "administrador") {
+    const regreso = "Administración";
+    const enlace = document.getElementById("link-mis-cursos");
+    enlace.href = PAGINA_POR_PANEL[perfil.panel];
+    enlace.querySelector("span:last-child").textContent = regreso;
+    enlace.classList.remove("hidden");
+    enlace.classList.add("inline-flex");
+  }
   texto("panel-titulo", NOMBRE_PANEL[perfil.panel] || "Panel");
   texto("panel-saludo", `Hola, ${perfil.nombre}`);
   texto("header-nombre", nombreCompleto);
@@ -313,5 +349,69 @@ function mostrarPerfil(perfil) {
 
   document.getElementById("panel-cargando").classList.add("hidden");
   document.getElementById("panel-contenido").classList.remove("hidden");
+  if (perfil.panel === "estudiante") mostrarTrayectoria();
+}
+
+// RF-53 historial, RF-55 insignia de riesgo por historial, RF-57 semestre según el ingreso
+async function mostrarTrayectoria() {
+  let riesgo, historial;
+  try {
+    [riesgo, historial] = await Promise.all([
+      pedir("/alumno/riesgo", { conToken: true }),
+      pedir("/alumno/historial", { conToken: true })
+    ]);
+  } catch (error) {
+    if (error.status !== 401) mostrarErrorApi(error);
+    return;
+  }
+  if (riesgo.riesgoPorHistorial) {
+    const caja = document.getElementById("perfil-riesgo");
+    caja.className = "p-space-lg rounded-xl bg-semaforo-rojo-fondo text-semaforo-rojo flex items-start gap-space-md";
+    const textos = el("div");
+    textos.append(
+      el("p", "font-title-lg text-title-lg", "Riesgo por historial"),
+      el("p", "font-body-md text-body-md mt-1",
+        `Reprobaste al menos una materia en cada uno de tus dos ciclos anteriores (${riesgo.ciclosConReprobadas.join(" y ")}). ` +
+        "Te recomendamos hablar con tu coordinación y buscar asesoría desde el inicio del semestre.")
+    );
+    caja.append(icono("workspace_premium", "text-[32px] icono-relleno"), textos);
+  }
+  document.getElementById("perfil-semestre").textContent = riesgo.semestreActual ? `${riesgo.semestreActual}.º semestre` : "—";
+  document.getElementById("perfil-plan").textContent = riesgo.plan || "Sin plan asignado";
+  pintarHistorialMaterias(historial, "todos");
+  document.getElementById("perfil-trayectoria").classList.remove("hidden");
+}
+
+// Historial de materias con filtro por ciclo escolar (llega ordenado del ciclo más reciente al más antiguo)
+function pintarHistorialMaterias(historial, ciclo) {
+  const filtros = document.getElementById("filtros-ciclo");
+  const lista = document.getElementById("perfil-historial");
+  filtros.innerHTML = "";
+  lista.innerHTML = "";
+  if (!historial.length) {
+    lista.appendChild(el("p", "font-body-md text-body-md text-on-surface-variant", "Aún no tienes ciclos cerrados en SEPA."));
+    return;
+  }
+  const ciclos = [...new Set(historial.map(h => h.periodo))];
+  if (ciclos.length > 1) {
+    for (const clave of ["todos", ...ciclos]) {
+      const cuantas = clave === "todos" ? historial.length : historial.filter(h => h.periodo === clave).length;
+      const b = el("button", `px-space-md py-1.5 rounded-lg font-label-md text-label-md transition-colors ${clave === ciclo ? "bg-primary-container text-on-primary" : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"}`,
+        `${clave === "todos" ? "Todos" : clave} (${cuantas})`);
+      b.type = "button";
+      b.addEventListener("click", () => pintarHistorialMaterias(historial, clave));
+      filtros.appendChild(b);
+    }
+  }
+  for (const h of historial.filter(h => ciclo === "todos" || h.periodo === ciclo)) {
+    const fila = el("div", "flex items-center justify-between gap-space-sm p-space-sm rounded-lg bg-surface-container-low");
+    const textos = el("div", "min-w-0");
+    textos.append(el("p", "font-label-lg text-label-lg text-on-surface truncate", h.materia), el("p", "font-caption text-caption text-on-surface-variant", h.periodo));
+    const aprobada = h.resultado === "aprobada";
+    const nota = el("span", `shrink-0 px-2.5 py-0.5 rounded-full font-label-md text-label-md ${aprobada ? "bg-semaforo-verde-fondo text-semaforo-verde" : "bg-semaforo-rojo-fondo text-semaforo-rojo"}`,
+      `${numero(h.calificacion)} · ${aprobada ? "Aprobada" : "Reprobada"}`);
+    fila.append(textos, nota);
+    lista.appendChild(fila);
+  }
 }
 // cerrarSesion() ahora vive en app.js para que la usen todas las páginas.

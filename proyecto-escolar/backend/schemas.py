@@ -133,6 +133,21 @@ class AdminCrear(PersonalCrear):
 class UsuarioAdminSalida(UsuarioSalida):
     estado: str
     roles: list[str]
+    codigo: str | None          # código de estudiante o número de empleado
+    carrera: str | None         # solo estudiantes
+    ciclo: str | None           # solo estudiantes: ciclo de ingreso
+    departamento: str | None    # solo docentes
+    fechaRegistro: str
+
+class UsuarioAdminActualizar(BaseModel):  # RF-93: solo se cambia lo que se envía
+    nombre: Nombre | None = None
+    apellidos: Nombre | None = None
+    correoInstitucional: CorreoNormalizado | None = None
+    carrera: Clave | None = None
+    departamento: Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)] | None = None
+
+class RolAsesor(BaseModel):  # RF-73
+    asesor: bool
 
 class EstadoUsuario(BaseModel):
     estado: Literal["activo", "inactivo"]
@@ -446,6 +461,7 @@ class CeldaCalificacion(BaseModel):
 class ResumenCalificacion(BaseModel):
     calificacionAcumulada: float          # RF-46: puntos ganados sobre 100
     puntosPosibles: float                 # lo que ya se pudo ganar: calificadas + vencidas sin entrega
+    puntosPerdidos: float                 # RF-68: posibles - acumulada
     desempenoProporcional: float | None   # acumulada / posibles × 100; None si aún no hay nada evaluado
 
 class FilaCalificaciones(ResumenCalificacion):
@@ -478,6 +494,7 @@ class IndicadoresSeguimiento(BaseModel):
     semaforoAsistencia: Semaforo
     calificacionAcumulada: float
     puntosPosibles: float
+    puntosPerdidos: float
     desempenoProporcional: float | None
     alertaCalificacion: bool       # RF-48: desempeño proporcional < 60 %
     semaforoCalificacion: Semaforo
@@ -489,6 +506,11 @@ class SeguimientoAlumno(IndicadoresSeguimiento):
     codigoEstudiante: str
     nombre: str
     apellidos: str
+    riesgoPorHistorial: bool = False     # RF-54
+    rezagoCritico: bool = False          # RF-58
+    detalleRezago: str | None = None     # RF-59
+    reprobadaAntes: bool = False         # ya reprobó esta materia en SEPA
+    alertaArticulos: bool = False        # RF-84: la reprobó antes y hoy está en rojo
 
 class ConteoSemaforo(BaseModel):
     verde: int
@@ -502,6 +524,7 @@ class SeguimientoCurso(BaseModel):
 
 class SeguimientoPropio(IndicadoresSeguimiento):
     curso_id: int
+    clasesRegistradas: int  # listas guardadas que cuentan para su asistencia; 0 = aún no hay clases
 
 # ------------------------------------------------------------------ módulo: catálogo de materias (RF-94)
 ClaveMateria = Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, min_length=2,
@@ -514,3 +537,123 @@ class MateriaCrear(BaseModel):
 class MateriaActualizar(BaseModel):  # solo se cambia lo que se envía
     clave: ClaveMateria | None = None
     nombre: Texto | None = None
+
+# ------------------------------------------------------------------ módulo: panel del estudiante
+class CursoAlumno(CursoPublico):  # RF-60, RF-61: tarjeta del curso en el panel del alumno
+    profesor: str | None
+    ciclo: str | None
+    porcentajeAsistencia: float
+    calificacionAcumulada: float
+    alertaCalificacion: bool
+    semaforoGeneral: Semaforo
+
+# ------------------------------------------------------------------ módulo: asesorías (RF-73 a RF-80)
+Modalidad = Literal["presencial", "virtual"]
+TextoAsesoria = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+
+class PublicacionCrear(BaseModel):  # RF-74 obligatorios · RF-75 tópico libre
+    materia: Texto                  # nombre de una materia del catálogo
+    horario: TextoAsesoria          # p. ej. "Lunes y miércoles de 16:00 a 18:00"
+    modalidad: Modalidad
+    lugarOMedio: TextoAsesoria      # salón o enlace de la videollamada
+    topico: DescripcionLarga | None = None
+
+class PublicacionActualizar(BaseModel):  # RF-76, RF-77: solo se cambia lo que se envía
+    materia: Texto | None = None
+    horario: TextoAsesoria | None = None
+    modalidad: Modalidad | None = None
+    lugarOMedio: TextoAsesoria | None = None
+    topico: DescripcionLarga | None = None
+    estado: Literal["activa", "inactiva"] | None = None
+
+class PublicacionSalida(BaseModel):
+    id: int
+    materia: str
+    horario: str
+    modalidad: str
+    lugarOMedio: str
+    topico: str | None
+    estado: str
+    asesor: str            # nombre del asesor
+    carreraAsesor: str | None
+    correoAsesor: str      # para contactarlo
+    esMia: bool
+
+# ------------------------------------------------------------------ módulo: historial y riesgo académico
+class HistorialSalida(BaseModel):  # RF-53: una materia cursada en SEPA en un ciclo ya cerrado
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    periodo: str
+    materia: str
+    calificacion: float
+    resultado: Literal["aprobada", "reprobada"]
+
+class RiesgoCurso(BaseModel):  # RF-56 a RF-59 y RF-84 para un curso del ciclo actual
+    curso_id: int
+    materia: str
+    semestreBase: int | None          # semestre de la materia en el plan del alumno (None si no está en el plan)
+    desfase: int | None               # semestre del alumno - semestre base
+    rezagoCritico: bool               # RF-58: desfase >= 3
+    detalleRezago: str | None         # RF-59
+    reprobadaAntes: bool              # ya la reprobó en un ciclo anterior
+    alertaArticulos: bool             # RF-84: la reprobó antes y hoy está en rojo
+
+class RiesgoAlumno(BaseModel):
+    semestreActual: int | None        # RF-57: según su ciclo de ingreso
+    plan: str | None                  # nombre del plan de estudios con que se compara (RF-56)
+    riesgoPorHistorial: bool          # RF-54
+    ciclosConReprobadas: list[str]    # los ciclos que activaron la bandera
+    cursos: list[RiesgoCurso]
+
+class MallaSalida(BaseModel):  # plan de estudios para el administrador
+    id: int
+    carrera: str
+    generacion: str
+    nombrePlan: str
+    materias: list[dict]  # [{materia_id, clave, nombre, semestreBase}]
+
+class MallaCrear(BaseModel):  # RF-56: nuevo plan de estudios
+    carrera: Clave                     # clave del catálogo de carreras
+    generacion: Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, min_length=1)]  # "2026-B"
+    nombrePlan: Texto
+    copiarDe: int | None = None        # id de otro plan para copiar sus materias y semestres
+
+    @field_validator("generacion")
+    @classmethod
+    def generacion_valida(cls, v):
+        if not fechas_ciclo(v):
+            raise ValueError("La generación debe tener el formato AAAA-A o AAAA-B (por ejemplo 2026-B)")
+        return v
+
+class MallaCreada(MallaSalida):
+    alumnosReasignados: int  # alumnos de la carrera que pasaron a este plan por su generación
+
+class MateriaEnMalla(BaseModel):
+    materia_id: int
+    semestreBase: Annotated[int, Field(ge=1, le=12)]
+
+# ------------------------------------------------------------------ solicitud para ser asesor
+MotivoSolicitud = Annotated[str, StringConstraints(strip_whitespace=True, min_length=20, max_length=1000)]
+
+class SolicitudAsesorCrear(BaseModel):
+    motivo: MotivoSolicitud                 # por qué quiere ser asesor
+    materias: TextoAsesoria | None = None   # en qué materias puede ayudar (opcional)
+
+class SolicitudAsesorRespuesta(BaseModel):
+    decision: Literal["aceptada", "rechazada"]
+    comentario: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+
+class SolicitudAsesorSalida(BaseModel):
+    id: int
+    motivo: str
+    materias: str | None
+    estado: str
+    fechaSolicitud: str
+    fechaRespuesta: str | None
+    comentarioAdmin: str | None
+    # Datos del alumno, para el panel del administrador
+    estudiante_id: int
+    nombre: str
+    codigo: str
+    carrera: str | None
+    correoInstitucional: str

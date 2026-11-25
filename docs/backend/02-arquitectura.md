@@ -27,6 +27,7 @@ SEPA/
         │   ├── cursos.py          ← /cursos y /inscripcion
         │   ├── docentes.py        ← /docente/...   controles del docente sobre sus cursos
         │   ├── alumnos.py         ← /alumno/...    cursos, actividades y entregas del alumno
+        │   ├── asesorias.py       ← /asesorias/... tablero y publicaciones de asesores
         │   └── admin.py           ← /admin/...     gestión de usuarios, catálogos y cursos
         ├── conftest.py            ← configuración de pytest (fixture "client")
         ├── helpers.py             ← datos y funciones de apoyo para las pruebas
@@ -143,11 +144,11 @@ app.include_router(usuarios.router)                   # 6. registra las rutas
 ```
 
 1. **`create_all`** crea en `sistema_escolar.db` cada tabla de `models.py` que todavía no exista. **No modifica** tablas existentes: si agregas una columna a un modelo, la tabla vieja no la tendrá. Hay que borrar el `.db` (perdiendo los datos) o migrarla a mano.
-2. **`lifespan`** es código que corre **una vez al arrancar** el servidor. Llama a `services.py → sembrar_catalogos`, que crea las carreras ICOM e INFO, las mallas curriculares de `planes.json` y el ciclo escolar en curso, **solo si esas tablas están vacías**.
+2. **`lifespan`** es código que corre **una vez al arrancar** el servidor. Llama a `services.py → sembrar_catalogos`, que crea las carreras ICOM e INFO, las mallas curriculares de `planes.json` y el ciclo escolar en curso, **solo si esas tablas están vacías**. Después lanza en **otro hilo** `analizar_riesgo_en_segundo_plano` (RF-53, RNF-05): pasa al historial los ciclos terminados y analiza el riesgo, sin retrasar el arranque.
 3. **`add_exception_handler`** cambia el formato de los errores de validación (ver [06-errores.md](06-errores.md)).
 4. **CORS** (*Cross-Origin Resource Sharing*) es una regla de los navegadores: una página servida desde un origen (por ejemplo `http://127.0.0.1:5500`) no puede llamar a una API en otro origen (`http://127.0.0.1:8000`) a menos que la API lo autorice. Aquí se autoriza el puerto **5500**, el que usa la extensión *Live Server* de VS Code. Si sirven el frontend en otro puerto, hay que agregarlo a `allow_origins`.
 5. **Middleware `sin_cache`**: un *middleware* es código que se ejecuta en **todas** las peticiones, antes y después del endpoint. Este agrega `Cache-Control: no-store` a cada respuesta para que el navegador no guarde copias. Así, tras cerrar sesión, el botón "atrás" no muestra datos viejos (RF-06).
-6. **`include_router`** agrega a la aplicación las rutas de cada archivo de `routers/`: `usuarios`, `catalogos`, `cursos`, `docentes`, `alumnos` y `admin`.
+6. **`include_router`** agrega a la aplicación las rutas de cada archivo de `routers/`: `usuarios`, `catalogos`, `cursos`, `docentes`, `alumnos`, `asesorias` y `admin`.
 
 ## Recorrido completo de una petición: `POST /usuarios/registro`
 

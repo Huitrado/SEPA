@@ -26,12 +26,12 @@ Todo se define en **`models.py`**. Cada clase que hereda de `Base` es una **tabl
 
 ## Qué tablas se usan hoy
 
-`models.py` declara **22 tablas**, pero los endpoints actuales solo usan una parte. Las demás están **modeladas para módulos futuros** (asistencia, evaluaciones, riesgo, asesorías…) y hoy ningún endpoint las lee ni las escribe.
+`models.py` declara **23 tablas**, pero los endpoints actuales solo usan una parte. Las demás están **modeladas para módulos futuros** (asistencia, evaluaciones, riesgo, asesorías…) y hoy ningún endpoint las lee ni las escribe.
 
 | Estado | Tablas |
 |--------|--------|
-| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `Entrega`, `Calificacion`, `MallaCurricular`, `Materia`, `MallaMateria` |
-| **Sin uso todavía** | `HistorialAcademico`, `PublicacionAsesoria`, `BibliotecaNormatividad`, `RegistroRiesgo` |
+| **En uso** por endpoints o sembrado | `Usuario`, `Rol`, `UsuarioRol`, `Estudiante`, `Docente`, `Administrador`, `Carrera`, `CicloEscolar`, `Curso`, `Matricula`, `TokenRevocado`, `SesionActiva` e `IntentoLogin` (RNF-02, RNF-03), `SesionClase` y `Asistencia` (control de asistencia), `CategoriaEvaluacion`, `Actividad`, `Entrega`, `Calificacion`, `PublicacionAsesoria` y `SolicitudAsesor` (asesorías), `HistorialAcademico` y `RegistroRiesgo` (riesgo académico), `MallaCurricular`, `Materia`, `MallaMateria` |
+| **Sin uso todavía** | `BibliotecaNormatividad` (la normatividad es estática y vive en el frontend: `js/normatividad-contenido.js`) |
 
 ---
 
@@ -64,7 +64,7 @@ erDiagram
     }
     Rol {
         int id PK
-        string nombre UK "estudiante | docente | administrador"
+        string nombre UK "estudiante | docente | administrador | asesor"
     }
     UsuarioRol {
         int usuario_id PK, FK
@@ -142,6 +142,17 @@ erDiagram
     TokenRevocado {
         string jti PK
         string expira
+    }
+    SesionActiva {
+        string jti PK
+        int usuario_id FK
+        string ultimaActividad
+        string expira
+    }
+    IntentoLogin {
+        string codigo PK
+        int intentosFallidos
+        string bloqueadoHasta
     }
 ```
 
@@ -230,10 +241,10 @@ erDiagram
         int id PK
         string materia
         string horario
-        string modalidad
-        string lugarOMedio
+        string modalidad "presencial | virtual"
+        string lugarOMedio "salón o enlace"
         string topico
-        string estado
+        string estado "activa | inactiva"
         int estudiante_id FK
     }
     BibliotecaNormatividad {
@@ -267,7 +278,7 @@ En la columna "Obligatorio", "No" significa que el campo puede quedar vacío (NU
 
 ### `Rol` y `UsuarioRol`: roles de cada usuario
 
-`Rol` guarda los nombres de rol: `estudiante`, `docente` y `administrador`. Cada uno se crea **la primera vez que se necesita**, dentro de `registrarse` o `_crear_personal`.
+`Rol` guarda los nombres de rol: `estudiante`, `docente`, `administrador` y `asesor`. Cada uno se crea **la primera vez que se necesita**, dentro de `registrarse`, `_crear_personal` o `cambiar_rol_asesor`. El rol `asesor` (RF-73) se suma al de `estudiante`: no tiene tabla de perfil propia.
 
 `UsuarioRol` es una **tabla de asociación muchos a muchos**: una tabla intermedia que solo guarda pares (`usuario_id`, `rol_id`), de modo que un usuario podría tener varios roles. Está declarada con `Table(...)`, no como clase. La llave primaria es la pareja completa, así que no se puede repetir el mismo rol para el mismo usuario.
 
@@ -283,7 +294,7 @@ Estas tablas usan el patrón **"perfil con el mismo id"**: su `id` es a la vez l
 | | `codigoEstudiante` | String | Sí, único | 9 dígitos; es su **código de login** |
 | | `carrera` | String | No | Clave de carrera (`INFO`). **No es FK** a `Carrera`; se valida contra el catálogo al registrarse |
 | | `ciclo` | String | No | Ciclo en el que se registró (`2026-B`). **No es FK** a `CicloEscolar` |
-| | `mallaCurricular_id` | Integer | No, FK | **Hoy no se llena** al registrarse |
+| | `mallaCurricular_id` | Integer | No, FK | Se llena al registrarse con el plan de su carrera y generación (`services.py → malla_para`, RF-56) |
 | `Docente` | `id` | Integer | PK, FK → Usuario | |
 | | `noEmpleado` | String | Sí, único | Se guarda en mayúsculas; es su **código de login** |
 | | `departamento` | String | No | |
@@ -344,7 +355,7 @@ El ciclo **vigente** (`services.py → ciclo_vigente`) es el que está `activo`.
 | `horaInicio` / `horaFin` | String | Sí | `"HH:MM"` |
 | `cicloEscolar_id` | Integer | FK → CicloEscolar | |
 | `docente_id` | Integer | FK → Docente | El docente dueño del curso (RF-95) |
-| `materia_id` | Integer | FK → Materia | **Hoy no se llena** al crear cursos |
+| `materia_id` | Integer | FK → Materia | Se llena al crear o editar el curso con la materia del catálogo del mismo nombre (`_id_materia`); vacío si el nombre no está en el catálogo |
 
 ### `Matricula`: inscripción de un estudiante en un curso (RF-15, RF-16)
 
@@ -361,9 +372,9 @@ Tiene `UniqueConstraint("curso_id", "estudiante_id")`: un estudiante **no puede 
 
 ### `MallaCurricular`, `Materia` y `MallaMateria`: planes de estudio
 
-Se llenan **una sola vez** desde `planes.json` (`services.py → _sembrar_planes`). `Materia` se consulta en `GET /catalogos/materias` y el administrador la mantiene con `/admin/materias` (RF-94); `MallaCurricular` y `MallaMateria` aún no tienen endpoints.
+Se llenan **una sola vez** desde `planes.json` (`services.py → _sembrar_planes`). `Materia` se consulta en `GET /catalogos/materias` y el administrador la mantiene con `/admin/materias` (RF-94). El administrador crea planes nuevos con `POST /admin/mallas` y les agrega o quita materias con `/admin/mallas/{id}/materias`.
 
-- `MallaCurricular`: un plan por carrera: `ICOM` (generación 2021-B) e `INFO` (generación 2023).
+- `MallaCurricular`: los planes de cada carrera, uno por generación. Al iniciar hay dos: `ICOM` (generación 2021-B) e `INFO` (generación 2023). Cada alumno usa el plan más reciente de su carrera cuya generación no sea posterior a su ingreso (`services.py → malla_para`), guardado en `Estudiante.mallaCurricular_id`.
 - `Materia`: cada materia, con su `clave` única (p. ej. `I5288` Fundamentos de la Programación). Una materia que comparten ICOM e INFO se crea una sola vez.
 - `MallaMateria`: tabla intermedia que indica en qué semestre (`semestreBase`) va cada materia en cada malla. No se puede repetir la misma pareja malla–materia.
 
@@ -375,6 +386,43 @@ Se llenan **una sola vez** desde `planes.json` (`services.py → _sembrar_planes
 | `expira` | String | Cuándo habría vencido el token (ISO, en UTC) |
 
 Explicación completa en [04-seguridad.md](04-seguridad.md#5-cómo-funciona-el-logout).
+
+### `SesionActiva`: última actividad de cada sesión (RNF-02)
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `jti` | String, PK | El mismo `jti` del token |
+| `usuario_id` | Integer, FK → `Usuario.id` | Dueño de la sesión |
+| `ultimaActividad` | String | Última petición con ese token (ISO, en UTC) |
+| `expira` | String | El `exp` del token (ISO, en UTC); sirve para limpiar las vencidas |
+
+Se crea en el login y se borra en el logout o al cerrarse por inactividad. Un token sin fila aquí ya no sirve. Explicación en [04-seguridad.md](04-seguridad.md#7-cierre-por-inactividad-rnf-02).
+
+### `IntentoLogin`: intentos fallidos por código (RNF-03)
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `codigo` | String, PK | Código de acceso en mayúsculas, **exista o no** en el sistema |
+| `intentosFallidos` | Integer | Fallos consecutivos desde el último acceso correcto o el último bloqueo |
+| `bloqueadoHasta` | String, nulo | Fin del bloqueo (ISO, en UTC) |
+
+Se borra la fila al entrar con la contraseña correcta. Explicación en [04-seguridad.md](04-seguridad.md#8-bloqueo-por-intentos-fallidos-rnf-03).
+
+### `SolicitudAsesor`: solicitudes para ser asesor
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `id` | Integer, PK | |
+| `motivo` | String | Por qué quiere ser asesor (20 a 1000 caracteres) |
+| `materias` | String, nulo | En qué materias puede ayudar (texto libre) |
+| `estado` | String | `pendiente`, `aceptada` o `rechazada` |
+| `fechaSolicitud` | String | Cuándo la envió (ISO) |
+| `fechaRespuesta` | String, nulo | Cuándo respondió el administrador |
+| `comentarioAdmin` | String, nulo | Comentario del administrador; sobre todo al rechazar |
+| `estudiante_id` | Integer, FK → `Estudiante.id` | Quién la envía |
+| `administrador_id` | Integer, FK → `Usuario.id`, nulo | Quién respondió |
+
+Un estudiante puede tener varias (una nueva tras cada rechazo), pero solo una `pendiente`. Aceptarla agrega el rol `asesor` en `UsuarioRol`.
 
 ---
 

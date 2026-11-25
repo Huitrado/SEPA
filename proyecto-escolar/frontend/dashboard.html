@@ -26,7 +26,12 @@
         <span class="font-caption text-caption text-on-surface-variant leading-none">Universidad de Guadalajara · CUCEI</span>
       </span>
     </div>
-    <div class="flex items-center gap-space-sm">
+    <div class="flex items-center gap-space-sm" id="acciones-encabezado">
+      <!-- Solo para el estudiante: regresar a su panel de cursos (lo muestra auth.js) -->
+      <a id="link-mis-cursos" href="estudiante.html"
+        class="hidden items-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg text-primary bg-surface-container-high hover:bg-surface-container transition-colors">
+        <span class="material-symbols-outlined text-[18px]">menu_book</span><span>Mis cursos</span>
+      </a>
       <span class="hidden sm:inline font-label-lg text-label-lg text-on-surface" id="header-nombre"></span>
       <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
         <span class="material-symbols-outlined text-on-primary text-[18px]">person</span>
@@ -85,11 +90,26 @@
           </dl>
         </div>
 
-        <div class="p-space-md rounded-xl bg-surface-container-low flex items-start gap-space-sm">
-          <span class="material-symbols-outlined text-secondary text-[22px]">construction</span>
-          <p class="font-body-md text-body-md text-on-surface-variant">
-            Las demás secciones del panel (cursos, inscripciones, administración) todavía no tienen diseño.
-          </p>
+        <!-- Solo estudiantes (las llena auth.js): RF-55 insignia, RF-57 semestre y plan, RF-53 historial -->
+        <div id="perfil-riesgo" class="hidden"></div>
+        <div id="perfil-trayectoria" class="hidden bg-surface-container-lowest rounded-xl shadow-md p-space-lg md:p-space-xl">
+          <div class="flex items-center gap-space-xs pb-space-md">
+            <span class="material-symbols-outlined text-primary text-[20px]">timeline</span>
+            <h2 class="font-title-lg text-title-lg text-primary">Mi trayectoria en SEPA</h2>
+          </div>
+          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-space-md font-body-md text-body-md mb-space-lg">
+            <div>
+              <dt class="font-label-md text-label-md text-on-surface-variant">Semestre según tu ingreso</dt>
+              <dd class="text-on-surface font-semibold mt-0.5" id="perfil-semestre"></dd>
+            </div>
+            <div>
+              <dt class="font-label-md text-label-md text-on-surface-variant">Plan de estudios</dt>
+              <dd class="text-on-surface font-semibold mt-0.5" id="perfil-plan"></dd>
+            </div>
+          </dl>
+          <h3 class="font-label-lg text-label-lg text-on-surface mb-space-sm">Historial de materias cursadas en SEPA</h3>
+          <div id="filtros-ciclo" class="flex flex-wrap gap-1 mb-space-sm"></div>
+          <div id="perfil-historial" class="space-y-space-xs"></div>
         </div>
       </div>
     </div>

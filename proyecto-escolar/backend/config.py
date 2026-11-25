@@ -91,3 +91,14 @@ DESEMPENO_ALERTA = 60.0
 SEMAFORO_CALIFICACION_VERDE = 70.0
 # RF-61: el semáforo general de la materia es el peor de los dos
 ORDEN_SEMAFORO = ("verde", "amarillo", "rojo")
+
+# RF-54: riesgo por historial = reprobó al menos una materia en cada uno de los N ciclos anteriores al actual
+CICLOS_HISTORIAL = 2
+# RF-58: rezago crítico = cursa una materia que debió acreditar N o más semestres atrás
+REZAGO_CRITICO = 3
+
+# RNF-02: la sesión se invalida tras este tiempo sin peticiones del usuario
+MINUTOS_INACTIVIDAD = 30
+# RNF-03: tras este número de intentos fallidos consecutivos, el código queda bloqueado un tiempo
+INTENTOS_MAXIMOS = 5
+MINUTOS_BLOQUEO = 15

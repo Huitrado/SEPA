@@ -190,6 +190,21 @@ class TokenRevocado(Base):
     jti = Column(String, primary_key=True)
     expira = Column(String, nullable=False)
 
+class SesionActiva(Base):
+    """RNF-02: última petición de cada sesión, para cerrarla por inactividad."""
+    __tablename__ = "SesionActiva"
+    jti = Column(String, primary_key=True)
+    usuario_id = Column(Integer, ForeignKey("Usuario.id"), nullable=False)
+    ultimaActividad = Column(String, nullable=False)  # ISO 8601 en UTC
+    expira = Column(String, nullable=False)           # ISO 8601 en UTC, igual que el "exp" del token
+
+class IntentoLogin(Base):
+    """RNF-03: intentos fallidos consecutivos por código de acceso (exista o no)."""
+    __tablename__ = "IntentoLogin"
+    codigo = Column(String, primary_key=True)          # en mayúsculas, como se busca al iniciar sesión
+    intentosFallidos = Column(Integer, nullable=False, default=0)
+    bloqueadoHasta = Column(String)                    # ISO 8601 en UTC; None si no está bloqueado
+
 class Materia(Base):
     __tablename__ = "Materia"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -203,3 +218,15 @@ class MallaMateria(Base):
     semestreBase = Column(Integer, nullable=False)
     mallaCurricular_id = Column(Integer, ForeignKey("MallaCurricular.id"), nullable=False)
     materia_id = Column(Integer, ForeignKey("Materia.id"), nullable=False)
+class SolicitudAsesor(Base):
+    """Un estudiante pide ser asesor; un administrador la acepta (le da el rol) o la rechaza."""
+    __tablename__ = "SolicitudAsesor"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    motivo = Column(String, nullable=False)
+    materias = Column(String)                     # materias en las que puede ayudar (texto libre)
+    estado = Column(String, nullable=False)       # pendiente | aceptada | rechazada
+    fechaSolicitud = Column(String, nullable=False)
+    fechaRespuesta = Column(String)
+    comentarioAdmin = Column(String)              # opcional, sobre todo al rechazar
+    estudiante_id = Column(Integer, ForeignKey("Estudiante.id"), nullable=False)
+    administrador_id = Column(Integer, ForeignKey("Usuario.id"))  # quién respondió

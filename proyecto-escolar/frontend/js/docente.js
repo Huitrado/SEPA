@@ -13,20 +13,7 @@
 
 document.addEventListener("DOMContentLoaded", iniciarDocente);
 
-// Mismo orden y valores que config.py -> DIAS_SEMANA
-const DIAS = [
-  ["lunes", "Lun", "Lunes"],
-  ["martes", "Mar", "Martes"],
-  ["miercoles", "Mié", "Miércoles"],
-  ["jueves", "Jue", "Jueves"],
-  ["viernes", "Vie", "Viernes"],
-  ["sabado", "Sáb", "Sábado"]
-];
-
-const ETIQUETA_EVALUACION = {
-  numerica: "Calificación numérica",
-  aprobado_no_aprobado: "Aprobado / No aprobado"
-};
+// DIAS, ETIQUETA_EVALUACION, el(), icono() y copiarCodigo() vienen de app.js.
 
 let estadoActual = "activo";
 let ciclos = [];          // todos los ciclos, para mostrar su nombre en las tarjetas
@@ -120,18 +107,6 @@ function pintarCursos(cursos) {
   lista.classList.remove("hidden");
 }
 
-// Crea un elemento con clases y texto (textContent: nunca se interpreta como HTML).
-function el(etiqueta, clases = "", texto) {
-  const nodo = document.createElement(etiqueta);
-  if (clases) nodo.className = clases;
-  if (texto !== undefined) nodo.textContent = texto;
-  return nodo;
-}
-
-function icono(nombre, clases = "text-[18px]") {
-  return el("span", `material-symbols-outlined ${clases}`, nombre);
-}
-
 function tarjetaCurso(curso) {
   const archivado = curso.estado === "archivado";
   const tarjeta = el("article", "bg-surface-container-lowest rounded-xl shadow-md p-space-lg flex flex-col gap-space-md" +
@@ -150,75 +125,14 @@ function tarjetaCurso(curso) {
   }
   tarjeta.appendChild(cabeza);
 
-  // Horario y tipo de evaluación
-  const datos = el("dl", "space-y-1.5 font-body-md text-body-md");
-  datos.appendChild(filaDato("calendar_month", diasCortos(curso.diasSemana)));
-  datos.appendChild(filaDato("schedule", `${curso.horaInicio} – ${curso.horaFin}`));
-  let evaluacion = ETIQUETA_EVALUACION[curso.tipoEvaluacion] || curso.tipoEvaluacion;
-  if (curso.tipoEvaluacion === "numerica") evaluacion += ` · mínimo ${Math.round(curso.umbralNumerico)}`;
-  datos.appendChild(filaDato("grading", evaluacion));
-  tarjeta.appendChild(datos);
-
-  // RF-14: código del curso con botón de copiar
-  const codigo = el("div", "mt-auto p-space-sm pl-space-md rounded-lg bg-surface-container-low flex items-center justify-between gap-space-sm");
-  const textoCodigo = el("div", "min-w-0");
-  textoCodigo.appendChild(el("span", "block font-caption text-caption uppercase tracking-wider text-on-surface-variant", "Código de inscripción"));
-  textoCodigo.appendChild(el("span", "block font-mono text-[18px] font-semibold tracking-[0.15em] text-primary", curso.codigoCurso));
-  codigo.appendChild(textoCodigo);
-  const copiar = el("button", "shrink-0 inline-flex items-center gap-space-xs font-label-md text-label-md px-space-md py-space-sm rounded-lg text-secondary bg-surface-container-lowest hover:bg-surface-container transition-colors");
-  copiar.type = "button";
-  copiar.dataset.copiar = curso.codigoCurso;
-  copiar.setAttribute("aria-label", `Copiar el código ${curso.codigoCurso}`);
-  const etiquetaCopiar = el("span", "", "Copiar");
-  etiquetaCopiar.dataset.etiqueta = "";
-  copiar.append(icono("content_copy"), etiquetaCopiar);
-  copiar.addEventListener("click", () => copiarCodigo(copiar));
-  codigo.appendChild(copiar);
-  tarjeta.appendChild(codigo);
+  // El horario, el tipo de evaluación y el código de inscripción (RF-14) se ven dentro del curso.
+  // Detalle del curso: matrícula, asistencia, actividades, encuadre y calificaciones
+  const abrir = el("a", "mt-auto inline-flex items-center justify-center gap-space-xs py-2.5 px-space-md rounded-lg font-label-lg text-label-lg bg-primary-container text-on-primary hover:bg-primary transition-colors");
+  abrir.href = `curso.html?id=${curso.id}`;
+  abrir.append(el("span", "", "Abrir curso"), icono("arrow_forward"));
+  tarjeta.appendChild(abrir);
 
   return tarjeta;
-}
-
-function filaDato(nombreIcono, texto) {
-  const fila = el("div", "flex items-center gap-space-sm text-on-surface");
-  const dt = el("dt", "text-on-surface-variant flex");
-  dt.appendChild(icono(nombreIcono));
-  fila.append(dt, el("dd", "", texto));
-  return fila;
-}
-
-function diasCortos(dias) {
-  return DIAS.filter(([valor]) => dias.includes(valor)).map(([, corto]) => corto).join(" · ");
-}
-
-// ==================== COPIAR CÓDIGO (RF-14) ====================
-
-async function copiarCodigo(boton) {
-  const codigo = boton.dataset.copiar;
-  let copiado = false;
-  try {
-    await navigator.clipboard.writeText(codigo);
-    copiado = true;
-  } catch {
-    // Respaldo para navegadores que no permiten el portapapeles moderno
-    const temporal = el("textarea");
-    temporal.value = codigo;
-    temporal.style.position = "fixed";
-    temporal.style.opacity = "0";
-    document.body.appendChild(temporal);
-    temporal.select();
-    try { copiado = document.execCommand("copy"); } catch { copiado = false; }
-    temporal.remove();
-  }
-  const etiqueta = boton.querySelector("[data-etiqueta]");
-  const icon = boton.querySelector(".material-symbols-outlined");
-  etiqueta.textContent = copiado ? "Copiado" : "No se pudo copiar";
-  icon.textContent = copiado ? "check" : "error";
-  clearTimeout(boton._temporizador);
-  boton._temporizador = setTimeout(() => {
-    etiqueta.textContent = "Copiar";
-    icon.textContent = "content_copy";
-  }, 2000);
 }
 
 // ==================== CATÁLOGOS ====================

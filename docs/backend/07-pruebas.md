@@ -69,6 +69,18 @@ flowchart TD
     T8 --> H
     T9["test_materias.py<br/>RF-94<br/>+ fixture ta"] --> C
     T9 --> H
+    T10["test_panel_alumno.py<br/>RF-60 a RF-63, RF-68"] --> C
+    T10 --> H
+    T11["test_admin_usuarios.py<br/>RF-73, RF-92, RF-93"] --> C
+    T11 --> H
+    T12["test_asesorias.py<br/>RF-73 a RF-80, RF-92"] --> C
+    T12 --> H
+    T13["test_riesgo.py<br/>RF-53 a RF-59, RF-84"] --> C
+    T13 --> H
+    T14["test_seguridad.py<br/>RNF-02, RNF-03<br/>+ fixture reloj"] --> C
+    T14 --> H
+    T15["test_solicitud_asesor.py<br/>solicitud para ser asesor"] --> C
+    T15 --> H
 ```
 
 ### `conftest.py`: la fixture `client`
@@ -160,7 +172,7 @@ Una fixture puede **depender de otra**: `escenario` pide `client`. Las pruebas q
 | RF-07 | `test_rf07_mensaje_de_recuperacion_manual`, `test_rf07_el_administrador_restablece_la_contrasena` | Mensaje de recuperación; el admin restablece la contraseña y valida RF-03 |
 | Dominios y roles | `test_correos_fuera_de_dominio_se_rechazan` (4), `test_mayusculas_en_el_correo_no_crean_cuentas_distintas`, `test_faltan_datos_segun_el_rol`, `test_docente_por_dominio_y_aprobacion` | Solo dominios exactos; correo sin distinguir mayúsculas; docente sin `noEmpleado` → 422; docente queda pendiente hasta que el admin lo aprueba |
 | RF-90 | `test_rf90_cada_rol_va_a_su_panel` | `panel` correcto para admin, docente y estudiante |
-| RF-93 | `test_rf93_solo_el_administrador_gestiona_usuarios`, `test_rf93_admin_solo_crea_docentes_con_correo_academico`, `test_rf93_desactivar_cuentas` | Solo el admin lista usuarios; docentes con correo académico; desactivar cuentas y no poder desactivarse a sí mismo |
+| RF-93 | `test_rf93_solo_el_administrador_gestiona_usuarios`, `test_rf93_admin_solo_crea_docentes_con_correo_academico`, `test_rf93_desactivar_cuentas`, `test_rf93_un_administrador_no_desactiva_a_otro` | Solo el admin lista usuarios; docentes con correo académico; desactivar cuentas, no poder desactivarse a sí mismo ni a otro administrador (403) |
 
 ### `test_gestion_academica.py`
 
@@ -197,6 +209,7 @@ Docstring: *"Módulo de control de asistencia (RF-19 a RF-28, RF-49)"*. La fixtu
 | RF-20 / RF-23 | Guardar lista con observaciones; faltan alumnos, alumno ajeno, repetido o estado inválido → 422; un alumno de baja no aparece ni se acepta; un alumno inscrito después no es obligatorio |
 | RF-25 | Editar la lista de una sesión pasada |
 | RF-24 / RF-26 / RF-49 | Cuadrícula ordenada por fecha, estados por sesión, porcentaje, estatus normativo y semáforo; bordes de 85, 80 y 65 % |
+| Vista del alumno | `clasesRegistradas` en su seguimiento: 0 sin listas guardadas (aunque haya una sin guardar) y cuenta las guardadas |
 | RF-95 | Otro docente, el admin y un alumno reciben 403 |
 
 ### `test_categorias.py`
@@ -263,6 +276,82 @@ Docstring: *"Catálogo de materias que mantiene el administrador (RF-94)"*. La f
 | RF | Qué comprueban |
 |----|----------------|
 | RF-94 | Alta (clave en mayúsculas, aparece en `GET /catalogos/materias`); clave repetida → 409; formatos inválidos → 422; editar nombre y clave sin chocar con otra; eliminar si no se usa; no se elimina si está en un plan, un curso o un historial; un docente, un alumno o alguien sin sesión no pueden |
+
+
+### `test_panel_alumno.py`
+
+Docstring: *"Panel del estudiante (RF-60, RF-61, RF-63, RF-68)"*.
+
+| RF | Qué comprueban |
+|----|----------------|
+| RF-60 / RF-61 | Tarjetas con profesor, ciclo y semáforo; solo cursos del ciclo activo; el semáforo y la alerta cambian al calificar |
+| RF-62 | Ficha de un curso; 403 si no está inscrito, 404 si no existe |
+| RF-63 | El alumno ve el encuadre; otro alumno o un docente reciben 403 |
+| RF-68 | Puntos obtenidos, posibles y perdidos en calificaciones y seguimiento |
+
+En `test_registro_login.py`, `test_rf01_el_ciclo_es_el_de_ingreso_vigente_o_anterior` comprueba que el ciclo de ingreso puede ser el vigente o uno anterior, y no uno futuro ni con mal formato.
+
+
+### `test_admin_usuarios.py`
+
+Docstring: *"Gestión de usuarios del administrador (RF-73, RF-92, RF-93)"*.
+
+| RF | Qué comprueban |
+|----|----------------|
+| RF-93 | La lista trae código, carrera, ciclo y departamento; editar datos de alumnos y docentes sin cambiar su código de acceso; correo repetido o de otro dominio, carrera inexistente y campos que no corresponden al rol |
+| RF-73 | Asignar y quitar el rol de asesor sin duplicarlo; filtrar por `rol=asesor`; solo estudiantes |
+| RF-92 | El asesor entra a su panel de estudiante con ambos roles |
+
+
+### `test_asesorias.py`
+
+Docstring: *"Módulo de asesorías entre estudiantes (RF-73 a RF-80, RF-92)"*. La fixture `gente` crea dos materias en el catálogo, hace asesora a Ana y deja a Beto como estudiante regular.
+
+| RF | Qué comprueban |
+|----|----------------|
+| RF-74, RF-75 | Publicar y aparecer en el tablero; tópico opcional; campos obligatorios; materia del catálogo |
+| RF-78, RF-80 | El tablero y el detalle con lugar, tópico y correo del asesor |
+| RF-73, RF-92 | Solo los asesores publican y ven `/mias`; un docente no ve el tablero; al quitar el rol, sus anuncios se ocultan |
+| RF-76, RF-77 | Editar; ocultar (sale del tablero y solo su autora la ve) y volver a publicar; eliminar; otro asesor no puede tocar lo ajeno |
+| RF-79 | Filtros por materia, modalidad y texto (tópico u horario) |
+
+### `test_solicitud_asesor.py`
+
+Docstring: *"Solicitud para ser asesor: el estudiante la envía y el administrador la acepta o la rechaza."* La fixture `gente` crea un administrador y a los alumnos Ana y Beto.
+
+| Caso | Qué comprueban |
+|------|----------------|
+| Enviar | El alumno la envía (201, `pendiente`) y la consulta en `GET /asesorias/solicitud`; antes de enviarla responde `null` |
+| Validación | Un motivo de menos de 20 caracteres → 422 con el mensaje en español |
+| Una a la vez | Una segunda solicitud mientras hay una pendiente → 409 |
+| Lista del admin | El admin ve las pendientes, la más antigua primero; un estudiante no puede verlas ni responderlas (403) |
+| Aceptar | Da el rol de asesor; ya puede usar `/asesorias/mias` y no puede volver a pedirlo (409) |
+| Rechazar | No da el rol; el alumno ve el comentario y puede enviar otra |
+| Una sola respuesta | Responder dos veces → 409; una solicitud que no existe → 404 |
+
+
+### `test_riesgo.py`
+
+Docstring: *"Historial académico y riesgo (RF-53 a RF-59, RF-84)"*. La fixture `plan` crea un plan INFO con Programación (1.er semestre) y Bases de datos (3.er semestre). `_curso_pasado` arma directamente en la base un curso de un ciclo ya cerrado con una actividad calificada, porque la API no permite crear cursos en ciclos cerrados.
+
+| RF | Qué comprueban |
+|----|----------------|
+| Reglas | Semestre cronológico, ciclos anteriores y resultado final (≥ 60 y sin "Sin Derecho") |
+| RF-53 | Los ciclos cerrados pasan al historial una sola vez; Sin Derecho reprueba; ni el ciclo vigente ni los alumnos de baja pasan; el análisis guarda `RegistroRiesgo` sin duplicar |
+| RF-54 | Reprobadas en los dos ciclos anteriores activan la bandera; en uno solo, no |
+| RF-56 a RF-59 | Alumno y curso ligados al plan; rezago crítico con su detalle; desfase menor; materia fuera del plan |
+| RF-84 | Reprobada antes: la alerta aparece solo cuando el semáforo actual es rojo; el docente ve las mismas banderas |
+| Administrador | Lanzar el análisis (202); ver, agregar, mover y quitar materias de un plan |
+| RF-56: crear planes | Plan vacío (carrera y generación se normalizan); copiar las materias de otro sin tocar el original; solo los alumnos que entraron desde esa generación pasan al plan nuevo; plan duplicado (409), generación o carrera inválida (422), plan para copiar inexistente (404) y solo el admin (403) |
+
+### `test_seguridad.py`
+
+Docstring: *"Seguridad de la sesión: cierre por inactividad (RNF-02) y bloqueo por intentos fallidos (RNF-03)"*. La fixture `reloj` reemplaza `security.ahora_utc()` por una hora que cada prueba mueve. Parte de la hora **real** (no de una fecha fija) porque PyJWT compara el `exp` del token con el reloj del sistema.
+
+| RNF | Qué comprueban |
+|-----|----------------|
+| RNF-02 | Más de 30 min sin peticiones → 401 por inactividad; cada petición renueva el plazo (30 min exactos todavía sirve); es por sesión; el logout y el login limpian `SesionActiva` |
+| RNF-03 | El 5.º fallo da 429 y bloquea 15 min aun con la contraseña correcta; los minutos que faltan; termina a los 15 min y cuenta de cero; un acceso correcto reinicia el conteo; es por cuenta; misma respuesta si el código no existe; sin distinguir mayúsculas |
 
 ---
 
